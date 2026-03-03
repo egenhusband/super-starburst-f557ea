@@ -797,8 +797,33 @@
 <body>
 
 <!-- 로그인/결제 오버레이 -->
-<div id="authOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:24px;pointer-events:none;">
-  <div style="width:100%;max-width:360px;background:#1c1c1e;border-radius:20px;padding:32px 24px;text-align:center;">
+<style>
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .overlay.show {
+    display: flex;
+  }
+  .overlay-box {
+    width: 100%;
+    max-width: 360px;
+    background: #1c1c1e;
+    border-radius: 20px;
+    padding: 32px 24px;
+    text-align: center;
+  }
+</style>
+
+<div id="authOverlay" class="overlay">
+  <div class="overlay-box">
     <div style="font-size:40px;margin-bottom:16px;">🏠</div>
     <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;">주택 기금대출 추천</div>
     <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:28px;line-height:1.6;">결과를 보려면 로그인이 필요해요.<br>구글 계정으로 간편하게 시작하세요.</div>
@@ -810,9 +835,8 @@
   </div>
 </div>
 
-<!-- 결제 오버레이 -->
-<div id="payOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;padding:24px;pointer-events:none;">
-  <div style="width:100%;max-width:360px;background:#1c1c1e;border-radius:20px;padding:32px 24px;text-align:center;">
+<div id="payOverlay" class="overlay">
+  <div class="overlay-box">
     <div style="font-size:40px;margin-bottom:16px;">🔒</div>
     <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;">전체 결과 보기</div>
     <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:8px;line-height:1.6;">대출 한도, 금리, 상환 방식 등<br>상세한 결과를 확인하세요.</div>
@@ -1001,7 +1025,7 @@
       if (session) {
         currentUser = session.user;
         await checkPaymentStatus();
-        document.getElementById('authOverlay').style.display = 'none';
+        document.getElementById('authOverlay').classList.remove('show');
       } else {
         currentUser = null;
         isPaid = false;
@@ -1047,24 +1071,18 @@
   // ── 결과 화면 진입 시 결제 체크 ──
   function showResultOrPaywall() {
     if (!currentUser) {
-      const el = document.getElementById('authOverlay');
-      el.style.display = 'flex';
-      el.style.pointerEvents = 'auto';
+      document.getElementById('authOverlay').classList.add('show');
       return false;
     }
     if (!isPaid) {
-      const el = document.getElementById('payOverlay');
-      el.style.display = 'flex';
-      el.style.pointerEvents = 'auto';
+      document.getElementById('payOverlay').classList.add('show');
       return false;
     }
     return true;
   }
 
   function closePayOverlay() {
-    const el = document.getElementById('payOverlay');
-    el.style.display = 'none';
-    el.style.pointerEvents = 'none';
+    document.getElementById('payOverlay').classList.remove('show');
   }
 
   initAuth();
