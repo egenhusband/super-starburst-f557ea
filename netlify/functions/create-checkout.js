@@ -9,7 +9,7 @@ exports.handler = async (event) => {
     const CREEM_PRODUCT_ID = process.env.CREEM_PRODUCT_ID;
     const SITE_URL = process.env.URL || 'https://super-starburst-f557ea.netlify.app';
 
-    const res = await fetch('https://api.creem.io/v1/checkouts', {
+    const res = await fetch('https://test-api.creem.io/v1/checkouts', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
