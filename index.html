@@ -1104,7 +1104,7 @@
       .select('status')
       .eq('user_id', currentUser.id)
       .eq('status', 'active')
-      .single();
+      .maybeSingle();
     isPaid = !!data;
   }
 
