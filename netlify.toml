@@ -1,8 +1,15 @@
 [build]
+  # 이 부분이 핵심입니다. 프로젝트 루트(.)를 배포하라고 명시합니다.
+  publish = "."
+  # 서버리스 함수가 들어있는 폴더 경로입니다.
   functions = "netlify/functions"
-  publish = "."  # <--- 이 줄을 반드시 추가하세요!
 
 [[redirects]]
+  # 모든 요청을 index.html로 보냅니다 (SPA 및 라우팅 에러 방지)
   from = "/*"
   to = "/index.html"
   status = 200
+
+[functions]
+  # 외부 라이브러리(Stripe 등)를 사용하는 경우를 위해 번들링 설정을 추가합니다.
+  node_bundle = true
