@@ -797,7 +797,7 @@
 <body>
 
 <!-- 로그인/결제 오버레이 -->
-<div id="authOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+<div id="authOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:24px;pointer-events:none;">
   <div style="width:100%;max-width:360px;background:#1c1c1e;border-radius:20px;padding:32px 24px;text-align:center;">
     <div style="font-size:40px;margin-bottom:16px;">🏠</div>
     <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;">주택 기금대출 추천</div>
@@ -811,7 +811,7 @@
 </div>
 
 <!-- 결제 오버레이 -->
-<div id="payOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;padding:24px;">
+<div id="payOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;padding:24px;pointer-events:none;">
   <div style="width:100%;max-width:360px;background:#1c1c1e;border-radius:20px;padding:32px 24px;text-align:center;">
     <div style="font-size:40px;margin-bottom:16px;">🔒</div>
     <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;">전체 결과 보기</div>
@@ -1042,21 +1042,29 @@
     if (data.url) window.location.href = data.url;
   }
 
-  function closePayOverlay() {
-    document.getElementById('payOverlay').style.display = 'none';
-  }
+
 
   // ── 결과 화면 진입 시 결제 체크 ──
   function showResultOrPaywall() {
     if (!currentUser) {
-      document.getElementById('authOverlay').style.display = 'flex';
+      const el = document.getElementById('authOverlay');
+      el.style.display = 'flex';
+      el.style.pointerEvents = 'auto';
       return false;
     }
     if (!isPaid) {
-      document.getElementById('payOverlay').style.display = 'flex';
+      const el = document.getElementById('payOverlay');
+      el.style.display = 'flex';
+      el.style.pointerEvents = 'auto';
       return false;
     }
     return true;
+  }
+
+  function closePayOverlay() {
+    const el = document.getElementById('payOverlay');
+    el.style.display = 'none';
+    el.style.pointerEvents = 'none';
   }
 
   initAuth();
