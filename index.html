@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>주택 기금대출 추천</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000000;
+    --bg1: #0a0a0a;
+    --bg2: #141414;
+    --bg3: #1c1c1e;
+    --bg4: #2c2c2e;
+    --separator: #38383a;
+    --label1: #ffffff;
+    --label2: rgba(255,255,255,0.6);
+    --label3: rgba(255,255,255,0.3);
+    --accent: #0a84ff;
+    --accent-dim: rgba(10,132,255,0.15);
+    --green: #30d158;
+    --green-dim: rgba(48,209,88,0.12);
+    --yellow: #ffd60a;
+    --red: #ff453a;
+    --red-dim: rgba(255,69,58,0.1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    font-family: 'Noto Sans KR', -apple-system, sans-serif;
+    color: var(--label1);
+    overflow: hidden;
+  }
+
+  .app {
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    max-width: 430px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* PROGRESS */
+  .progress-wrap {
+    padding: 16px 24px 0;
+    flex-shrink: 0;
+  }
+  .progress-track {
+    height: 2px;
+    background: var(--separator);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .progress-label {
+    font-size: 11px;
+    color: var(--label3);
+    margin-top: 8px;
+    letter-spacing: 0.3px;
+  }
+
+  /* SLIDES */
+  .slides {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    padding: 40px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    opacity: 0;
+    transform: translateX(60px);
+    pointer-events: none;
+    transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+  }
+  .slide.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: all;
+  }
+  .slide.exit {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+
+  .slide-question {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--label1);
+    line-height: 1.3;
+    letter-spacing: -0.5px;
+  }
+  .slide-sub {
+    font-size: 14px;
+    color: var(--label2);
+    margin-top: 8px;
+    font-weight: 300;
+    line-height: 1.6;
+  }
+
+  /* OPTION CARDS */
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .option-card {
+    background: var(--bg3);
+    border: 1.5px solid var(--separator);
+    border-radius: 14px;
+    padding: 18px 20px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .option-card:active { transform: scale(0.98); }
+  .option-card.selected {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+  }
+  .option-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--label1);
+  }
+  .option-desc {
+    font-size: 12px;
+    color: var(--label2);
+    margin-top: 3px;
+    font-weight: 300;
+  }
+  .option-check {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--separator);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.18s;
+  }
+  .option-card.selected .option-check {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .option-check::after {
+    content: '';
+    width: 5px; height: 9px;
+    border: 2px solid white;
+    border-top: none; border-left: none;
+    transform: rotate(45deg) translateY(-1px);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .option-card.selected .option-check::after { opacity: 1; }
+
+  /* NUMBER INPUT */
+  .number-input-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .number-field {
+    background: var(--bg3);
+    border: 1.5px solid var(--separator);
+    border-radius: 14px;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    height: 64px;
+    transition: border-color 0.18s;
+  }
+  .number-field:focus-within { border-color: var(--accent); }
+  .number-field input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--label1);
+    min-width: 0;
+  }
+  .number-field input::placeholder { color: var(--label3); font-size: 18px; font-weight: 300; }
+  .number-unit {
+    font-size: 14px;
+    color: var(--label2);
+    white-space: nowrap;
+    margin-left: 8px;
+  }
+
+  /* BOTTOM NAV */
+  .bottom-nav {
+    padding: 16px 24px max(env(safe-area-inset-bottom), 24px);
+    display: flex;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .btn-back {
+    width: 52px; height: 52px;
+    background: var(--bg3);
+    border: 1.5px solid var(--separator);
+    border-radius: 14px;
+    color: var(--label1);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.18s;
+    flex-shrink: 0;
+  }
+  .btn-back:disabled { opacity: 0.2; pointer-events: none; }
+
+  .btn-next {
+    flex: 1;
+    height: 52px;
+    background: var(--accent);
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.18s, transform 0.12s;
+    letter-spacing: -0.2px;
+  }
+  .btn-next:disabled { opacity: 0.3; pointer-events: none; }
+  .btn-next:active { transform: scale(0.98); }
+
+  /* RESULT */
+  .result-slide {
+    padding: 28px 20px max(env(safe-area-inset-bottom), 28px);
+    gap: 0;
+    overflow-y: auto;
+  }
+
+  /* 섹션 그룹 — 시각적으로 관련 카드끼리 묶음 */
+  .result-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 12px;
+  }
+  .result-group:last-child { margin-bottom: 0; }
+
+  /* 그룹 레이블 */
+  .group-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--label3);
+    padding: 0 4px;
+    margin-bottom: 8px;
+  }
+
+  /* 섹션 간 구분 여백 */
+  .result-spacer    { height: 20px; flex-shrink: 0; }
+  .result-spacer-sm { height: 10px; flex-shrink: 0; }
+
+  /* ── 헤더 영역 ── */
+  .result-header-area {
+    padding: 8px 4px 20px;
+  }
+  .result-badge-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .result-icon {
+    width: 52px; height: 52px;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    flex-shrink: 0;
+  }
+  .result-icon.blue  { background: var(--accent-dim); }
+  .result-icon.green { background: var(--green-dim); }
+  .result-icon.grey  { background: var(--bg4); }
+
+  .result-option-label {
+    font-size: 11px;
+    letter-spacing: 1.2px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .result-option-label.blue  { color: var(--accent); }
+  .result-option-label.green { color: var(--green); }
+  .result-option-label.grey  { color: var(--label3); }
+
+  .result-title {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.8px;
+    line-height: 1.1;
+  }
+
+  /* ── 태그라인 ── */
+  .result-tagline {
+    font-size: 14px;
+    color: var(--label2);
+    line-height: 1.7;
+    font-weight: 300;
+    padding: 16px 18px;
+    background: var(--bg3);
+    border-radius: 14px;
+    border-left: 3px solid var(--accent);
+  }
+  .result-tagline.green-border { border-left-color: var(--green); }
+  .result-tagline.grey-border  { border-left-color: var(--separator); }
+
+  /* ── 금리 + 한도 2분할 ── */
+  .rate-limit-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+  }
+  .info-pill {
+    background: var(--bg3);
+    border-radius: 14px;
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .info-pill-label {
+    font-size: 10.5px;
+    color: var(--label3);
+    letter-spacing: 0.8px;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+  .info-pill-val {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    line-height: 1.2;
+  }
+  .info-pill-val.blue  { color: var(--accent); }
+  .info-pill-val.green { color: var(--green); }
+
+  /* ── 한도 상세 카드 ── */
+  .limit-detail-card {
+    background: var(--bg3);
+    border-radius: 14px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--separator);
+  }
+  .limit-detail-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .limit-detail-card.blue-top::after  { background: var(--accent); }
+  .limit-detail-card.green-top::after { background: var(--green); }
+
+  .limit-detail-label {
+    font-size: 10.5px;
+    color: var(--label3);
+    letter-spacing: 0.8px;
+    font-weight: 500;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .limit-detail-amount {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -1.2px;
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+  .limit-detail-amount.blue  { color: var(--accent); }
+  .limit-detail-amount.green { color: var(--green); }
+
+  .limit-breakdown {
+    display: flex;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--separator);
+  }
+  .limit-breakdown-item {
+    flex: 1;
+    padding: 10px 12px;
+    background: var(--bg2);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .limit-breakdown-item:not(:last-child) {
+    border-right: 1px solid var(--separator);
+  }
+  .breakdown-label { font-size: 10px; color: var(--label3); letter-spacing: 0.4px; }
+  .breakdown-val   { font-size: 13px; font-weight: 600; color: var(--label1); }
+  .breakdown-val.applied      { color: var(--accent); }
+  .breakdown-val.applied.green { color: var(--green); }
+
+  .limit-applied-note {
+    font-size: 11px;
+    color: var(--label3);
+    margin-top: 12px;
+    line-height: 1.55;
+  }
+  .limit-applied-note em { color: var(--label2); font-style: normal; }
+
+  /* ── 월납입 계산기 탭 ── */
+  .monthly-calc {
+    margin-top: 14px;
+    border-top: 1px solid var(--separator);
+    padding-top: 14px;
+  }
+  .monthly-calc-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+  .mc-tab {
+    flex: 1;
+    padding: 6px 4px;
+    border-radius: 8px;
+    border: 1px solid var(--separator);
+    background: transparent;
+    font-family: "Noto Sans KR", sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--label3);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: -0.3px;
+  }
+  .mc-tab.active-blue  { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .mc-tab.active-green { background: var(--green-dim);  border-color: var(--green);  color: var(--green); }
+  .monthly-amount-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .monthly-label-sm {
+    font-size: 11px;
+    color: var(--label3);
+    white-space: nowrap;
+  }
+  .monthly-amount {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.6px;
+  }
+  .monthly-amount.blue  { color: var(--accent); }
+  .monthly-amount.green { color: var(--green); }
+  .monthly-calc-note {
+    font-size: 10.5px;
+    color: var(--label3);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  /* 한도 적용 이유 설명 행 */
+  .limit-reason {
+    font-size: 11px;
+    color: var(--label3);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .limit-reason em { color: var(--label2); font-style: normal; }
+
+  /* ── 탭 UI ── */
+  .result-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+    background: var(--bg3);
+    border-radius: 14px;
+    padding: 4px;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+  }
+  .result-tab {
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: background 0.18s;
+  }
+  .result-tab.active-blue  { background: var(--accent-dim); }
+  .result-tab.active-green { background: var(--green-dim); }
+  .result-tab-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 20px;
+  }
+  .result-tab-badge.blue  { background: var(--accent-dim); color: var(--accent); }
+  .result-tab-badge.green { background: var(--green-dim);  color: var(--green); }
+  .result-tab.active-blue  .result-tab-badge.blue  { background: var(--accent); color: #fff; }
+  .result-tab.active-green .result-tab-badge.green { background: var(--green);  color: #000; }
+  .result-tab-name {
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--label2);
+    letter-spacing: -0.3px;
+  }
+  .result-tab.active-blue  .result-tab-name { color: var(--accent); }
+  .result-tab.active-green .result-tab-name { color: var(--green); }
+  .result-tab-limit {
+    font-size: 11px;
+    color: var(--label3);
+    font-weight: 400;
+  }
+  .result-tab.active-blue  .result-tab-limit { color: rgba(10,132,255,0.7); }
+  .result-tab.active-green .result-tab-limit { color: rgba(48,209,88,0.7); }
+
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* 불렛 주의사항 */
+  .notice-list {
+    padding: 0 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .notice-item {
+    font-size: 11px;
+    color: var(--label3);
+    line-height: 1.6;
+    display: flex;
+    gap: 6px;
+  }
+  .notice-item::before {
+    content: '·';
+    color: var(--label3);
+    flex-shrink: 0;
+    margin-top: 0;
+  }
+  .notice-item strong { color: var(--label2); font-weight: 500; }
+
+  /* ── 상환방식 ── */
+  .repay-section {
+    background: var(--bg3);
+    border-radius: 14px;
+    padding: 18px 20px;
+  }
+  .repay-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--separator);
+  }
+  .repay-item:first-child { padding-top: 0; }
+  .repay-item:last-child  { border-bottom: none; padding-bottom: 0; }
+  .repay-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--label1);
+    letter-spacing: -0.2px;
+  }
+  .repay-desc {
+    font-size: 12px;
+    color: var(--label3);
+    line-height: 1.65;
+  }
+  .repay-tenure {
+    background: var(--bg3);
+    border-radius: 14px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .repay-tenure-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--label3);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    padding-top: 1px;
+  }
+  .repay-tenure-val {
+    font-size: 12px;
+    color: var(--label2);
+    line-height: 1.65;
+  }
+
+  /* ── FAQ 아코디언 ── */
+  .faq-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .faq-item {
+    background: var(--bg3);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .faq-q {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 15px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .faq-q-text {
+    font-family: "Noto Sans KR", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--label1);
+    line-height: 1.5;
+    letter-spacing: -0.2px;
+  }
+  .faq-chevron {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.25s ease;
+    color: var(--label3);
+  }
+  .faq-item.open .faq-chevron { transform: rotate(180deg); }
+  .faq-a {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.32s ease, padding 0.2s ease;
+    padding: 0 18px;
+  }
+  .faq-item.open .faq-a {
+    max-height: 700px;
+    padding: 0 18px 16px;
+  }
+  .faq-a-text {
+    font-size: 12.5px;
+    color: var(--label2);
+    line-height: 1.75;
+    font-weight: 300;
+    border-top: 1px solid var(--separator);
+    padding-top: 12px;
+  }
+  .faq-a-text strong { color: var(--label1); font-weight: 500; }
+
+  /* ── 태그 섹션 ── */
+  .tag-section {
+    background: var(--bg3);
+    border-radius: 14px;
+    padding: 18px 20px;
+  }
+  .tag-section-label {
+    font-size: 10.5px;
+    color: var(--label3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .tag.pass { background: var(--green-dim); color: var(--green); }
+  .tag.fail { background: var(--red-dim);   color: var(--red); }
+
+  /* ── 안내/주의 노트 ── */
+  .note-card {
+    border-radius: 14px;
+    padding: 15px 18px;
+    font-size: 12px;
+    line-height: 1.75;
+  }
+  .note-card.yellow {
+    background: rgba(255,214,10,0.05);
+    border: 1px solid rgba(255,214,10,0.15);
+    color: rgba(255,255,255,0.45);
+  }
+  .note-card.yellow strong { color: rgba(255,214,10,0.7); }
+  .note-card.red {
+    background: rgba(255,69,58,0.05);
+    border: 1px solid rgba(255,69,58,0.15);
+    color: rgba(255,255,255,0.45);
+  }
+  .note-card.red strong { color: rgba(255,69,58,0.7); }
+  .note-card.neutral {
+    background: var(--bg3);
+    border: 1px solid var(--separator);
+    color: var(--label3);
+  }
+  .note-card.neutral strong { color: var(--label2); }
+
+  /* ── 재시작 버튼 ── */
+  .btn-restart {
+    width: 100%;
+    height: 52px;
+    background: transparent;
+    border: 1.5px solid var(--separator);
+    border-radius: 14px;
+    color: var(--label3);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.18s, color 0.18s;
+    letter-spacing: -0.2px;
+    margin-bottom: max(env(safe-area-inset-bottom), 4px);
+  }
+  .btn-restart:hover { border-color: var(--label2); color: var(--label2); }
+
+  /* ── 후원 섹션 ── */
+  .donate-section {
+    border-radius: 16px;
+    padding: 22px 20px;
+    background: linear-gradient(135deg, rgba(255,190,0,0.08) 0%, rgba(255,214,10,0.04) 100%);
+    border: 1px solid rgba(255,214,10,0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+  }
+  .donate-main {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--label1);
+    letter-spacing: -0.2px;
+  }
+  .donate-sub {
+    font-size: 12.5px;
+    color: var(--label2);
+    font-weight: 300;
+    line-height: 1.6;
+    margin-bottom: 4px;
+  }
+  .btn-donate {
+    width: 100%;
+    height: 48px;
+    background: #FEE500;
+    border: none;
+    border-radius: 12px;
+    color: #191919;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    margin-top: 6px;
+    transition: opacity 0.15s, transform 0.12s;
+    letter-spacing: -0.2px;
+    text-decoration: none;
+  }
+  .btn-donate:active { transform: scale(0.97); opacity: 0.85; }
+
+  .err-msg {
+    font-size: 12px;
+    color: var(--red);
+    padding: 0 4px;
+    min-height: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="progressLabel">1 / 6</div>
+  </div>
+
+  <div class="slides" id="slidesContainer">
+
+    <!-- 0: 가구유형 -->
+    <div class="slide active" data-slide="0">
+      <div>
+        <div class="slide-question">가구유형이<br>어떻게 되시나요?</div>
+      </div>
+      <div class="options">
+        <div class="option-card" data-group="household" data-val="일반">
+          <div><div class="option-title">일반</div></div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" data-group="household" data-val="신혼">
+          <div>
+            <div class="option-title">신혼부부</div>
+            <div class="option-desc">혼인 신고 후 7년 이내</div>
+          </div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" data-group="household" data-val="2자녀이상">
+          <div><div class="option-title">2자녀 이상 가구</div></div>
+          <div class="option-check"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1: 주택상황 -->
+    <div class="slide" data-slide="1">
+      <div>
+        <div class="slide-question">주택 매매 경험이<br>있으신가요?</div>
+        <div class="slide-sub">구매 이력과 현재 보유 여부를 기준으로 선택해주세요</div>
+      </div>
+      <div class="options">
+        <div class="option-card" data-group="house" data-val="생애최초">
+          <div>
+            <div class="option-title">한 번도 없어요</div>
+            <div class="option-desc">생애 최초 구매 — 매매 경험이 전혀 없음</div>
+          </div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" data-group="house" data-val="무주택">
+          <div>
+            <div class="option-title">있지만 지금은 없어요</div>
+            <div class="option-desc">무주택 — 매매 경험은 있으나 현재 미보유</div>
+          </div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" data-group="house" data-val="1주택(처분조건)">
+          <div>
+            <div class="option-title">1채 보유 · 팔고 살 예정</div>
+            <div class="option-desc">1주택 처분 조건 — 기존 주택 매도 후 구입</div>
+          </div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" data-group="house" data-val="1주택이상">
+          <div>
+            <div class="option-title">1채 이상 보유 중</div>
+            <div class="option-desc">1주택 이상 — 처분 계획 없이 추가 구입</div>
+          </div>
+          <div class="option-check"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2: 자녀수 -->
+    <div class="slide" data-slide="2">
+      <div>
+        <div class="slide-question">자녀가 몇 명<br>있으신가요?</div>
+      </div>
+      <div class="options">
+        <div class="option-card" data-group="children" data-val="없음">
+          <div><div class="option-title">없음</div></div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" data-group="children" data-val="1명">
+          <div><div class="option-title">1명</div></div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" data-group="children" data-val="2명이상">
+          <div><div class="option-title">2명 이상</div></div>
+          <div class="option-check"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3: 합산소득 -->
+    <div class="slide" data-slide="3">
+      <div>
+        <div class="slide-question">가구 합산<br>연소득은요?</div>
+        <div class="slide-sub">부부 합산 세전 연간 소득을 입력해주세요</div>
+      </div>
+      <div class="number-input-wrap">
+        <div class="number-field">
+          <input type="number" id="income" placeholder="0" min="0" inputmode="numeric">
+          <span class="number-unit">만원 / 년</span>
+        </div>
+        <div class="err-msg" id="incomeErr"></div>
+      </div>
+    </div>
+
+    <!-- 4: 주택가격 -->
+    <div class="slide" data-slide="4">
+      <div>
+        <div class="slide-question">구입하려는<br>주택 가격은요?</div>
+        <div class="slide-sub">실거래가 기준으로 입력해주세요</div>
+      </div>
+      <div class="number-input-wrap">
+        <div class="number-field">
+          <input type="number" id="price" placeholder="0.0" step="0.1" min="0" inputmode="decimal">
+          <span class="number-unit">억원</span>
+        </div>
+        <div class="err-msg" id="priceErr"></div>
+      </div>
+    </div>
+
+    <!-- 5: 순자산 -->
+    <div class="slide" data-slide="5">
+      <div>
+        <div class="slide-question">보유 순자산<br>규모는요?</div>
+        <div class="slide-sub">총 자산에서 부채를 제외한 금액이에요</div>
+      </div>
+      <div class="number-input-wrap">
+        <div class="number-field">
+          <input type="number" id="asset" placeholder="0.0" step="0.1" min="0" inputmode="decimal">
+          <span class="number-unit">억원</span>
+        </div>
+        <div class="err-msg" id="assetErr"></div>
+      </div>
+    </div>
+
+    <!-- 6: 결과 -->
+    <div class="slide result-slide" data-slide="6">
+      <div id="resultContent"></div>
+    </div>
+
+  </div>
+
+  <div class="bottom-nav" id="bottomNav">
+    <button class="btn-back" id="btnBack" disabled onclick="goBack()">←</button>
+    <button class="btn-next" id="btnNext" disabled onclick="goNext()">다음</button>
+  </div>
+
+</div>
+
+<script>
+  const TOTAL = 6;
+  let current = 0;
+  const answers = { household: null, house: null, children: null };
+
+  document.querySelectorAll('.option-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const group = card.dataset.group;
+      document.querySelectorAll(`[data-group="${group}"]`).forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      answers[group] = card.dataset.val;
+      updateNextBtn();
+    });
+  });
+
+  ['income','price','asset'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateNextBtn);
+  });
+
+  function canProceed() {
+    if (current === 0) return !!answers.household;
+    if (current === 1) return !!answers.house;
+    if (current === 2) return !!answers.children;
+    if (current === 3) return document.getElementById('income').value !== '';
+    if (current === 4) return document.getElementById('price').value !== '';
+    if (current === 5) return document.getElementById('asset').value !== '';
+    return true;
+  }
+
+  function updateNextBtn() {
+    document.getElementById('btnNext').disabled = !canProceed();
+  }
+
+  function setProgress(step) {
+    const pct = step >= TOTAL ? 100 : Math.round((step / TOTAL) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent = step < TOTAL ? `${step + 1} / ${TOTAL}` : '완료';
+  }
+
+  function goNext() {
+    if (current === 5) {
+      const income = parseFloat(document.getElementById('income').value);
+      const price  = parseFloat(document.getElementById('price').value);
+      const asset  = parseFloat(document.getElementById('asset').value);
+      if (isNaN(income) || income < 0) { document.getElementById('incomeErr').textContent = '올바른 소득을 입력해주세요'; return; }
+      if (isNaN(price)  || price  < 0) { document.getElementById('priceErr').textContent  = '올바른 금액을 입력해주세요'; return; }
+      if (isNaN(asset)  || asset  < 0) { document.getElementById('assetErr').textContent  = '올바른 금액을 입력해주세요'; return; }
+      renderResult(income, price, asset);
+      navigateTo(6);
+      document.getElementById('bottomNav').style.display = 'none';
+      document.getElementById('progressWrap').style.display = 'none';
+      return;
+    }
+    navigateTo(current + 1);
+  }
+
+  function goBack() {
+    if (current === 0) return;
+    navigateTo(current - 1);
+  }
+
+  function navigateTo(next) {
+    const allSlides = document.querySelectorAll('.slide');
+    allSlides[current].classList.remove('active');
+    allSlides[current].classList.add('exit');
+    const prev = current;
+    setTimeout(() => allSlides[prev].classList.remove('exit'), 380);
+    current = next;
+    allSlides[current].classList.add('active');
+    setProgress(current);
+    document.getElementById('btnBack').disabled = current === 0;
+    updateNextBtn();
+    const inp = allSlides[current].querySelector('input');
+    if (inp) setTimeout(() => inp.focus(), 400);
+  }
+
+  // ── 한도 포맷 ──
+  function formatLimit(eok) {
+    const totalMan = Math.round(eok * 10000);
+    const eokPart  = Math.floor(totalMan / 10000);
+    const manPart  = totalMan % 10000;
+    if (manPart === 0) return `${eokPart}억원`;
+    return `${eokPart}억 ${manPart.toLocaleString()}만원`;
+  }
+
+  // ── 월납입액 계산 ──
+  function calcMonthly(principal, annualRate, method) {
+    const P  = principal;           // 원
+    const r  = annualRate / 12 / 100;
+    const n  = 480;                  // 40년
+    if (method === 'equal-principal') {
+      return (P / n) + (P * r);
+    } else if (method === 'annuity') {
+      return (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+    } else { // 체증식
+      return P * r * 1.05;
+    }
+  }
+
+  function formatWon(won) {
+    return Math.round(won).toLocaleString() + '원';
+  }
+
+  // ── 공통: 한도 상세 카드 HTML ──
+  function limitCardHtml(colorCls, ltvLimit, maxLimit, finalLimit, price, household, house, children) {
+    const ltvApplied    = ltvLimit <= maxLimit;
+    const appliedCls    = ltvApplied    ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
+    const maxAppliedCls = !ltvApplied   ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
+    const houseLabel    = household === '신혼' || children === '2명이상' ? '신혼·다자녀'
+                        : house === '생애최초' ? '생애최초' : '일반';
+    const reasonText = ltvApplied
+      ? `LTV 70% 기준 적용 · 주택가격 <em>${price}억 × 70%</em> = <em>${formatLimit(ltvLimit)}</em>`
+      : `상품 한도 기준 적용 · <em>${houseLabel}</em> 가구 최대 한도 <em>${formatLimit(maxLimit)}</em>`;
+
+    const annualRate   = colorCls === 'blue' ? 3.0 : 4.2;
+    const principalWon = finalLimit * 100000000;
+    const uid          = colorCls + '_' + Math.random().toString(36).slice(2, 7);
+
+    // 초기 탭: 원리금균등
+    const initMethod = 'annuity';
+    const initAmt    = calcMonthly(principalWon, annualRate, initMethod);
+
+    return `
+        <div class="limit-detail-card ${colorCls}-top">
+          <div class="limit-detail-label">예상 대출 한도</div>
+          <div class="limit-detail-amount ${colorCls}">${formatLimit(finalLimit)}</div>
+          <div class="limit-breakdown">
+            <div class="limit-breakdown-item">
+              <span class="breakdown-label">LTV 70% 적용</span>
+              <span class="breakdown-val${appliedCls}">${formatLimit(ltvLimit)}</span>
+            </div>
+            <div class="limit-breakdown-item">
+              <span class="breakdown-label">상품 최대 한도</span>
+              <span class="breakdown-val${maxAppliedCls}">${formatLimit(maxLimit)}</span>
+            </div>
+          </div>
+          <div class="limit-applied-note">${reasonText}</div>
+          <div class="limit-reason">※ LTV·실제 한도는 DTI, 소득 증빙, 신용도, 규제지역 등에 따라 달라질 수 있습니다.</div>
+
+          <div class="monthly-calc">
+            <div class="monthly-calc-tabs">
+              <button class="mc-tab active-${colorCls}" id="mc-annuity-${uid}"
+                onclick="selectMcTab('${uid}','annuity',${principalWon},${annualRate},'${colorCls}')">원리금균등</button>
+              <button class="mc-tab" id="mc-equal-principal-${uid}"
+                onclick="selectMcTab('${uid}','equal-principal',${principalWon},${annualRate},'${colorCls}')">원금균등</button>
+              <button class="mc-tab" id="mc-increasing-${uid}"
+                onclick="selectMcTab('${uid}','increasing',${principalWon},${annualRate},'${colorCls}')">체증식</button>
+            </div>
+            <div class="monthly-amount-row">
+              <span class="monthly-label-sm">첫 달 월 지출액</span>
+              <span class="monthly-amount ${colorCls}" id="mc-amount-${uid}">${formatWon(initAmt)}</span>
+            </div>
+            <div class="monthly-calc-note">40년 만기, 1회차 납입금 기준 약식 계산 결과입니다.</div>
+          </div>
+        </div>`;
+  }
+
+  function selectMcTab(uid, method, principal, annualRate, colorCls) {
+    const methods = ['annuity', 'equal-principal', 'increasing'];
+    methods.forEach(m => {
+      const btn = document.getElementById(`mc-${m}-${uid}`);
+      if (btn) {
+        btn.classList.remove('active-blue', 'active-green');
+        if (m === method) btn.classList.add(`active-${colorCls}`);
+      }
+    });
+    const amt = calcMonthly(principal, annualRate, method);
+    const el  = document.getElementById(`mc-amount-${uid}`);
+    if (el) el.textContent = formatWon(amt);
+  }
+
+  // ── 공통: 주의사항 bullet ──
+  function noticeHtml() {
+    return `
+        <div class="group-label">주의사항</div>
+        <div class="notice-list">
+          <div class="notice-item">기본 LTV 70% / DTI 60% 적용, 상품·상황별 상이</div>
+          <div class="notice-item">자세한 조건은 <strong>주택금융공사 업무처리기준</strong> 확인 필수</div>
+        </div>`;
+  }
+
+  // ── LOGIC ──
+  function renderResult(income, price, asset) {
+    const { household, house, children } = answers;
+
+    // 디딤돌 자격
+    const dHouseOk = house === '무주택' || house === '생애최초';
+    const dAssetOk = asset <= 5.11;
+    let dIncomeLimit = 6000;
+    if (house === '생애최초' || children === '2명이상') dIncomeLimit = 7000;
+    if (household === '신혼') dIncomeLimit = 8500;
+    const dIncomeOk  = income <= dIncomeLimit;
+    let dPriceLimit  = 5;
+    if (household === '신혼' || children === '2명이상') dPriceLimit = 6;
+    const dPriceOk   = price <= dPriceLimit;
+    const didimdolOk = dHouseOk && dAssetOk && dIncomeOk && dPriceOk;
+
+    // 디딤돌 한도
+    let dMaxLimit = 2.0;
+    if (household === '신혼' || children === '2명이상') dMaxLimit = 3.2;
+    else if (house === '생애최초') dMaxLimit = 2.4;
+    const dLtvLimit   = price * 0.7;
+    const dFinalLimit = Math.min(dLtvLimit, dMaxLimit);
+
+    // 보금자리론 자격
+    const bHouseOk = house !== '1주택이상';
+    let bIncomeLimit = 7000;
+    if (household === '신혼') bIncomeLimit = 8500;
+    if (children === '2명이상') bIncomeLimit = 10000;
+    const bIncomeOk    = income <= bIncomeLimit;
+    const bPriceOk     = price <= 6;
+    const bogeumjariOk = bHouseOk && bIncomeOk && bPriceOk;
+
+    // 보금자리론 한도
+    let bMaxLimit = 3.6;
+    if (house === '생애최초') bMaxLimit = 4.2;
+    else if (children === '2명이상') bMaxLimit = 4.0;
+    const bLtvLimit   = price * 0.7;
+    const bFinalLimit = Math.min(bLtvLimit, bMaxLimit);
+
+    let html = '';
+
+    // ══ 케이스 A: 둘 다 해당 ══
+    if (didimdolOk && bogeumjariOk) {
+      html = `
+        <!-- 상단 안내 -->
+        <div class="result-header-area">
+          <div class="result-badge-wrap">
+            <div class="result-icon blue">🎉</div>
+            <div>
+              <div class="result-option-label blue">두 상품 모두 해당</div>
+              <div class="result-title">비교해 보세요</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 탭 -->
+        <div class="result-tabs">
+          <button class="result-tab active-blue" onclick="switchTab('didimdol')">
+            <span class="result-tab-badge blue">금리 최저</span>
+            <span class="result-tab-name">디딤돌 대출</span>
+            <span class="result-tab-limit">${formatLimit(dFinalLimit)}</span>
+          </button>
+          <button class="result-tab" onclick="switchTab('bogeumjari')">
+            <span class="result-tab-badge green">한도 우위</span>
+            <span class="result-tab-name">보금자리론</span>
+            <span class="result-tab-limit">${formatLimit(bFinalLimit)}</span>
+          </button>
+        </div>
+
+        <!-- 디딤돌 패널 -->
+        <div class="tab-pane active" id="pane-didimdol">
+          <div class="result-group">
+            <div class="result-tagline">시중 어디에서도 볼 수 없는 파격적인 금리 혜택입니다.</div>
+          </div>
+          <div class="result-spacer"></div>
+          <div class="group-label">상품 정보</div>
+          <div class="result-group">
+            <div class="rate-limit-row">
+              <div class="info-pill">
+                <span class="info-pill-label">적용 금리</span>
+                <span class="info-pill-val blue">2.55~3.85%</span>
+              </div>
+              <div class="info-pill">
+                <span class="info-pill-label">예상 한도</span>
+                <span class="info-pill-val blue">${formatLimit(dFinalLimit)}</span>
+              </div>
+            </div>
+          </div>
+          <div class="result-spacer-sm"></div>
+          <div class="result-group">
+            ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children)}
+          </div>
+          <div class="result-spacer"></div>
+          <div class="group-label">충족 조건</div>
+          <div class="result-group">
+            <div class="tag-section">
+              <div class="tags">
+                <span class="tag pass">✓ 주택상황 (${house})</span>
+                <span class="tag pass">✓ 순자산 ${asset}억 ≤ 5.11억</span>
+                <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${dIncomeLimit.toLocaleString()}만</span>
+                <span class="tag pass">✓ 주택가격 ${price}억 ≤ ${dPriceLimit}억</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- 보금자리론 패널 -->
+        <div class="tab-pane" id="pane-bogeumjari">
+          <div class="result-group">
+            <div class="result-tagline green-border">DSR을 보지 않기 때문에 소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.</div>
+          </div>
+          <div class="result-spacer"></div>
+          <div class="group-label">상품 정보</div>
+          <div class="result-group">
+            <div class="rate-limit-row">
+              <div class="info-pill">
+                <span class="info-pill-label">적용 금리</span>
+                <span class="info-pill-val green">4.05~4.35%</span>
+              </div>
+              <div class="info-pill">
+                <span class="info-pill-label">예상 한도</span>
+                <span class="info-pill-val green">${formatLimit(bFinalLimit)}</span>
+              </div>
+            </div>
+          </div>
+          <div class="result-spacer-sm"></div>
+          <div class="result-group">
+            ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children)}
+          </div>
+          <div class="result-spacer"></div>
+          <div class="group-label">충족 조건</div>
+          <div class="result-group">
+            <div class="tag-section">
+              <div class="tags">
+                <span class="tag pass">✓ 주택상황 (${house})</span>
+                <span class="tag pass">✓ 주택가격 ${price}억 ≤ 6억</span>
+                <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${bIncomeLimit.toLocaleString()}만</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-spacer"></div>
+        <div class="group-label">상환방식</div>
+        ${repayHtml('bogeumjari')}
+
+        <!-- 공통 하단 -->
+        <div class="result-spacer"></div>
+        ${faqHtml()}
+        <div class="result-spacer"></div>
+        ${noticeHtml()}
+        <div class="result-spacer"></div>
+        ${donateHtml()}
+        <div class="result-spacer-sm"></div>
+        <button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>`;
+
+    // ══ 케이스 B: 디딤돌만 해당 ══
+    } else if (didimdolOk) {
+      html = `
+        <div class="result-header-area">
+          <div class="result-badge-wrap">
+            <div class="result-icon blue">🏠</div>
+            <div>
+              <div class="result-option-label blue">BEST OPTION</div>
+              <div class="result-title">디딤돌 대출</div>
+            </div>
+          </div>
+        </div>
+        <div class="result-group">
+          <div class="result-tagline">시중 어디에서도 볼 수 없는 파격적인 금리 혜택입니다.</div>
+        </div>
+        <div class="result-spacer"></div>
+        <div class="group-label">상품 정보</div>
+        <div class="result-group">
+          <div class="rate-limit-row">
+            <div class="info-pill">
+              <span class="info-pill-label">적용 금리</span>
+              <span class="info-pill-val blue">2.55~3.85%</span>
+            </div>
+            <div class="info-pill">
+              <span class="info-pill-label">예상 한도</span>
+              <span class="info-pill-val blue">${formatLimit(dFinalLimit)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="result-spacer-sm"></div>
+        <div class="result-group">
+          ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children)}
+        </div>
+        <div class="result-spacer"></div>
+        <div class="group-label">충족 조건</div>
+        <div class="result-group">
+          <div class="tag-section">
+            <div class="tags">
+              <span class="tag pass">✓ 주택상황 (${house})</span>
+              <span class="tag pass">✓ 순자산 ${asset}억 ≤ 5.11억</span>
+              <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${dIncomeLimit.toLocaleString()}만</span>
+              <span class="tag pass">✓ 주택가격 ${price}억 ≤ ${dPriceLimit}억</span>
+            </div>
+          </div>
+        </div>
+        <div class="result-spacer"></div>
+        <div class="group-label">상환방식</div>
+        ${repayHtml('didimdol')}
+        <div class="result-spacer"></div>
+        ${faqHtml()}
+        <div class="result-spacer"></div>
+        ${noticeHtml()}
+        <div class="result-spacer"></div>
+        ${donateHtml()}
+        <div class="result-spacer-sm"></div>
+        <button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>`;
+
+    // ══ 케이스 C: 보금자리론만 해당 ══
+    } else if (bogeumjariOk) {
+      const failD = buildFailD(dHouseOk, dAssetOk, dIncomeOk, dPriceOk, asset, income, dIncomeLimit, price, dPriceLimit, house);
+      html = `
+        <div class="result-header-area">
+          <div class="result-badge-wrap">
+            <div class="result-icon green">🏡</div>
+            <div>
+              <div class="result-option-label green">RECOMMENDED</div>
+              <div class="result-title">보금자리론</div>
+            </div>
+          </div>
+        </div>
+        <div class="result-group">
+          <div class="result-tagline green-border">DSR을 보지 않기 때문에 소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.</div>
+        </div>
+        <div class="result-spacer"></div>
+        <div class="group-label">상품 정보</div>
+        <div class="result-group">
+          <div class="rate-limit-row">
+            <div class="info-pill">
+              <span class="info-pill-label">적용 금리</span>
+              <span class="info-pill-val green">4.05~4.35%</span>
+            </div>
+            <div class="info-pill">
+              <span class="info-pill-label">예상 한도</span>
+              <span class="info-pill-val green">${formatLimit(bFinalLimit)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="result-spacer-sm"></div>
+        <div class="result-group">
+          ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children)}
+        </div>
+        <div class="result-spacer"></div>
+        <div class="group-label">자격 검토</div>
+        <div class="result-group">
+          <div class="tag-section">
+            <div class="tag-section-label">디딤돌 미해당 사유</div>
+            <div class="tags">${failD.map(r=>`<span class="tag fail">✗ ${r}</span>`).join('')}</div>
+          </div>
+          <div class="tag-section">
+            <div class="tag-section-label">보금자리론 충족 조건</div>
+            <div class="tags">
+              <span class="tag pass">✓ 주택상황 (${house})</span>
+              <span class="tag pass">✓ 주택가격 ${price}억 ≤ 6억</span>
+              <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${bIncomeLimit.toLocaleString()}만</span>
+            </div>
+          </div>
+        </div>
+        <div class="result-spacer"></div>
+        <div class="group-label">상환방식</div>
+        ${repayHtml('bogeumjari')}
+        <div class="result-spacer"></div>
+        ${faqHtml()}
+        <div class="result-spacer"></div>
+        ${noticeHtml()}
+        <div class="result-spacer"></div>
+        ${donateHtml()}
+        <div class="result-spacer-sm"></div>
+        <button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>`;
+
+    // ══ 케이스 D: 해당 없음 ══
+    } else {
+      const failD = buildFailD(dHouseOk, dAssetOk, dIncomeOk, dPriceOk, asset, income, dIncomeLimit, price, dPriceLimit, house);
+      const failB = [];
+      if (!bHouseOk)  failB.push(`주택상황 (${house}) — 1주택 이상은 해당 없음`);
+      if (!bIncomeOk) failB.push(`소득 ${income.toLocaleString()}만 > ${bIncomeLimit.toLocaleString()}만`);
+      if (!bPriceOk)  failB.push(`주택가격 ${price}억 > 6억`);
+      html = `
+        <div class="result-header-area">
+          <div class="result-badge-wrap">
+            <div class="result-icon grey">🏦</div>
+            <div>
+              <div class="result-option-label grey">ALTERNATIVE</div>
+              <div class="result-title">시중은행</div>
+            </div>
+          </div>
+        </div>
+        <div class="result-group">
+          <div class="result-tagline grey-border">입력하신 조건은 주택기금 대출 요건을 충족하지 않습니다. 시중은행을 알아봐주세요.</div>
+        </div>
+        <div class="result-spacer"></div>
+        <div class="group-label">자격 검토</div>
+        <div class="result-group">
+          <div class="tag-section">
+            <div class="tag-section-label">디딤돌 미해당 사유</div>
+            <div class="tags">${failD.map(r=>`<span class="tag fail">✗ ${r}</span>`).join('')}</div>
+          </div>
+          <div class="tag-section">
+            <div class="tag-section-label">보금자리론 미해당 사유</div>
+            <div class="tags">${failB.map(r=>`<span class="tag fail">✗ ${r}</span>`).join('')}</div>
+          </div>
+        </div>
+        <div class="result-spacer"></div>
+        ${faqHtml()}
+        <div class="result-spacer"></div>
+        ${noticeHtml()}
+        <div class="result-spacer"></div>
+        ${donateHtml()}
+        <div class="result-spacer-sm"></div>
+        <button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>`;
+    }
+
+    document.getElementById('resultContent').innerHTML = html;
+  }
+
+  function switchTab(tab) {
+    const panes = document.querySelectorAll('.tab-pane');
+    const tabs  = document.querySelectorAll('.result-tab');
+    panes.forEach(p => p.classList.remove('active'));
+    tabs.forEach(t  => t.classList.remove('active-blue', 'active-green'));
+
+    if (tab === 'didimdol') {
+      document.getElementById('pane-didimdol').classList.add('active');
+      tabs[0].classList.add('active-blue');
+    } else {
+      document.getElementById('pane-bogeumjari').classList.add('active');
+      tabs[1].classList.add('active-green');
+    }
+  }
+
+    function buildFailD(dHouseOk, dAssetOk, dIncomeOk, dPriceOk, asset, income, dIncomeLimit, price, dPriceLimit, house) {
+    const r = [];
+    if (!dHouseOk) r.push(`주택상황 (${house}) — 무주택·생애최초만 해당`);
+    if (!dAssetOk) r.push(`순자산 ${asset}억 > 5.11억`);
+    if (!dIncomeOk) r.push(`소득 ${income.toLocaleString()}만 > ${dIncomeLimit.toLocaleString()}만`);
+    if (!dPriceOk)  r.push(`주택가격 ${price}억 > ${dPriceLimit}억`);
+    return r;
+  }
+
+  // ── 상환방식 HTML ──
+  function repayHtml(type) {
+    const isBogeumjari = type === 'bogeumjari';
+    const tenure = isBogeumjari
+      ? '10년 · 15년 · 20년 · 30년 · 40년 · 50년 <span style="color:var(--label3);font-size:11px">(만기 40년은 만 40세 미만 또는 만 50세 미만 신혼가구, 50년은 만 35세 미만 또는 만 40세 미만 신혼가구 조건 필요)</span>'
+      : '10년 · 15년 · 20년 · 30년 <span style="color:var(--label3);font-size:11px">(거치기간 1년 또는 비거치)</span>';
+    const teungjeungNote = isBogeumjari
+      ? '만 40세 미만 또는 공사 사전심사 통과 시 가능, 50년 만기는 선택 불가'
+      : '만 40세 미만 근로자이며 고정금리 선택 시만 가능';
+    return `
+      <div class="result-group">
+        <div class="repay-section">
+          <div class="repay-item">
+            <div class="repay-name">원리금균등분할상환</div>
+            <div class="repay-desc">매월 납부액(원금+이자)이 일정 — 가계 계획 세우기 좋아요.</div>
+          </div>
+          <div class="repay-item">
+            <div class="repay-name">원금균등분할상환 <span style="font-weight:400;font-size:11px;color:var(--label3)">체감식</span></div>
+            <div class="repay-desc">매월 같은 원금을 갚고 이자는 점점 줄어요. 초반 부담은 크지만 총 이자가 가장 적어요.</div>
+          </div>
+          <div class="repay-item">
+            <div class="repay-name">체증식 분할상환</div>
+            <div class="repay-desc">초반엔 적게 내고 시간이 갈수록 상환액이 늘어요. ${teungjeungNote}.</div>
+          </div>
+        </div>
+        <div class="repay-tenure">
+          <span class="repay-tenure-label">대출 만기</span>
+          <span class="repay-tenure-val">${tenure}</span>
+        </div>
+      </div>`;
+  }
+
+  // ── FAQ HTML ──
+  function faqHtml() {
+    const faqs = [
+      {
+        q: '미혼 단독세대주도 신청할 수 있나요?',
+        a: `네, 가능합니다! 다만 단독세대주는 조건이 조금 더 까다로워요.<br><br>
+<strong>디딤돌</strong>은 담보 주택 평가액 3억 이하, 대출한도 최대 1.5억원(생애최초는 2억원), 전용면적 60㎡(수도권 외 읍·면 지역은 70㎡) 이하인 경우에만 신청 가능해요.<br><br>
+<strong>보금자리론</strong>은 적격 조건을 충족하면 무주택 최대 3.6억, 생애최초는 최대 4.2억까지 받을 수 있어요.`
+      },
+      {
+        q: '조기 상환 수수료가 있나요?',
+        a: `네, 있어요. 대출 실행 후 <strong>3년 이내</strong>에 원금을 갚으면 경과 일수에 따라 <strong>최대 0.6%</strong>의 중도상환수수료가 부과돼요. 3년이 지난 뒤에는 수수료 없이 자유롭게 상환할 수 있어요.`
+      },
+      {
+        q: '계약 전에 정확한 대출 금액을 알 수 있나요?',
+        a: `아쉽게도 계약 전에는 정확한 금액을 확인하기 어려워요. 최종 계약서를 기준으로 심사하기 때문에, 사전에 대출 가능 여부나 금액을 확정하기는 힘들어요.<br><br>
+다만 <strong>한국주택금융공사 신청 화면</strong>에서 데이터 스크래핑을 통해 대출이 어려운 경우 팝업 알림을 보내주고 있어니, 신청 전 꼭 확인해보세요!`
+      },
+      {
+        q: '소득은 어떻게 증빙하나요?',
+        a: `<strong>근로소득자</strong>는 일반적으로 상시소득으로 인정돼요. 단, 근로계약 기간이 1년 미만이면 상시소득에서 제외될 수 있어요.<br><br>
+<strong>사업소득자</strong>는 소득 발생 시점부터 1년 이상 지속됐음을 증빙하면 상시소득으로 포괄 인정받을 수 있어요. 보험설계사, 시간강사, 기타 사업자 등도 동일하게 적용돼요.`
+      },
+      {
+        q: '보금자리론으로 어떤 주택을 살 수 있나요?',
+        a: `등기부등본 기준으로 <strong>실제 주거용</strong>으로 사용되는 아파트(주상복합 포함), 연립·다세대·단독주택만 가능해요.<br><br>
+주거용 오피스텔, 근린생활시설, 숙박시설은 원칙적으로 불가하지만, 상가주택 등 복합용도 건물은 <strong>주택 면적이 절반 이상</strong>이면 대출받을 수 있어요.<br><br>
+경매·가압류 등 법적 문제가 있는 집은 해당 문제가 해소(말소)된 이후에 신청할 수 있어요.`
+      }
+    ];
+
+    const items = faqs.map((f, i) => `
+      <div class="faq-item" id="faq-${i}">
+        <button class="faq-q" onclick="toggleFaq(${i})">
+          <span class="faq-q-text">${f.q}</span>
+          <span class="faq-chevron">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </span>
+        </button>
+        <div class="faq-a">
+          <div class="faq-a-text">${f.a}</div>
+        </div>
+      </div>`).join('');
+
+    return `
+      <div class="group-label">자주 묻는 질문</div>
+      <div class="faq-section">${items}</div>`;
+  }
+
+  function toggleFaq(idx) {
+    const item = document.getElementById('faq-' + idx);
+    if (!item) return;
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(el => el.classList.remove('open'));
+    if (!isOpen) item.classList.add('open');
+  }
+
+    function donateHtml() {
+    return `
+      <div class="donate-section">
+        <div class="donate-main">서비스가 도움이 되셨나요?</div>
+        <div class="donate-sub">커피 한 잔 후원해 주시면 서비스 운영에 큰 힘이 됩니다! ☕️</div>
+        <a class="btn-donate" href="https://qr.kakaopay.com/Ej7mJd7EE" target="_blank" rel="noopener">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="#191919" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3C6.477 3 2 6.72 2 11.25c0 2.91 1.7 5.48 4.28 6.99L5.2 21.5l4.93-2.73c.6.1 1.23.16 1.87.16 5.523 0 10-3.72 10-8.25C22 6.72 17.523 3 12 3z"/>
+          </svg>
+          카카오페이로 후원하기
+        </a>
+      </div>`;
+  }
+
+  function restartApp() {
+    answers.household = null;
+    answers.house = null;
+    answers.children = null;
+    document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+    ['income','price','asset'].forEach(id => document.getElementById(id).value = '');
+    ['incomeErr','priceErr','assetErr'].forEach(id => document.getElementById(id).textContent = '');
+
+    const allSlides = document.querySelectorAll('.slide');
+    allSlides[current].classList.remove('active');
+    current = 0;
+    allSlides[0].classList.add('active');
+
+    document.getElementById('bottomNav').style.display = 'flex';
+    document.getElementById('progressWrap').style.display = 'block';
+    setProgress(0);
+    document.getElementById('btnBack').disabled = true;
+    document.getElementById('btnNext').disabled = true;
+  }
+
+  setProgress(0);
+</script>
+</body>
+</html>
