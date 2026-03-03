@@ -1,6 +1,5 @@
 exports.handler = async (event) => {
   console.log('=== create-checkout called ===');
-  console.log('method:', event.httpMethod);
 
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -8,14 +7,9 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body);
-    console.log('userId:', body.userId, 'email:', body.email);
 
     const CREEM_API_KEY = process.env.CREEM_API_KEY;
     const CREEM_PRODUCT_ID = process.env.CREEM_PRODUCT_ID;
-    const SITE_URL = 'https://dev--super-starburst-f557ea.netlify.app';
-
-    console.log('API_KEY exists:', !!CREEM_API_KEY);
-    console.log('PRODUCT_ID:', CREEM_PRODUCT_ID);
 
     const res = await fetch('https://test-api.creem.io/v1/checkouts', {
       method: 'POST',
@@ -25,7 +19,7 @@ exports.handler = async (event) => {
       },
       body: JSON.stringify({
         product_id: CREEM_PRODUCT_ID,
-        success_url: `${SITE_URL}?payment=success`,
+        success_url: 'https://dev--super-starburst-f557ea.netlify.app',
         customer: { email: body.email },
         metadata: { user_id: body.userId }
       })
