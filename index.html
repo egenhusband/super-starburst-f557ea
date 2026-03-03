@@ -792,8 +792,40 @@
     min-height: 16px;
   }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+
+<!-- 로그인/결제 오버레이 -->
+<div id="authOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+  <div style="width:100%;max-width:360px;background:#1c1c1e;border-radius:20px;padding:32px 24px;text-align:center;">
+    <div style="font-size:40px;margin-bottom:16px;">🏠</div>
+    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;">주택 기금대출 추천</div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:28px;line-height:1.6;">결과를 보려면 로그인이 필요해요.<br>구글 계정으로 간편하게 시작하세요.</div>
+    <button onclick="signInWithGoogle()" style="width:100%;padding:14px;background:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      구글로 계속하기
+    </button>
+    <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:16px;">로그인하면 서비스 이용약관에 동의하는 것으로 간주됩니다</div>
+  </div>
+</div>
+
+<!-- 결제 오버레이 -->
+<div id="payOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;padding:24px;">
+  <div style="width:100%;max-width:360px;background:#1c1c1e;border-radius:20px;padding:32px 24px;text-align:center;">
+    <div style="font-size:40px;margin-bottom:16px;">🔒</div>
+    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;">전체 결과 보기</div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:8px;line-height:1.6;">대출 한도, 금리, 상환 방식 등<br>상세한 결과를 확인하세요.</div>
+    <div style="font-size:22px;font-weight:700;color:#0a84ff;margin-bottom:24px;">$3 / 월</div>
+    <button onclick="goToPayment()" style="width:100%;padding:14px;background:#0a84ff;border:none;border-radius:12px;font-size:15px;font-weight:600;color:#fff;cursor:pointer;margin-bottom:12px;">
+      구독하고 결과 보기
+    </button>
+    <button onclick="closePayOverlay()" style="width:100%;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:12px;font-size:14px;color:rgba(255,255,255,0.5);cursor:pointer;">
+      나중에 하기
+    </button>
+    <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:16px;">언제든지 해지 가능 · 첫 결제 후 즉시 이용</div>
+  </div>
+</div>
 <div class="app">
 
   <div class="progress-wrap" id="progressWrap">
@@ -948,6 +980,87 @@
 </div>
 
 <script>
+  // ── Supabase 초기화 ──
+  const SUPABASE_URL = 'https://ufplkfivzdfzkzpzjzzk.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_Z9EtrmiQVRC7Dk_eA3H_xw_zIRpsQbo';
+  const CREEM_PRODUCT_ID = 'prod_6MLYXVYE16FtWr0lBM2OfE';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  let currentUser = null;
+  let isPaid = false;
+
+  // ── 앱 시작 시 인증 확인 ──
+  async function initAuth() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      currentUser = session.user;
+      await checkPaymentStatus();
+    }
+    // 인증 상태 변경 감지
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session) {
+        currentUser = session.user;
+        await checkPaymentStatus();
+        document.getElementById('authOverlay').style.display = 'none';
+      } else {
+        currentUser = null;
+        isPaid = false;
+      }
+    });
+  }
+
+  // ── 구글 로그인 ──
+  async function signInWithGoogle() {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.href }
+    });
+  }
+
+  // ── 결제 상태 확인 ──
+  async function checkPaymentStatus() {
+    if (!currentUser) return;
+    const { data } = await supabase
+      .from('subscriptions')
+      .select('status')
+      .eq('user_id', currentUser.id)
+      .eq('status', 'active')
+      .single();
+    isPaid = !!data;
+  }
+
+  // ── 결제 페이지로 이동 ──
+  async function goToPayment() {
+    if (!currentUser) return;
+    // Creem 결제 링크 생성
+    const res = await fetch('/.netlify/functions/create-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUser.id, email: currentUser.email })
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+  }
+
+  function closePayOverlay() {
+    document.getElementById('payOverlay').style.display = 'none';
+  }
+
+  // ── 결과 화면 진입 시 결제 체크 ──
+  function showResultOrPaywall() {
+    if (!currentUser) {
+      document.getElementById('authOverlay').style.display = 'flex';
+      return false;
+    }
+    if (!isPaid) {
+      document.getElementById('payOverlay').style.display = 'flex';
+      return false;
+    }
+    return true;
+  }
+
+  initAuth();
+
   const TOTAL = 6;
   let current = 0;
   const answers = { household: null, house: null, children: null };
@@ -994,6 +1107,7 @@
       if (isNaN(income) || income < 0) { document.getElementById('incomeErr').textContent = '올바른 소득을 입력해주세요'; return; }
       if (isNaN(price)  || price  < 0) { document.getElementById('priceErr').textContent  = '올바른 금액을 입력해주세요'; return; }
       if (isNaN(asset)  || asset  < 0) { document.getElementById('assetErr').textContent  = '올바른 금액을 입력해주세요'; return; }
+      if (!showResultOrPaywall()) return;
       renderResult(income, price, asset);
       navigateTo(6);
       document.getElementById('bottomNav').style.display = 'none';
