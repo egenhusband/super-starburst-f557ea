@@ -1008,20 +1008,20 @@
   const SUPABASE_URL = 'https://ufplkfivzdfzkzpzjzzk.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_Z9EtrmiQVRC7Dk_eA3H_xw_zIRpsQbo';
   const CREEM_PRODUCT_ID = 'prod_6MLYXVYE16FtWr0lBM2OfE';
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let currentUser = null;
   let isPaid = false;
 
   // ── 앱 시작 시 인증 확인 ──
   async function initAuth() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await sbClient.auth.getSession();
     if (session) {
       currentUser = session.user;
       await checkPaymentStatus();
     }
     // 인증 상태 변경 감지
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    sbClient.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         currentUser = session.user;
         await checkPaymentStatus();
@@ -1035,7 +1035,7 @@
 
   // ── 구글 로그인 ──
   async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({
+    await sbClient.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.href }
     });
@@ -1044,7 +1044,7 @@
   // ── 결제 상태 확인 ──
   async function checkPaymentStatus() {
     if (!currentUser) return;
-    const { data } = await supabase
+    const { data } = await sbClient
       .from('subscriptions')
       .select('status')
       .eq('user_id', currentUser.id)
