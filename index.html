@@ -1026,6 +1026,7 @@
         currentUser = session.user;
         await checkPaymentStatus();
         document.getElementById('authOverlay').classList.remove('show');
+        restoreSavedAnswers();
       } else {
         currentUser = null;
         isPaid = false;
@@ -1035,10 +1036,64 @@
 
   // ── 구글 로그인 ──
   async function signInWithGoogle() {
+    // 입력값 저장
+    const income = document.getElementById('income')?.value || '';
+    const price  = document.getElementById('price')?.value || '';
+    const asset  = document.getElementById('asset')?.value || '';
+    sessionStorage.setItem('savedAnswers', JSON.stringify({
+      household: answers.household,
+      house: answers.house,
+      children: answers.children,
+      income, price, asset,
+      slide: current
+    }));
     await sbClient.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.href }
     });
+  }
+
+  // ── 로그인 후 입력값 복원 ──
+  function restoreSavedAnswers() {
+    const saved = sessionStorage.getItem('savedAnswers');
+    if (!saved) return;
+    sessionStorage.removeItem('savedAnswers');
+    try {
+      const s = JSON.parse(saved);
+      if (s.household) {
+        answers.household = s.household;
+        document.querySelector(`[data-group="household"][data-val="${s.household}"]`)?.classList.add('selected');
+      }
+      if (s.house) {
+        answers.house = s.house;
+        document.querySelector(`[data-group="house"][data-val="${s.house}"]`)?.classList.add('selected');
+      }
+      if (s.children) {
+        answers.children = s.children;
+        document.querySelector(`[data-group="children"][data-val="${s.children}"]`)?.classList.add('selected');
+      }
+      if (s.income) document.getElementById('income').value = s.income;
+      if (s.price)  document.getElementById('price').value  = s.price;
+      if (s.asset)  document.getElementById('asset').value  = s.asset;
+
+      // 마지막 슬라이드로 이동 후 바로 결과 실행
+      if (s.slide === 5 && s.income && s.price && s.asset) {
+        setTimeout(() => {
+          const income = parseFloat(s.income);
+          const price  = parseFloat(s.price);
+          const asset  = parseFloat(s.asset);
+          if (isPaid) {
+            renderResult(income, price, asset);
+            navigateTo(6);
+            document.getElementById('bottomNav').style.display = 'none';
+            document.getElementById('progressWrap').style.display = 'none';
+          } else {
+            navigateTo(5);
+            document.getElementById('payOverlay').classList.add('show');
+          }
+        }, 500);
+      }
+    } catch(e) { console.error(e); }
   }
 
   // ── 결제 상태 확인 ──
@@ -1056,14 +1111,30 @@
   // ── 결제 페이지로 이동 ──
   async function goToPayment() {
     if (!currentUser) return;
-    // Creem 결제 링크 생성
-    const res = await fetch('/.netlify/functions/create-checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: currentUser.id, email: currentUser.email })
-    });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
+    const btn = event.target;
+    btn.textContent = '연결 중...';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/.netlify/functions/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id, email: currentUser.email })
+      });
+      const data = await res.json();
+      console.log('Checkout response:', data);
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('결제 링크 생성 실패: ' + JSON.stringify(data));
+        btn.textContent = '구독하고 결과 보기';
+        btn.disabled = false;
+      }
+    } catch(e) {
+      console.error('Payment error:', e);
+      alert('오류: ' + e.message);
+      btn.textContent = '구독하고 결과 보기';
+      btn.disabled = false;
+    }
   }
 
 
