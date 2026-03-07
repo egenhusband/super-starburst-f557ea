@@ -449,6 +449,7 @@
     letter-spacing: -0.3px;
   }
   .mc-tab.active-blue  { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .mc-tab.active-nb    { background: rgba(255,107,157,0.12); border-color: #ff6b9d; color: #ff6b9d; }
   .mc-tab.active-green { background: var(--green-dim);  border-color: var(--green);  color: var(--green); }
   .monthly-amount-row {
     display: flex;
@@ -540,6 +541,8 @@
 
   .tab-pane { display: none; }
   .tab-pane.active { display: block; }
+  .tab-pane3 { display: none; }
+  .tab-pane3.active { display: block; }
 
   /* 불렛 주의사항 */
   .notice-list {
@@ -792,64 +795,8 @@
     min-height: 16px;
   }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-
-<!-- 로그인/결제 오버레이 -->
-<style>
-  .overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.92);
-    z-index: 9999;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
-  .overlay.show {
-    display: flex;
-  }
-  .overlay-box {
-    width: 100%;
-    max-width: 360px;
-    background: #1c1c1e;
-    border-radius: 20px;
-    padding: 32px 24px;
-    text-align: center;
-  }
-</style>
-
-<div id="authOverlay" class="overlay">
-  <div class="overlay-box">
-    <div style="font-size:40px;margin-bottom:16px;">🏠</div>
-    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;">주택 기금대출 추천</div>
-    <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:28px;line-height:1.6;">결과를 보려면 로그인이 필요해요.<br>구글 계정으로 간편하게 시작하세요.</div>
-    <button onclick="signInWithGoogle()" style="width:100%;padding:14px;background:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
-      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-      구글로 계속하기
-    </button>
-    <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:16px;">로그인하면 서비스 이용약관에 동의하는 것으로 간주됩니다</div>
-  </div>
-</div>
-
-<div id="payOverlay" class="overlay">
-  <div class="overlay-box">
-    <div style="font-size:40px;margin-bottom:16px;">🔒</div>
-    <div style="font-size:20px;font-weight:700;color:#fff;margin-bottom:8px;">전체 결과 보기</div>
-    <div style="font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:8px;line-height:1.6;">대출 한도, 금리, 상환 방식 등<br>상세한 결과를 확인하세요.</div>
-    <div style="font-size:22px;font-weight:700;color:#0a84ff;margin-bottom:24px;">$3 / 월</div>
-    <button onclick="goToPayment()" style="width:100%;padding:14px;background:#0a84ff;border:none;border-radius:12px;font-size:15px;font-weight:600;color:#fff;cursor:pointer;margin-bottom:12px;">
-      구독하고 결과 보기
-    </button>
-    <button onclick="closePayOverlay()" style="width:100%;padding:12px;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:12px;font-size:14px;color:rgba(255,255,255,0.5);cursor:pointer;">
-      나중에 하기
-    </button>
-    <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:16px;">언제든지 해지 가능 · 첫 결제 후 즉시 이용</div>
-  </div>
-</div>
 <div class="app">
 
   <div class="progress-wrap" id="progressWrap">
@@ -882,6 +829,7 @@
           <div><div class="option-title">2자녀 이상 가구</div></div>
           <div class="option-check"></div>
         </div>
+
       </div>
     </div>
 
@@ -913,6 +861,13 @@
           </div>
           <div class="option-check"></div>
         </div>
+        <div class="option-card" data-group="house" data-val="1주택(대환)">
+          <div>
+            <div class="option-title">1채 보유 · 대환 목적</div>
+            <div class="option-desc">1주택 대환 — 기존 주담대를 신생아 특례로 갈아타기</div>
+          </div>
+          <div class="option-check"></div>
+        </div>
         <div class="option-card" data-group="house" data-val="1주택이상">
           <div>
             <div class="option-title">1채 이상 보유 중</div>
@@ -939,6 +894,13 @@
         </div>
         <div class="option-card" data-group="children" data-val="2명이상">
           <div><div class="option-title">2명 이상</div></div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" data-group="children" data-val="신생아">
+          <div>
+            <div class="option-title">신생아</div>
+            <div class="option-desc">대출신청일 기준 2년 이내 · 23.1.1 이후 출생</div>
+          </div>
           <div class="option-check"></div>
         </div>
       </div>
@@ -1004,160 +966,6 @@
 </div>
 
 <script>
-  // ── Supabase 초기화 ──
-  const SUPABASE_URL = 'https://ufplkfivzdfzkzpzjzzk.supabase.co';
-  const SUPABASE_ANON_KEY = 'sb_publishable_Z9EtrmiQVRC7Dk_eA3H_xw_zIRpsQbo';
-  const CREEM_PRODUCT_ID = 'prod_6MLYXVYE16FtWr0lBM2OfE';
-  const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-  let currentUser = null;
-  let isPaid = false;
-
-  // ── 앱 시작 시 인증 확인 ──
-  async function initAuth() {
-    const { data: { session } } = await sbClient.auth.getSession();
-    if (session) {
-      currentUser = session.user;
-      await checkPaymentStatus();
-    }
-    // 인증 상태 변경 감지
-    sbClient.auth.onAuthStateChange(async (event, session) => {
-      if (session) {
-        currentUser = session.user;
-        await checkPaymentStatus();
-        document.getElementById('authOverlay').classList.remove('show');
-        restoreSavedAnswers();
-      } else {
-        currentUser = null;
-        isPaid = false;
-      }
-    });
-  }
-
-  // ── 구글 로그인 ──
-  async function signInWithGoogle() {
-    // 입력값 저장
-    const income = document.getElementById('income')?.value || '';
-    const price  = document.getElementById('price')?.value || '';
-    const asset  = document.getElementById('asset')?.value || '';
-    sessionStorage.setItem('savedAnswers', JSON.stringify({
-      household: answers.household,
-      house: answers.house,
-      children: answers.children,
-      income, price, asset,
-      slide: current
-    }));
-    await sbClient.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.href }
-    });
-  }
-
-  // ── 로그인 후 입력값 복원 ──
-  function restoreSavedAnswers() {
-    const saved = sessionStorage.getItem('savedAnswers');
-    if (!saved) return;
-    sessionStorage.removeItem('savedAnswers');
-    try {
-      const s = JSON.parse(saved);
-      if (s.household) {
-        answers.household = s.household;
-        document.querySelector(`[data-group="household"][data-val="${s.household}"]`)?.classList.add('selected');
-      }
-      if (s.house) {
-        answers.house = s.house;
-        document.querySelector(`[data-group="house"][data-val="${s.house}"]`)?.classList.add('selected');
-      }
-      if (s.children) {
-        answers.children = s.children;
-        document.querySelector(`[data-group="children"][data-val="${s.children}"]`)?.classList.add('selected');
-      }
-      if (s.income) document.getElementById('income').value = s.income;
-      if (s.price)  document.getElementById('price').value  = s.price;
-      if (s.asset)  document.getElementById('asset').value  = s.asset;
-
-      // 마지막 슬라이드로 이동 후 바로 결과 실행
-      if (s.slide === 5 && s.income && s.price && s.asset) {
-        setTimeout(() => {
-          const income = parseFloat(s.income);
-          const price  = parseFloat(s.price);
-          const asset  = parseFloat(s.asset);
-          if (isPaid) {
-            renderResult(income, price, asset);
-            navigateTo(6);
-            document.getElementById('bottomNav').style.display = 'none';
-            document.getElementById('progressWrap').style.display = 'none';
-          } else {
-            navigateTo(5);
-            document.getElementById('payOverlay').classList.add('show');
-          }
-        }, 500);
-      }
-    } catch(e) { console.error(e); }
-  }
-
-  // ── 결제 상태 확인 ──
-  async function checkPaymentStatus() {
-    if (!currentUser) return;
-    const { data } = await sbClient
-      .from('subscriptions')
-      .select('status')
-      .eq('user_id', currentUser.id)
-      .eq('status', 'active')
-      .maybeSingle();
-    isPaid = !!data;
-  }
-
-  // ── 결제 페이지로 이동 ──
-  async function goToPayment() {
-    if (!currentUser) return;
-    const btn = event.target;
-    btn.textContent = '연결 중...';
-    btn.disabled = true;
-    try {
-      const res = await fetch('/.netlify/functions/create-checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUser.id, email: currentUser.email })
-      });
-      const data = await res.json();
-      console.log('Checkout response:', data);
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert('결제 링크 생성 실패: ' + JSON.stringify(data));
-        btn.textContent = '구독하고 결과 보기';
-        btn.disabled = false;
-      }
-    } catch(e) {
-      console.error('Payment error:', e);
-      alert('오류: ' + e.message);
-      btn.textContent = '구독하고 결과 보기';
-      btn.disabled = false;
-    }
-  }
-
-
-
-  // ── 결과 화면 진입 시 결제 체크 ──
-  function showResultOrPaywall() {
-    if (!currentUser) {
-      document.getElementById('authOverlay').classList.add('show');
-      return false;
-    }
-    if (!isPaid) {
-      document.getElementById('payOverlay').classList.add('show');
-      return false;
-    }
-    return true;
-  }
-
-  function closePayOverlay() {
-    document.getElementById('payOverlay').classList.remove('show');
-  }
-
-  initAuth();
-
   const TOTAL = 6;
   let current = 0;
   const answers = { household: null, house: null, children: null };
@@ -1204,7 +1012,6 @@
       if (isNaN(income) || income < 0) { document.getElementById('incomeErr').textContent = '올바른 소득을 입력해주세요'; return; }
       if (isNaN(price)  || price  < 0) { document.getElementById('priceErr').textContent  = '올바른 금액을 입력해주세요'; return; }
       if (isNaN(asset)  || asset  < 0) { document.getElementById('assetErr').textContent  = '올바른 금액을 입력해주세요'; return; }
-      if (!showResultOrPaywall()) return;
       renderResult(income, price, asset);
       navigateTo(6);
       document.getElementById('bottomNav').style.display = 'none';
@@ -1244,16 +1051,21 @@
   }
 
   // ── 월납입액 계산 ──
-  function calcMonthly(principal, annualRate, method) {
-    const P  = principal;           // 원
-    const r  = annualRate / 12 / 100;
-    const n  = 480;                  // 40년
+  function calcMonthly(principal, annualRate, method, years) {
+    const P = principal;
+    const r = annualRate / 12 / 100;
+    const n = (years || 40) * 12;
     if (method === 'equal-principal') {
+      // 체감식(원금균등): 1회차 = 원금/n + 잔액이자 → 매월 감소
       return (P / n) + (P * r);
     } else if (method === 'annuity') {
+      // 원리금균등: 매월 동일
       return (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-    } else { // 체증식
-      return P * r * 1.05;
+    } else {
+      // 체증식: 매월 원금 상환액이 d씩 증가 (d = a, 초회원금 = a)
+      // a = 2P / (n*(n+1)),  1회차 납입 = a + P*r → 매월 증가
+      const a = 2 * P / (n * (n + 1));
+      return a + P * r;
     }
   }
 
@@ -1273,12 +1085,12 @@
       : `상품 한도 기준 적용 · <em>${houseLabel}</em> 가구 최대 한도 <em>${formatLimit(maxLimit)}</em>`;
 
     const annualRate   = colorCls === 'blue' ? 3.0 : 4.2;
+    const loanYears    = colorCls === 'blue' ? 30 : 40;   // 디딤돌 30년, 보금자리론 40년
     const principalWon = finalLimit * 100000000;
     const uid          = colorCls + '_' + Math.random().toString(36).slice(2, 7);
 
-    // 초기 탭: 원리금균등
-    const initMethod = 'annuity';
-    const initAmt    = calcMonthly(principalWon, annualRate, initMethod);
+    const initAmt = calcMonthly(principalWon, annualRate, 'annuity', loanYears);
+    const noteLabel = loanYears + '년 만기, 1회차 납입금 기준 약식 계산 결과입니다.';
 
     return `
         <div class="limit-detail-card ${colorCls}-top">
@@ -1300,22 +1112,22 @@
           <div class="monthly-calc">
             <div class="monthly-calc-tabs">
               <button class="mc-tab active-${colorCls}" id="mc-annuity-${uid}"
-                onclick="selectMcTab('${uid}','annuity',${principalWon},${annualRate},'${colorCls}')">원리금균등</button>
+                onclick="selectMcTab('${uid}','annuity',${principalWon},${annualRate},${loanYears},'${colorCls}')">원리금균등</button>
               <button class="mc-tab" id="mc-equal-principal-${uid}"
-                onclick="selectMcTab('${uid}','equal-principal',${principalWon},${annualRate},'${colorCls}')">원금균등</button>
+                onclick="selectMcTab('${uid}','equal-principal',${principalWon},${annualRate},${loanYears},'${colorCls}')">원금균등</button>
               <button class="mc-tab" id="mc-increasing-${uid}"
-                onclick="selectMcTab('${uid}','increasing',${principalWon},${annualRate},'${colorCls}')">체증식</button>
+                onclick="selectMcTab('${uid}','increasing',${principalWon},${annualRate},${loanYears},'${colorCls}')">체증식</button>
             </div>
             <div class="monthly-amount-row">
               <span class="monthly-label-sm">첫 달 월 지출액</span>
               <span class="monthly-amount ${colorCls}" id="mc-amount-${uid}">${formatWon(initAmt)}</span>
             </div>
-            <div class="monthly-calc-note">40년 만기, 1회차 납입금 기준 약식 계산 결과입니다.</div>
+            <div class="monthly-calc-note">${noteLabel}</div>
           </div>
         </div>`;
   }
 
-  function selectMcTab(uid, method, principal, annualRate, colorCls) {
+  function selectMcTab(uid, method, principal, annualRate, loanYears, colorCls) {
     const methods = ['annuity', 'equal-principal', 'increasing'];
     methods.forEach(m => {
       const btn = document.getElementById(`mc-${m}-${uid}`);
@@ -1324,7 +1136,7 @@
         if (m === method) btn.classList.add(`active-${colorCls}`);
       }
     });
-    const amt = calcMonthly(principal, annualRate, method);
+    const amt = calcMonthly(principal, annualRate, method, loanYears);
     const el  = document.getElementById(`mc-amount-${uid}`);
     if (el) el.textContent = formatWon(amt);
   }
@@ -1340,24 +1152,330 @@
   }
 
   // ── LOGIC ──
+  function newbornLimitCardHtml(ltvLimit, maxLimit, finalLimit, price, house, rate30) {
+    const ltvLabel = '70%'; // 신생아 특례: 기본 LTV 70%
+    const ltvApplied = ltvLimit <= maxLimit;
+    const appliedCls = ltvApplied ? ' applied' : '';
+    const maxAppliedCls = !ltvApplied ? ' applied' : '';
+    const reasonText = ltvApplied
+      ? 'LTV ' + ltvLabel + ' 기준 · 주택가격 <em>' + price + '억 × ' + ltvLabel + '</em> = <em>' + formatLimit(ltvLimit) + '</em>'
+      : '상품 한도 기준 · 최대 <em>' + formatLimit(maxLimit) + '</em>';
+
+    const principal = finalLimit * 100000000;
+    const uid = 'nb_' + Math.random().toString(36).slice(2, 7);
+    const initAmt = calcMonthly(principal, rate30, 'annuity', 30);
+
+    return '<div class="limit-detail-card" style="border-top:3px solid #ff6b9d">'
+      + '<div class="limit-detail-label">예상 대출 한도</div>'
+      + '<div class="limit-detail-amount" style="color:#ff6b9d">' + formatLimit(finalLimit) + '</div>'
+      + '<div class="limit-breakdown">'
+      + '<div class="limit-breakdown-item">'
+      + '<span class="breakdown-label">LTV ' + ltvLabel + ' 적용</span>'
+      + '<span class="breakdown-val' + appliedCls + '">' + formatLimit(ltvLimit) + '</span>'
+      + '</div>'
+      + '<div class="limit-breakdown-item">'
+      + '<span class="breakdown-label">상품 최대 한도</span>'
+      + '<span class="breakdown-val' + maxAppliedCls + '">' + formatLimit(maxLimit) + '</span>'
+      + '</div>'
+      + '</div>'
+      + '<div class="limit-applied-note">' + reasonText + '</div>'
+      + '<div class="limit-reason">※ 생애최초는 LTV 80%(단, 수도권·규제지역은 70%) / DTI 60% 적용</div>'
+      + '<div class="monthly-calc">'
+      + '<div class="monthly-calc-tabs">'
+      + '<button class="mc-tab active-nb" id="nb-annuity-' + uid + '" '
+      + 'data-uid="' + uid + '" data-method="annuity" data-principal="' + principal + '" data-rate="' + rate30 + '" '
+      + 'onclick="selectNbTab(this)">원리금균등</button>'
+      + '<button class="mc-tab" id="nb-equal-principal-' + uid + '" '
+      + 'data-uid="' + uid + '" data-method="equal-principal" data-principal="' + principal + '" data-rate="' + rate30 + '" '
+      + 'onclick="selectNbTab(this)">원금균등</button>'
+      + '<button class="mc-tab" id="nb-increasing-' + uid + '" '
+      + 'data-uid="' + uid + '" data-method="increasing" data-principal="' + principal + '" data-rate="' + rate30 + '" '
+      + 'onclick="selectNbTab(this)">체증식</button>'
+      + '</div>'
+      + '<div class="monthly-amount-row">'
+      + '<span class="monthly-label-sm">첫 달 월 지출액</span>'
+      + '<span class="monthly-amount" style="color:#ff6b9d" id="nb-amount-' + uid + '">' + formatWon(initAmt) + '</span>'
+      + '</div>'
+      + '<div class="monthly-calc-note">30년 만기, 1회차 납입금 기준 약식 계산 결과입니다.</div>'
+      + '</div>'
+      + '</div>';
+  }
+
+  function newbornMonthlyHtml(finalLimit, rate30) {
+    const principal = finalLimit * 100000000;
+    const uid = 'nb_' + Math.random().toString(36).slice(2, 7);
+    const initAmt = calcMonthly(principal, rate30, 'annuity');
+    return '<div class="limit-detail-card" style="border-top:3px solid #ff6b9d">'
+      + '<div class="monthly-calc">'
+      + '<div class="monthly-calc-tabs">'
+      + '<button class="mc-tab active-nb" id="nb-annuity-' + uid + '" '
+      + 'data-uid="' + uid + '" data-method="annuity" data-principal="' + principal + '" data-rate="' + rate30 + '" '
+      + 'onclick="selectNbTab(this)">원리금균등</button>'
+      + '<button class="mc-tab" id="nb-equal-principal-' + uid + '" '
+      + 'data-uid="' + uid + '" data-method="equal-principal" data-principal="' + principal + '" data-rate="' + rate30 + '" '
+      + 'onclick="selectNbTab(this)">원금균등</button>'
+      + '<button class="mc-tab" id="nb-increasing-' + uid + '" '
+      + 'data-uid="' + uid + '" data-method="increasing" data-principal="' + principal + '" data-rate="' + rate30 + '" '
+      + 'onclick="selectNbTab(this)">체증식</button>'
+      + '</div>'
+      + '<div class="monthly-amount-row">'
+      + '<span class="monthly-label-sm">첫 달 월 지출액</span>'
+      + '<span class="monthly-amount" style="color:#ff6b9d" id="nb-amount-' + uid + '">' + formatWon(initAmt) + '</span>'
+      + '</div>'
+      + '<div class="monthly-calc-note">30년 만기, 1회차 납입금 기준 약식 계산 결과입니다.</div>'
+      + '</div></div>';
+  }
+
+  function selectNbTab(btn) {
+    const uid = btn.dataset.uid;
+    const method = btn.dataset.method;
+    const principal = parseFloat(btn.dataset.principal);
+    const rate = parseFloat(btn.dataset.rate);
+    document.querySelectorAll('[data-uid="' + uid + '"]').forEach(function(b) {
+      b.classList.remove('active-nb');
+    });
+    btn.classList.add('active-nb');
+    const amtEl = document.getElementById('nb-amount-' + uid);
+    if (amtEl) amtEl.textContent = formatWon(calcMonthly(principal, rate, method, 30));
+  }
+
+  function newbornRateTableHtml(income) {
+    const rows = [
+      ['~2천만원',          1.80, 2.00, 2.05, income <= 2000],
+      ['2천~4천만원',       2.15, 2.35, 2.40, income > 2000 && income <= 4000],
+      ['4천~6천만원',       2.40, 2.60, 2.65, income > 4000 && income <= 6000],
+      ['6천~8.5천만원',     2.65, 2.85, 2.90, income > 6000 && income <= 8500],
+      ['8.5천~1억원',       2.90, 3.10, 3.20, income > 8500 && income <= 10000],
+      ['1억~1.3억원',       3.20, 3.40, 3.50, income > 10000 && income <= 13000],
+      ['(맞벌이)1.3~1.5억', 3.50, 3.70, 3.80, income > 13000 && income <= 15000],
+      ['(맞벌이)1.5~1.7억', 3.85, 4.05, 4.15, income > 15000 && income <= 17000],
+      ['(맞벌이)1.7~2억',   4.20, 4.40, 4.50, income > 17000],
+    ];
+    let tbody = '';
+    rows.forEach(function(r) {
+      const label = r[0], r10 = r[1], r20 = r[2], r30 = r[3], mine = r[4];
+      const bg = mine ? 'background:rgba(255,107,157,0.15)' : '';
+      const fw = mine ? 'font-weight:700;color:#ff6b9d' : 'color:var(--label2)';
+      tbody += '<tr style="' + bg + '">'
+        + '<td style="padding:7px 8px;' + fw + '">' + label + (mine ? ' ◀' : '') + '</td>'
+        + '<td style="padding:7px 8px;text-align:center;' + fw + '">' + r10 + '%</td>'
+        + '<td style="padding:7px 8px;text-align:center;' + fw + '">' + r20 + '%</td>'
+        + '<td style="padding:7px 8px;text-align:center;' + fw + '">' + r30 + '%</td>'
+        + '</tr>';
+    });
+    return '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
+      + '<thead><tr style="background:rgba(255,107,157,0.1)">'
+      + '<th style="padding:8px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.1);color:var(--label2)">소득구간</th>'
+      + '<th style="padding:8px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);color:var(--label2)">10년</th>'
+      + '<th style="padding:8px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);color:var(--label2)">20년</th>'
+      + '<th style="padding:8px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.1);color:var(--label2)">30년</th>'
+      + '</tr></thead>'
+      + '<tbody>' + tbody + '</tbody>'
+      + '</table></div>';
+  }
+
+  // 신생아특례 금리표 (소득 만원 기준)
+  function getNewbornRate(incomeMM) {
+    // incomeMM: 만원 단위 / max30: 30년 기준 금리
+    if (incomeMM <= 2000)  return { min: 1.80, max: 2.05, max30: 2.05, label: '2천만원 이하' };
+    if (incomeMM <= 4000)  return { min: 2.15, max: 2.40, max30: 2.40, label: '2천~4천만원' };
+    if (incomeMM <= 6000)  return { min: 2.40, max: 2.65, max30: 2.65, label: '4천~6천만원' };
+    if (incomeMM <= 8500)  return { min: 2.65, max: 2.90, max30: 2.90, label: '6천~8.5천만원' };
+    if (incomeMM <= 10000) return { min: 2.90, max: 3.20, max30: 3.20, label: '8.5천만~1억원' };
+    if (incomeMM <= 13000) return { min: 3.20, max: 3.50, max30: 3.50, label: '1억~1.3억원' };
+    if (incomeMM <= 15000) return { min: 3.50, max: 3.80, max30: 3.80, label: '(맞벌이) 1.3억~1.5억' };
+    if (incomeMM <= 17000) return { min: 3.85, max: 4.15, max30: 4.15, label: '(맞벌이) 1.5억~1.7억' };
+    return { min: 4.20, max: 4.50, max30: 4.50, label: '(맞벌이) 1.7억~2억' };
+  }
+
+  function buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk) {
+    var failNb = [];
+    if (!nbHouseOk)  failNb.push('주택상황 (' + house + ') — 무주택·생애최초·1주택(대환 목적)만 해당');
+    if (!nbIncomeOk) failNb.push('소득 ' + income.toLocaleString() + '만 > 20,000만 (2억)');
+    if (!nbAssetOk)  failNb.push('순자산 ' + asset + '억 > 4.88억');
+    if (!nbPriceOk)  failNb.push('주택가격 ' + price + '억 > 9억');
+    var failTags = failNb.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
+    return '<div class="result-header-area"><div class="result-badge-wrap">'
+      + '<div class="result-icon grey">🏦</div>'
+      + '<div><div class="result-option-label grey">ALTERNATIVE</div><div class="result-title">시중은행</div></div>'
+      + '</div></div>'
+      + '<div class="result-group"><div class="result-tagline grey-border">입력하신 조건은 주택기금 대출 요건을 충족하지 않습니다. 시중은행을 알아봐주세요.</div></div>'
+      + '<div class="result-spacer"></div>'
+      + '<div class="group-label">미해당 사유</div>'
+      + '<div class="result-group"><div class="tag-section"><div class="tags">' + failTags + '</div></div></div>'
+      + '<div class="result-spacer"></div>'
+      + noticeHtml()
+      + '<div class="result-spacer"></div>'
+      + donateHtml()
+      + '<div class="result-spacer-sm"></div>'
+      + '<button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>';
+  }
+
+  function buildNewbornHtml(o) {
+    var newbornOk = o.newbornOk, didimdolOk = o.didimdolOk, bogeumjariOk = o.bogeumjariOk;
+    var income = o.income, price = o.price, asset = o.asset;
+    var household = o.household, house = o.house, children = o.children;
+    var nbRate = o.nbRate, nbLtvLimit = o.nbLtvLimit, nbMaxLimit = o.nbMaxLimit, nbFinalLimit = o.nbFinalLimit;
+    var dLtvLimit = o.dLtvLimit, dMaxLimit = o.dMaxLimit, dFinalLimit = o.dFinalLimit;
+    var dIncomeLimit = o.dIncomeLimit, dPriceLimit = o.dPriceLimit;
+    var bLtvLimit = o.bLtvLimit, bMaxLimit = o.bMaxLimit, bFinalLimit = o.bFinalLimit, bIncomeLimit = o.bIncomeLimit;
+    var rateInfo = nbRate || getNewbornRate(income);
+
+    var tabs = [];
+    if (newbornOk)    tabs.push('newborn');
+    if (didimdolOk)   tabs.push('didimdol');
+    if (bogeumjariOk) tabs.push('bogeumjari');
+    var firstTab = tabs[0];
+
+    // 탭 버튼 HTML
+    function makeTabBtn(id, badge, name, limit, colorCls) {
+      var isFirst = id === firstTab;
+      var cls = 'result-tab' + (isFirst && colorCls !== 'nb' ? ' active-' + colorCls : '');
+      var styleAttr = (isFirst && colorCls === 'nb') ? ' style="background:rgba(255,107,157,0.15);border-color:#ff6b9d;color:#ff6b9d"' : '';
+      var badgeStyle = colorCls === 'nb' ? ' style="background:rgba(255,107,157,0.15);color:#ff6b9d"' : '';
+      var badgeCls = colorCls === 'nb' ? 'result-tab-badge' : 'result-tab-badge ' + colorCls;
+      return '<button class="' + cls + '"' + styleAttr + ' data-tab="' + id + '" onclick="switchTab3(this.dataset.tab)">'
+        + '<span class="' + badgeCls + '"' + badgeStyle + '>' + badge + '</span>'
+        + '<span class="result-tab-name">' + name + '</span>'
+        + '<span class="result-tab-limit">' + limit + '</span>'
+        + '</button>';
+    }
+
+    var tabsHtml = '<div class="result-tabs" id="tabs3-wrap">';
+    if (newbornOk)    tabsHtml += makeTabBtn('newborn',    '금리 최저', '신생아 디딤돌',  formatLimit(nbFinalLimit), 'nb');
+    if (didimdolOk)   tabsHtml += makeTabBtn('didimdol',   newbornOk ? '차선책' : '금리 낮음', '디딤돌 대출', formatLimit(dFinalLimit), 'blue');
+    if (bogeumjariOk) tabsHtml += makeTabBtn('bogeumjari', (newbornOk || didimdolOk) ? '한도 우위' : '추천', '보금자리론', formatLimit(bFinalLimit), 'green');
+    tabsHtml += '</div>';
+
+    // 신생아 패널
+    var paneNewborn = '';
+    if (newbornOk) {
+      paneNewborn = '<div class="tab-pane3' + (firstTab === 'newborn' ? ' active' : '') + '" id="pane3-newborn">'
+        + '<div class="result-group"><div class="result-tagline" style="border-left:3px solid #ff6b9d">최저 1.8% 특례금리 · 기본 5년 적용 (추가 출산 시 최장 15년)</div></div>'
+        + '<div class="result-spacer"></div>'
+        + '<div class="group-label">상품 정보</div>'
+        + '<div class="result-group"><div class="rate-limit-row">'
+        + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val" style="color:#ff6b9d">' + rateInfo.min + '~' + rateInfo.max + '%</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val" style="color:#ff6b9d">' + formatLimit(nbFinalLimit) + '</span></div>'
+        + '</div></div>'
+        + '<div class="result-spacer-sm"></div>'
+        + '<div class="result-group">' + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30) + '</div>'
+        + '<div class="result-spacer"></div>'
+        + '<div class="group-label">충족 조건</div>'
+        + '<div class="result-group"><div class="tag-section"><div class="tags">'
+        + '<span class="tag pass">✓ 주택상황 (' + house + ')</span>'
+        + '<span class="tag pass">✓ 소득 ' + income.toLocaleString() + '만 ≤ 20,000만</span>'
+        + '<span class="tag pass">✓ 순자산 ' + asset + '억 ≤ 4.88억</span>'
+        + '<span class="tag pass">✓ 주택가격 ' + price + '억 ≤ 9억</span>'
+        + '</div></div></div>'
+        + '<div class="result-spacer"></div>'
+        + '<div class="group-label">소득별 금리 (소득구간: ' + rateInfo.label + ')</div>'
+        + '<div class="result-group">' + newbornRateTableHtml(income)
+        + '<div class="limit-reason" style="margin-top:8px">※ 특례금리 기본 5년 · 추가출산 +5년(최장 15년) · 취급은행: 우리·신한·국민·농협·하나</div></div>'
+        + '<div class="result-spacer"></div>'
+        + newbornFaqHtml()
+        + '</div>';
+    }
+
+    // 디딤돌 패널
+    var paneDidimdol = '';
+    if (didimdolOk) {
+      paneDidimdol = '<div class="tab-pane3' + (firstTab === 'didimdol' ? ' active' : '') + '" id="pane3-didimdol">'
+        + '<div class="result-group"><div class="result-tagline">시중 어디에서도 볼 수 없는 파격적인 금리 혜택입니다.</div></div>'
+        + '<div class="result-spacer"></div>'
+        + '<div class="group-label">상품 정보</div>'
+        + '<div class="result-group"><div class="rate-limit-row">'
+        + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val blue">2.55~3.85%</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue">' + formatLimit(dFinalLimit) + '</span></div>'
+        + '</div></div>'
+        + '<div class="result-spacer-sm"></div>'
+        + '<div class="result-group">' + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children) + '</div>'
+        + '<div class="result-spacer"></div>'
+        + '<div class="group-label">충족 조건</div>'
+        + '<div class="result-group"><div class="tag-section"><div class="tags">'
+        + '<span class="tag pass">✓ 주택상황 (' + house + ')</span>'
+        + '<span class="tag pass">✓ 순자산 ' + asset + '억 ≤ 5.11억</span>'
+        + '<span class="tag pass">✓ 소득 ' + income.toLocaleString() + '만 ≤ ' + dIncomeLimit.toLocaleString() + '만</span>'
+        + '<span class="tag pass">✓ 주택가격 ' + price + '억 ≤ ' + dPriceLimit + '억</span>'
+        + '</div></div></div>'
+        + '</div>';
+    }
+
+    // 보금자리론 패널
+    var paneBogeumjari = '';
+    if (bogeumjariOk) {
+      paneBogeumjari = '<div class="tab-pane3' + (firstTab === 'bogeumjari' ? ' active' : '') + '" id="pane3-bogeumjari">'
+        + '<div class="result-group"><div class="result-tagline green-border">DSR을 보지 않기 때문에 소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.</div></div>'
+        + '<div class="result-spacer"></div>'
+        + '<div class="group-label">상품 정보</div>'
+        + '<div class="result-group"><div class="rate-limit-row">'
+        + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val green">4.05~4.35%</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val green">' + formatLimit(bFinalLimit) + '</span></div>'
+        + '</div></div>'
+        + '<div class="result-spacer-sm"></div>'
+        + '<div class="result-group">' + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children) + '</div>'
+        + '<div class="result-spacer"></div>'
+        + '<div class="group-label">충족 조건</div>'
+        + '<div class="result-group"><div class="tag-section"><div class="tags">'
+        + '<span class="tag pass">✓ 주택상황 (' + house + ')</span>'
+        + '<span class="tag pass">✓ 주택가격 ' + price + '억 ≤ 6억</span>'
+        + '<span class="tag pass">✓ 소득 ' + income.toLocaleString() + '만 ≤ ' + bIncomeLimit.toLocaleString() + '만</span>'
+        + '</div></div></div>'
+        + '</div>';
+    }
+
+    return '<div class="result-header-area"><div class="result-badge-wrap">'
+      + '<div class="result-icon" style="background:linear-gradient(135deg,#ff6b9d,#ff8c42);font-size:28px">👶</div>'
+      + '<div><div class="result-option-label" style="color:#ff6b9d">신생아 특례 해당</div><div class="result-title">상품을 비교해 보세요</div></div>'
+      + '</div></div>'
+      + tabsHtml
+      + paneNewborn + paneDidimdol + paneBogeumjari
+      + '<div class="result-spacer"></div>'
+      + '<div class="group-label">상환방식</div>'
+      + repayHtml('didimdol')
+      + '<div class="result-spacer"></div>'
+      + noticeHtml()
+      + '<div class="result-spacer"></div>'
+      + donateHtml()
+      + '<div class="result-spacer-sm"></div>'
+      + '<button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>';
+  }
+
   function renderResult(income, price, asset) {
     const { household, house, children } = answers;
 
-    // 디딤돌 자격
+    // 신생아 여부 (자녀수 슬라이드에서 "신생아" 선택)
+    const isNewborn = children === '신생아';
+
+    // 신생아 특례 자격
+    const nbHouseOk  = house === '무주택' || house === '생애최초' || house === '1주택(대환)';
+    const nbIncomeOk = income <= 20000;
+    const nbAssetOk  = asset <= 4.88;
+    const nbPriceOk  = price <= 9;
+    const newbornOk  = isNewborn && nbHouseOk && nbIncomeOk && nbAssetOk && nbPriceOk;
+
+    // 신생아 특례 한도
+    const nbLtvRate    = 0.7; // 신생아 특례: LTV 70% 기준 (생애최초 포함)
+    const nbLtvLimit   = price * nbLtvRate;
+    const nbMaxLimit   = 4.0;
+    const nbFinalLimit = Math.min(nbLtvLimit, nbMaxLimit);
+    const nbRate       = isNewborn ? getNewbornRate(income) : null;
+
+    // 디딤돌 자격 (신생아도 디딤돌 조건 동시 체크)
     const dHouseOk = house === '무주택' || house === '생애최초';
     const dAssetOk = asset <= 5.11;
     let dIncomeLimit = 6000;
-    if (house === '생애최초' || children === '2명이상') dIncomeLimit = 7000;
+    if (house === '생애최초' || children === '2명이상' || isNewborn) dIncomeLimit = 7000;
     if (household === '신혼') dIncomeLimit = 8500;
-    const dIncomeOk  = income <= dIncomeLimit;
-    let dPriceLimit  = 5;
-    if (household === '신혼' || children === '2명이상') dPriceLimit = 6;
-    const dPriceOk   = price <= dPriceLimit;
+    const dIncomeOk = income <= dIncomeLimit;
+    let dPriceLimit = 5;
+    if (household === '신혼' || children === '2명이상' || isNewborn) dPriceLimit = 6;
+    const dPriceOk  = price <= dPriceLimit;
     const didimdolOk = dHouseOk && dAssetOk && dIncomeOk && dPriceOk;
 
     // 디딤돌 한도
     let dMaxLimit = 2.0;
-    if (household === '신혼' || children === '2명이상') dMaxLimit = 3.2;
+    if (household === '신혼' || children === '2명이상' || isNewborn) dMaxLimit = 3.2;
     else if (house === '생애최초') dMaxLimit = 2.4;
     const dLtvLimit   = price * 0.7;
     const dFinalLimit = Math.min(dLtvLimit, dMaxLimit);
@@ -1366,7 +1484,7 @@
     const bHouseOk = house !== '1주택이상';
     let bIncomeLimit = 7000;
     if (household === '신혼') bIncomeLimit = 8500;
-    if (children === '2명이상') bIncomeLimit = 10000;
+    if (children === '2명이상' || isNewborn) bIncomeLimit = 10000;
     const bIncomeOk    = income <= bIncomeLimit;
     const bPriceOk     = price <= 6;
     const bogeumjariOk = bHouseOk && bIncomeOk && bPriceOk;
@@ -1374,14 +1492,28 @@
     // 보금자리론 한도
     let bMaxLimit = 3.6;
     if (house === '생애최초') bMaxLimit = 4.2;
-    else if (children === '2명이상') bMaxLimit = 4.0;
+    else if (children === '2명이상' || isNewborn) bMaxLimit = 4.0;
     const bLtvLimit   = price * 0.7;
     const bFinalLimit = Math.min(bLtvLimit, bMaxLimit);
 
     let html = '';
 
+    // ══ 케이스 N: 신생아 ══
+    if (isNewborn) {
+      if (newbornOk || didimdolOk || bogeumjariOk) {
+        html = buildNewbornHtml({
+          newbornOk, didimdolOk, bogeumjariOk,
+          income, price, asset, household, house, children,
+          nbRate, nbLtvLimit, nbMaxLimit, nbFinalLimit,
+          dLtvLimit, dMaxLimit, dFinalLimit, dIncomeLimit, dPriceLimit,
+          bLtvLimit, bMaxLimit, bFinalLimit, bIncomeLimit
+        });
+      } else {
+        html = buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk);
+      }
+
     // ══ 케이스 A: 둘 다 해당 ══
-    if (didimdolOk && bogeumjariOk) {
+    } else if (didimdolOk && bogeumjariOk) {
       html = `
         <!-- 상단 안내 -->
         <div class="result-header-area">
@@ -1675,6 +1807,27 @@
     }
   }
 
+  function switchTab3(tab) {
+    document.querySelectorAll('.tab-pane3').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelectorAll('#tabs3-wrap .result-tab').forEach(function(t) {
+      t.classList.remove('active-blue', 'active-green');
+      t.removeAttribute('style');
+    });
+    var pane = document.getElementById('pane3-' + tab);
+    if (pane) pane.classList.add('active');
+    document.querySelectorAll('#tabs3-wrap .result-tab').forEach(function(t) {
+      if (t.dataset.tab === tab) {
+        if (tab === 'newborn') {
+          t.style.cssText = 'background:rgba(255,107,157,0.15);border-color:#ff6b9d;color:#ff6b9d';
+        } else if (tab === 'didimdol') {
+          t.classList.add('active-blue');
+        } else {
+          t.classList.add('active-green');
+        }
+      }
+    });
+  }
+
     function buildFailD(dHouseOk, dAssetOk, dIncomeOk, dPriceOk, asset, income, dIncomeLimit, price, dPriceLimit, house) {
     const r = [];
     if (!dHouseOk) r.push(`주택상황 (${house}) — 무주택·생애최초만 해당`);
@@ -1688,10 +1841,13 @@
   function repayHtml(type) {
     const isBogeumjari = type === 'bogeumjari';
     const tenure = isBogeumjari
-      ? '10년 · 15년 · 20년 · 30년 · 40년 · 50년 <span style="color:var(--label3);font-size:11px">(만기 40년은 만 40세 미만 또는 만 50세 미만 신혼가구, 50년은 만 35세 미만 또는 만 40세 미만 신혼가구 조건 필요)</span>'
-      : '10년 · 15년 · 20년 · 30년 <span style="color:var(--label3);font-size:11px">(거치기간 1년 또는 비거치)</span>';
+      ? '10년, 15년, 20년, 30년, 40년, 50년'
+        + '<div style="color:var(--label3);font-size:11px;margin-top:4px;line-height:1.6">'
+        + '· 만기 <strong style="color:var(--label2)">40년</strong>: 만 40세 미만 또는 만 50세 미만 신혼가구<br>'
+        + '· 만기 <strong style="color:var(--label2)">50년</strong>: 만 35세 미만 또는 만 40세 미만 신혼가구</div>'
+      : '10년, 15년, 20년, 30년 <span style="color:var(--label3);font-size:11px">(거치기간 1년 또는 비거치)</span>';
     const teungjeungNote = isBogeumjari
-      ? '만 40세 미만 또는 공사 사전심사 통과 시 가능, 50년 만기는 선택 불가'
+      ? '체증식은 만 40세 미만 채무자 및 공사가 사전심사한 경우에만 허용되며, 대출만기 50년 적용 불가'
       : '만 40세 미만 근로자이며 고정금리 선택 시만 가능';
     return `
       <div class="result-group">
@@ -1714,6 +1870,58 @@
           <span class="repay-tenure-val">${tenure}</span>
         </div>
       </div>`;
+  }
+
+  // ── 신생아 특례 FAQ HTML ──
+  function newbornFaqHtml() {
+    const faqs = [
+      {
+        q: '최대 얼마까지 빌릴 수 있나요?',
+        a: '최대 4억 원 이내입니다. (단, 2025년 6월 27일 이전 계약 건은 기존처럼 5억 원까지 가능합니다.)<br><br>LTV(주택담보대출비율)는 70%가 기준이며, 생애최초 주택구입자는 <strong>80%</strong>까지 가능합니다.<br><br><strong>주의:</strong> 수도권 및 규제지역 소재 주택은 생애최초라도 <strong>70%</strong>까지만 적용됩니다.'
+      },
+      {
+        q: '소득과 자산 기준은 어떻게 되나요?',
+        a: '부부합산 연 소득 1.3억 원 이하(맞벌이 가구는 2억 원 이하)여야 하며, 합산 순자산 가액은 5.11억 원 이하(2026년 기준)여야 합니다.'
+      },
+      {
+        q: '금리는 어떻게 적용되나요?',
+        a: '소득 수준에 따라 <strong>연 1.8% ~ 4.5%</strong>의 특례 금리가 적용됩니다. 특례금리는 기본 5년 적용되며, 추가 출산 시 1명당 5년 연장(최장 15년)됩니다.'
+      },
+      {
+        q: '어떤 집을 살 때 대출이 가능한가요?',
+        a: '담보주택의 평가액이 9억 원 이하이고, 주거 전용면적이 85㎡ 이하(읍·면 지역은 100㎡ 이하)인 주택입니다.'
+      },
+      {
+        q: '기존 대출을 이 상품으로 바꿀 수 있나요? (대환)',
+        a: '네, 1주택자인 경우 기존 주택담보대출 상환 목적으로 신청이 가능합니다. 단, 대출 신청 시점에 다른 자격 요건(소득, 자녀 출산 등)을 모두 충족해야 합니다.'
+      },
+      {
+        q: '신청은 언제, 어디서 하나요?',
+        a: '소유권 이전 등기 전이나 등기 접수일로부터 3개월 이내에 신청해야 합니다. 온라인은 <strong>기금e든든 홈페이지</strong>, 오프라인은 수탁은행(우리, 국민, 농협, 신한, 하나)에서 가능합니다.'
+      },
+      {
+        q: '중도상환수수료가 있나요?',
+        a: '3년 이내 상환 시 최대 <strong>1.2%</strong>의 수수료가 발생합니다.'
+      }
+    ];
+    const items = faqs.map(function(f, i) {
+      return '<div class="faq-item" id="nbfaq-' + i + '">'
+        + '<button class="faq-q" onclick="toggleNbFaq(' + i + ')">'
+        + '<span class="faq-q-text">' + f.q + '</span>'
+        + '<span class="faq-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>'
+        + '</button>'
+        + '<div class="faq-a"><div class="faq-a-text">' + f.a + '</div></div>'
+        + '</div>';
+    }).join('');
+    return '<div class="group-label">자주 묻는 질문</div><div class="faq-section">' + items + '</div>';
+  }
+
+  function toggleNbFaq(idx) {
+    const item = document.getElementById('nbfaq-' + idx);
+    if (!item) return;
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item').forEach(function(el) { el.classList.remove('open'); });
+    if (!isOpen) item.classList.add('open');
   }
 
   // ── FAQ HTML ──
