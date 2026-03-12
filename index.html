@@ -1288,7 +1288,9 @@
     return { min: 4.20, max: 4.50, max30: 4.50, label: '(맞벌이) 1.7억~2억' };
   }
 
-  function buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk, tagsOnly) {
+  function buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk, tagsOnly,
+                                 dHouseOk, dAssetOk, dIncomeOk, dPriceOk, dIncomeLimit, dPriceLimit,
+                                 bHouseOk, bIncomeOk, bPriceOk, bIncomeLimit) {
     var failNb = [];
     if (!nbHouseOk)  failNb.push('주택상황 (' + house + ') — 무주택·생애최초·1주택(대환 목적)만 해당');
     if (!nbIncomeOk) failNb.push('소득 ' + income.toLocaleString() + '만 > 20,000만 (2억)');
@@ -1296,14 +1298,30 @@
     if (!nbPriceOk)  failNb.push('주택가격 ' + price + '억 > 9억');
     var failTags = failNb.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
     if (tagsOnly) return failTags;
+
+    // 디딤돌 미해당 사유
+    var failD = buildFailD(dHouseOk, dAssetOk, dIncomeOk, dPriceOk, asset, income, dIncomeLimit, price, dPriceLimit, house);
+    var failDTags = failD.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
+
+    // 보금자리론 미해당 사유
+    var failB = [];
+    if (!bHouseOk)  failB.push('주택상황 (' + house + ') — 1주택 이상은 해당 없음');
+    if (!bIncomeOk) failB.push('소득 ' + income.toLocaleString() + '만 > ' + bIncomeLimit.toLocaleString() + '만');
+    if (!bPriceOk)  failB.push('주택가격 ' + price + '억 > 6억');
+    var failBTags = failB.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
+
     return '<div class="result-header-area"><div class="result-badge-wrap">'
       + '<div class="result-icon grey">🏦</div>'
       + '<div><div class="result-option-label grey">ALTERNATIVE</div><div class="result-title">시중은행</div></div>'
       + '</div></div>'
       + '<div class="result-group"><div class="result-tagline grey-border">입력하신 조건은 주택기금 대출 요건을 충족하지 않습니다. 시중은행을 알아봐주세요.</div></div>'
       + '<div class="result-spacer"></div>'
-      + '<div class="group-label">미해당 사유</div>'
-      + '<div class="result-group"><div class="tag-section"><div class="tags">' + failTags + '</div></div></div>'
+      + '<div class="group-label">자격 검토</div>'
+      + '<div class="result-group">'
+      + '<div class="tag-section"><div class="tag-section-label">신생아 특례 미해당 사유</div><div class="tags">' + failTags + '</div></div>'
+      + '<div class="tag-section"><div class="tag-section-label">디딤돌 미해당 사유</div><div class="tags">' + failDTags + '</div></div>'
+      + '<div class="tag-section"><div class="tag-section-label">보금자리론 미해당 사유</div><div class="tags">' + failBTags + '</div></div>'
+      + '</div>'
       + '<div class="result-spacer"></div>'
       + noticeHtml()
       + '<div class="result-spacer"></div>'
@@ -1317,6 +1335,7 @@
     var income = o.income, price = o.price, asset = o.asset;
     var household = o.household, house = o.house, children = o.children;
     var nbRate = o.nbRate, nbLtvLimit = o.nbLtvLimit, nbMaxLimit = o.nbMaxLimit, nbFinalLimit = o.nbFinalLimit;
+    var nbHouseOk = o.nbHouseOk, nbIncomeOk = o.nbIncomeOk, nbAssetOk = o.nbAssetOk, nbPriceOk = o.nbPriceOk;
     var dLtvLimit = o.dLtvLimit, dMaxLimit = o.dMaxLimit, dFinalLimit = o.dFinalLimit;
     var dIncomeLimit = o.dIncomeLimit, dPriceLimit = o.dPriceLimit;
     var bLtvLimit = o.bLtvLimit, bMaxLimit = o.bMaxLimit, bFinalLimit = o.bFinalLimit, bIncomeLimit = o.bIncomeLimit;
@@ -1434,12 +1453,27 @@
         + '</div>';
     }
 
+    // 신생아 특례 미해당 사유 블록 (다른 상품은 해당되지만 신생아만 미해당인 경우)
+    var nbFailBlock = '';
+    if (!newbornOk) {
+      var failNbTags = [];
+      if (!nbHouseOk)  failNbTags.push('주택상황 (' + house + ') — 무주택·생애최초·1주택(대환 목적)만 해당');
+      if (!nbIncomeOk) failNbTags.push('소득 ' + income.toLocaleString() + '만 > 20,000만 (2억)');
+      if (!nbAssetOk)  failNbTags.push('순자산 ' + asset + '억 > 4.88억');
+      if (!nbPriceOk)  failNbTags.push('주택가격 ' + price + '억 > 9억');
+      var nbFailTagsHtml = failNbTags.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
+      nbFailBlock = '<div class="result-spacer"></div>'
+        + '<div class="group-label">신생아 특례 미해당 사유</div>'
+        + '<div class="result-group"><div class="tag-section"><div class="tags">' + nbFailTagsHtml + '</div></div></div>';
+    }
+
     return '<div class="result-header-area"><div class="result-badge-wrap">'
       + '<div class="result-icon" style="background:linear-gradient(135deg,#ff6b9d,#ff8c42);font-size:28px">👶</div>'
       + '<div><div class="result-option-label" style="color:#ff6b9d">신생아 특례 해당</div><div class="result-title">상품을 비교해 보세요</div></div>'
       + '</div></div>'
       + tabsHtml
       + paneNewborn + paneDidimdol + paneBogeumjari
+      + nbFailBlock
       + '<div class="result-spacer"></div>'
       + noticeHtml()
       + '<div class="result-spacer"></div>'
@@ -1491,7 +1525,8 @@
     const bHouseOk = house !== '1주택이상';
     let bIncomeLimit = 7000;
     if (household === '신혼') bIncomeLimit = 8500;
-    if (children === '2명이상' || isNewborn) bIncomeLimit = 10000;
+    if (children === '1명') bIncomeLimit = Math.max(bIncomeLimit, 9000);
+    if (children === '2명이상') bIncomeLimit = 10000;
     const bIncomeOk    = income <= bIncomeLimit;
     const bPriceOk     = price <= 6;
     const bogeumjariOk = bHouseOk && bIncomeOk && bPriceOk;
@@ -1512,11 +1547,14 @@
           newbornOk, didimdolOk, bogeumjariOk,
           income, price, asset, household, house, children,
           nbRate, nbLtvLimit, nbMaxLimit, nbFinalLimit,
+          nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk,
           dLtvLimit, dMaxLimit, dFinalLimit, dIncomeLimit, dPriceLimit,
           bLtvLimit, bMaxLimit, bFinalLimit, bIncomeLimit
         });
       } else {
-        html = buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk);
+        html = buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk, false,
+          dHouseOk, dAssetOk, dIncomeOk, dPriceOk, dIncomeLimit, dPriceLimit,
+          bHouseOk, bIncomeOk, bPriceOk, bIncomeLimit);
       }
 
     // ══ 케이스 A: 둘 다 해당 ══
