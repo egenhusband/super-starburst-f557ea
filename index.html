@@ -725,6 +725,62 @@
   .note-card.neutral strong { color: var(--label2); }
 
   /* ── 재시작 버튼 ── */
+
+  /* ── 시중대출 폼 ── */
+  .bank-form-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .bank-form-label {
+    width: 72px;
+    font-size: 13px;
+    color: var(--label2);
+    flex-shrink: 0;
+  }
+  .bank-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .bank-input {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--fg);
+    font-size: 15px;
+    width: 110px;
+    outline: none;
+  }
+  .bank-input:focus { border-color: var(--accent); }
+  .bank-unit {
+    font-size: 13px;
+    color: var(--label3);
+  }
+  .bank-ltv-badge {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--card);
+  }
+  .bank-tag-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--label2);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .bank-tag-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(59,130,246,0.1);
+  }
   .btn-restart {
     width: 100%;
     height: 52px;
@@ -808,8 +864,32 @@
 
   <div class="slides" id="slidesContainer">
 
+    <!-- intro: 대출 유형 선택 (기금 vs 시중) -->
+    <div class="slide active" data-slide="intro">
+      <div>
+        <div class="slide-question">어떤 대출을<br>알아보시나요?</div>
+        <div class="slide-sub">대출 유형에 따라 추천 방식이 달라져요</div>
+      </div>
+      <div class="options">
+        <div class="option-card" data-group="loanType" data-val="fund" onclick="selectLoanType('fund')">
+          <div>
+            <div class="option-title">🏛️ 기금 대출</div>
+            <div class="option-desc">디딤돌 · 보금자리론 · 신생아특례 — 정부 저금리 정책 상품</div>
+          </div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" data-group="loanType" data-val="bank" onclick="selectLoanType('bank')">
+          <div>
+            <div class="option-title">🏦 시중 대출</div>
+            <div class="option-desc">시중은행 주택담보대출 — 금감원 실시간 금리 비교</div>
+          </div>
+          <div class="option-check"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- 0: 가구유형 -->
-    <div class="slide active" data-slide="0">
+    <div class="slide" data-slide="0">
       <div>
         <div class="slide-question">가구유형이<br>어떻게 되시나요?</div>
       </div>
@@ -967,7 +1047,8 @@
 
 <script>
   const TOTAL = 6;
-  let current = 0;
+  let current = 0;      // 0 = intro, 1~6 = 기금대출 슬라이드
+  let loanType = null;  // 'fund' | 'bank'
   const answers = { household: null, house: null, children: null };
 
   document.querySelectorAll('.option-card').forEach(card => {
@@ -985,12 +1066,13 @@
   });
 
   function canProceed() {
-    if (current === 0) return !!answers.household;
-    if (current === 1) return !!answers.house;
-    if (current === 2) return !!answers.children;
-    if (current === 3) return document.getElementById('income').value !== '';
-    if (current === 4) return document.getElementById('price').value !== '';
-    if (current === 5) return document.getElementById('asset').value !== '';
+    if (current === 0) return !!loanType;   // intro
+    if (current === 1) return !!answers.household;
+    if (current === 2) return !!answers.house;
+    if (current === 3) return !!answers.children;
+    if (current === 4) return document.getElementById('income').value !== '';
+    if (current === 5) return document.getElementById('price').value !== '';
+    if (current === 6) return document.getElementById('asset').value !== '';
     return true;
   }
 
@@ -999,13 +1081,24 @@
   }
 
   function setProgress(step) {
-    const pct = step >= TOTAL ? 100 : Math.round((step / TOTAL) * 100);
+    const step2 = step > 0 ? step - 1 : 0;  // intro 제외
+    const pct = step2 >= TOTAL ? 100 : Math.round((step2 / TOTAL) * 100);
     document.getElementById('progressFill').style.width = pct + '%';
-    document.getElementById('progressLabel').textContent = step < TOTAL ? `${step + 1} / ${TOTAL}` : '완료';
+    document.getElementById('progressLabel').textContent = step2 < TOTAL && step > 0 ? `${step2 + 1} / ${TOTAL}` : (step >= TOTAL + 1 ? '완료' : '');
   }
 
   function goNext() {
-    if (current === 5) {
+    // intro 슬라이드: 선택에 따라 분기
+    if (current === 0) {
+      if (loanType === 'bank') {
+        showBankLoanScreen();
+        return;
+      }
+      // 기금대출: 다음 슬라이드(slide 1)로
+      navigateTo(1);
+      return;
+    }
+    if (current === 6) {
       const income = parseFloat(document.getElementById('income').value);
       const price  = parseFloat(document.getElementById('price').value);
       const asset  = parseFloat(document.getElementById('asset').value);
@@ -1013,7 +1106,7 @@
       if (isNaN(price)  || price  < 0) { document.getElementById('priceErr').textContent  = '올바른 금액을 입력해주세요'; return; }
       if (isNaN(asset)  || asset  < 0) { document.getElementById('assetErr').textContent  = '올바른 금액을 입력해주세요'; return; }
       renderResult(income, price, asset);
-      navigateTo(6);
+      navigateTo(7);
       document.getElementById('bottomNav').style.display = 'none';
       document.getElementById('progressWrap').style.display = 'none';
       return;
@@ -1039,6 +1132,261 @@
     updateNextBtn();
     const inp = allSlides[current].querySelector('input');
     if (inp) setTimeout(() => inp.focus(), 400);
+  }
+
+
+  // ── 대출 유형 선택 ──
+  function selectLoanType(type) {
+    loanType = type;
+    document.querySelectorAll('[data-group="loanType"]').forEach(c => c.classList.remove('selected'));
+    document.querySelector(`[data-val="${type}"]`).classList.add('selected');
+    updateNextBtn();
+  }
+
+  // ── 시중대출 화면 표시 ──
+  function showBankLoanScreen() {
+    const allSlides = document.querySelectorAll('.slide');
+    allSlides[current].classList.remove('active');
+    allSlides[current].classList.add('exit');
+    const prev = current;
+    setTimeout(() => allSlides[prev].classList.remove('exit'), 380);
+
+    document.getElementById('bottomNav').style.display = 'none';
+    document.getElementById('progressWrap').style.display = 'none';
+
+    const resultSlide = document.querySelector('[data-slide="6"]');
+    resultSlide.classList.add('active');
+    resultSlide.innerHTML = buildBankLoanFormHtml();
+    current = allSlides.length - 1;
+  }
+
+  // ── 시중대출 입력 폼 HTML ──
+  function buildBankLoanFormHtml() {
+    return `
+      <div class="result-header-area">
+        <div class="result-badge-wrap">
+          <div class="result-icon blue">🏦</div>
+          <div>
+            <div class="result-option-label blue">시중 주택담보대출</div>
+            <div class="result-title">조건을 입력해주세요</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-group" style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
+
+        <div class="bank-form-row">
+          <label class="bank-form-label">주택가격</label>
+          <div class="bank-input-wrap">
+            <input class="bank-input" id="bankPrice" type="number" min="0" step="0.1" placeholder="예: 5" oninput="updateBankCalc()">
+            <span class="bank-unit">억원</span>
+          </div>
+        </div>
+
+        <div class="bank-form-row">
+          <label class="bank-form-label">대출금액</label>
+          <div class="bank-input-wrap">
+            <input class="bank-input" id="bankLoan" type="number" min="0" step="0.1" placeholder="예: 3" oninput="updateBankCalc()">
+            <span class="bank-unit">억원</span>
+          </div>
+          <span class="bank-ltv-badge" id="bankLtvBadge"></span>
+        </div>
+
+        <div class="bank-form-row">
+          <label class="bank-form-label">대출기간</label>
+          <div class="bank-input-wrap">
+            <input class="bank-input" id="bankYears" type="number" min="1" max="50" step="1" placeholder="예: 30" oninput="updateBankCalc()">
+            <span class="bank-unit">년</span>
+          </div>
+        </div>
+
+        <div class="bank-form-row">
+          <label class="bank-form-label">주택종류</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="bank-tag-btn active" id="mrtgA" onclick="toggleMrtg('A',this)">아파트</button>
+            <button class="bank-tag-btn" id="mrtgE" onclick="toggleMrtg('E',this)">아파트외</button>
+          </div>
+        </div>
+
+        <div class="bank-form-row">
+          <label class="bank-form-label">금리방식</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="bank-tag-btn active" id="rateF" onclick="toggleRate('F',this)">고정</button>
+            <button class="bank-tag-btn active" id="rateC" onclick="toggleRate('C',this)">변동</button>
+          </div>
+        </div>
+
+        <div class="bank-form-row">
+          <label class="bank-form-label">상환방식</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="bank-tag-btn active" id="rpayD" onclick="toggleRpay('D',this)">분할상환</button>
+            <button class="bank-tag-btn active" id="rpayS" onclick="toggleRpay('S',this)">만기일시</button>
+          </div>
+        </div>
+
+      </div>
+
+      <button class="btn-next" style="margin-top:20px;width:100%;opacity:1" id="bankSearchBtn" onclick="searchBankLoans()">
+        🔍 금리 비교하기
+      </button>
+
+      <div id="bankResultArea" style="margin-top:16px"></div>
+
+      <div class="result-spacer"></div>
+      <button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>
+    `;
+  }
+
+  // 시중대출 필터 상태
+  const bankFilter = { mrtg: ['A'], rate: ['F','C'], rpay: ['D','S'] };
+
+  function toggleMrtg(val, btn) {
+    const idx = bankFilter.mrtg.indexOf(val);
+    if (idx >= 0) { if (bankFilter.mrtg.length > 1) { bankFilter.mrtg.splice(idx,1); btn.classList.remove('active'); } }
+    else { bankFilter.mrtg.push(val); btn.classList.add('active'); }
+  }
+  function toggleRate(val, btn) {
+    const idx = bankFilter.rate.indexOf(val);
+    if (idx >= 0) { if (bankFilter.rate.length > 1) { bankFilter.rate.splice(idx,1); btn.classList.remove('active'); } }
+    else { bankFilter.rate.push(val); btn.classList.add('active'); }
+  }
+  function toggleRpay(val, btn) {
+    const idx = bankFilter.rpay.indexOf(val);
+    if (idx >= 0) { if (bankFilter.rpay.length > 1) { bankFilter.rpay.splice(idx,1); btn.classList.remove('active'); } }
+    else { bankFilter.rpay.push(val); btn.classList.add('active'); }
+  }
+
+  function updateBankCalc() {
+    const price = parseFloat(document.getElementById('bankPrice')?.value);
+    const loan  = parseFloat(document.getElementById('bankLoan')?.value);
+    const badge = document.getElementById('bankLtvBadge');
+    if (badge && price > 0 && loan > 0) {
+      const ltv = Math.round((loan / price) * 100);
+      badge.textContent = 'LTV ' + ltv + '%';
+      badge.style.color = ltv > 70 ? '#ef4444' : '#22c55e';
+    } else if (badge) {
+      badge.textContent = '';
+    }
+  }
+
+  // ── 시중대출 API 조회 ──
+  async function searchBankLoans() {
+    const price = parseFloat(document.getElementById('bankPrice')?.value);
+    const loan  = parseFloat(document.getElementById('bankLoan')?.value);
+    const years = parseFloat(document.getElementById('bankYears')?.value) || 30;
+    const area  = document.getElementById('bankResultArea');
+
+    if (!price || !loan) {
+      area.innerHTML = '<div class="result-group"><div class="result-tagline grey-border">주택가격과 대출금액을 입력해주세요.</div></div>';
+      return;
+    }
+
+    area.innerHTML = '<div style="text-align:center;padding:32px;color:var(--label3)">🔄 금리 정보를 불러오는 중...</div>';
+
+    try {
+      const res = await fetch('/.netlify/functions/mortgage');
+      if (!res.ok) throw new Error('API 오류 ' + res.status);
+      const data = await res.json();
+      renderBankResults(data, loan, years);
+    } catch(e) {
+      area.innerHTML = `<div class="result-group"><div class="result-tagline grey-border">데이터를 불러오지 못했습니다.<br><small style="color:var(--label3)">${e.message}</small></div></div>`;
+    }
+  }
+
+  function renderBankResults(data, loanEok, years) {
+    const area = document.getElementById('bankResultArea');
+    const { baseList, optionList } = data;
+
+    // baseList를 코드로 맵핑
+    const baseMap = {};
+    baseList.forEach(b => { baseMap[b.fin_co_no + '_' + b.fin_prdt_cd] = b; });
+
+    // 옵션 필터링
+    const filtered = optionList.filter(o => {
+      const mrtgOk = bankFilter.mrtg.includes(o.mrtg_type);
+      const rateOk = bankFilter.rate.includes(o.lend_rate_type);
+      const rpayOk = bankFilter.rpay.includes(o.rpay_type);
+      return mrtgOk && rateOk && rpayOk && o.lend_rate_min > 0;
+    });
+
+    if (!filtered.length) {
+      area.innerHTML = '<div class="result-group"><div class="result-tagline grey-border">조건에 맞는 상품이 없습니다. 필터를 조정해보세요.</div></div>';
+      return;
+    }
+
+    // 상품별로 그룹핑 후 최저금리 기준 정렬
+    const prodMap = {};
+    filtered.forEach(o => {
+      const key = o.fin_co_no + '_' + o.fin_prdt_cd;
+      if (!prodMap[key]) prodMap[key] = { base: baseMap[key], options: [] };
+      prodMap[key].options.push(o);
+    });
+
+    const prods = Object.values(prodMap)
+      .filter(p => p.base)
+      .sort((a, b) => {
+        const minA = Math.min(...a.options.map(o => o.lend_rate_min));
+        const minB = Math.min(...b.options.map(o => o.lend_rate_min));
+        return minA - minB;
+      })
+      .slice(0, 10); // 상위 10개
+
+    const loanWon = loanEok * 100000000;
+    const n = years * 12;
+
+    const cards = prods.map((p, i) => {
+      const b = p.base;
+      const minRate = Math.min(...p.options.map(o => o.lend_rate_min));
+      const maxRate = Math.max(...p.options.map(o => o.lend_rate_max));
+      const avgRate = p.options.reduce((s, o) => s + (o.lend_rate_avg || 0), 0) / p.options.length;
+      const rateTypes = [...new Set(p.options.map(o => o.lend_rate_type_nm))].join('/');
+      const rpayTypes = [...new Set(p.options.map(o => o.rpay_type_nm))].join('/');
+      const isOnline = b.join_way && (b.join_way.includes('인터넷') || b.join_way.includes('스마트폰'));
+
+      // 월납입 추정 (원리금균등, 전월평균금리 기준)
+      const r = avgRate / 12 / 100;
+      const monthly = r > 0 ? Math.round((loanWon * r * Math.pow(1+r,n)) / (Math.pow(1+r,n)-1)) : 0;
+      const monthlyStr = monthly > 0 ? Math.round(monthly/10000).toLocaleString() + '만원/월' : '-';
+
+      const rankBadge = i === 0 ? '<span class="result-tab-badge nb" style="background:rgba(255,107,157,0.15);color:#ff6b9d">최저금리</span>' :
+                        i === 1 ? '<span class="result-tab-badge blue">2위</span>' :
+                        i === 2 ? '<span class="result-tab-badge green">3위</span>' : '';
+
+      return `
+        <div class="result-group" style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:6px">
+              ${rankBadge}
+              <span style="font-weight:700;font-size:15px">${b.kor_co_nm}</span>
+              ${isOnline ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(59,130,246,0.15);color:#60a5fa">앱/인터넷</span>' : ''}
+            </div>
+            <span style="font-size:13px;color:var(--label3)">${b.fin_prdt_nm}</span>
+          </div>
+          <div class="rate-limit-row" style="margin-bottom:6px">
+            <div class="info-pill">
+              <span class="info-pill-label">금리</span>
+              <span class="info-pill-val blue">${minRate.toFixed(2)}~${maxRate.toFixed(2)}%</span>
+            </div>
+            <div class="info-pill">
+              <span class="info-pill-label">월납입(추정)</span>
+              <span class="info-pill-val">${monthlyStr}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--label3)">${rateTypes}</span>
+            <span style="font-size:11px;color:var(--label3)">·</span>
+            <span style="font-size:11px;color:var(--label3)">${rpayTypes}</span>
+          </div>
+        </div>`;
+    }).join('');
+
+    area.innerHTML = `
+      <div class="group-label">금리 비교 결과 (낮은 순, 상위 10개)</div>
+      <div style="font-size:11px;color:var(--label3);margin-bottom:12px">※ 전월 취급 평균금리 기준 · 실제 금리는 심사 후 결정됩니다</div>
+      ${cards}
+      <div class="result-spacer"></div>
+      ${noticeHtml()}
+    `;
   }
 
   // ── 한도 포맷 ──
@@ -1288,21 +1636,40 @@
     return { min: 4.20, max: 4.50, max30: 4.50, label: '(맞벌이) 1.7억~2억' };
   }
 
-  function buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk) {
+  function buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk, tagsOnly,
+                                 dHouseOk, dAssetOk, dIncomeOk, dPriceOk, dIncomeLimit, dPriceLimit,
+                                 bHouseOk, bIncomeOk, bPriceOk, bIncomeLimit) {
     var failNb = [];
     if (!nbHouseOk)  failNb.push('주택상황 (' + house + ') — 무주택·생애최초·1주택(대환 목적)만 해당');
     if (!nbIncomeOk) failNb.push('소득 ' + income.toLocaleString() + '만 > 20,000만 (2억)');
     if (!nbAssetOk)  failNb.push('순자산 ' + asset + '억 > 4.88억');
     if (!nbPriceOk)  failNb.push('주택가격 ' + price + '억 > 9억');
     var failTags = failNb.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
+    if (tagsOnly) return failTags;
+
+    // 디딤돌 미해당 사유
+    var failD = buildFailD(dHouseOk, dAssetOk, dIncomeOk, dPriceOk, asset, income, dIncomeLimit, price, dPriceLimit, house);
+    var failDTags = failD.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
+
+    // 보금자리론 미해당 사유
+    var failB = [];
+    if (!bHouseOk)  failB.push('주택상황 (' + house + ') — 1주택 이상은 해당 없음');
+    if (!bIncomeOk) failB.push('소득 ' + income.toLocaleString() + '만 > ' + bIncomeLimit.toLocaleString() + '만');
+    if (!bPriceOk)  failB.push('주택가격 ' + price + '억 > 6억');
+    var failBTags = failB.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
+
     return '<div class="result-header-area"><div class="result-badge-wrap">'
       + '<div class="result-icon grey">🏦</div>'
       + '<div><div class="result-option-label grey">ALTERNATIVE</div><div class="result-title">시중은행</div></div>'
       + '</div></div>'
       + '<div class="result-group"><div class="result-tagline grey-border">입력하신 조건은 주택기금 대출 요건을 충족하지 않습니다. 시중은행을 알아봐주세요.</div></div>'
       + '<div class="result-spacer"></div>'
-      + '<div class="group-label">미해당 사유</div>'
-      + '<div class="result-group"><div class="tag-section"><div class="tags">' + failTags + '</div></div></div>'
+      + '<div class="group-label">자격 검토</div>'
+      + '<div class="result-group">'
+      + '<div class="tag-section"><div class="tag-section-label">신생아 특례 미해당 사유</div><div class="tags">' + failTags + '</div></div>'
+      + '<div class="tag-section"><div class="tag-section-label">디딤돌 미해당 사유</div><div class="tags">' + failDTags + '</div></div>'
+      + '<div class="tag-section"><div class="tag-section-label">보금자리론 미해당 사유</div><div class="tags">' + failBTags + '</div></div>'
+      + '</div>'
       + '<div class="result-spacer"></div>'
       + noticeHtml()
       + '<div class="result-spacer"></div>'
@@ -1316,6 +1683,7 @@
     var income = o.income, price = o.price, asset = o.asset;
     var household = o.household, house = o.house, children = o.children;
     var nbRate = o.nbRate, nbLtvLimit = o.nbLtvLimit, nbMaxLimit = o.nbMaxLimit, nbFinalLimit = o.nbFinalLimit;
+    var nbHouseOk = o.nbHouseOk, nbIncomeOk = o.nbIncomeOk, nbAssetOk = o.nbAssetOk, nbPriceOk = o.nbPriceOk;
     var dLtvLimit = o.dLtvLimit, dMaxLimit = o.dMaxLimit, dFinalLimit = o.dFinalLimit;
     var dIncomeLimit = o.dIncomeLimit, dPriceLimit = o.dPriceLimit;
     var bLtvLimit = o.bLtvLimit, bMaxLimit = o.bMaxLimit, bFinalLimit = o.bFinalLimit, bIncomeLimit = o.bIncomeLimit;
@@ -1374,6 +1742,9 @@
         + '<div class="limit-reason" style="margin-top:8px">※ 특례금리 기본 5년 · 추가출산 +5년(최장 15년) · 취급은행: 우리·신한·국민·농협·하나</div></div>'
         + '<div class="result-spacer"></div>'
         + newbornFaqHtml()
+        + '<div class="result-spacer"></div>'
+        + '<div class="group-label">상환방식</div>'
+        + repayHtml('didimdol')
         + '</div>';
     }
 
@@ -1398,6 +1769,9 @@
         + '<span class="tag pass">✓ 소득 ' + income.toLocaleString() + '만 ≤ ' + dIncomeLimit.toLocaleString() + '만</span>'
         + '<span class="tag pass">✓ 주택가격 ' + price + '억 ≤ ' + dPriceLimit + '억</span>'
         + '</div></div></div>'
+        + '<div class="result-spacer"></div>'
+        + '<div class="group-label">상환방식</div>'
+        + repayHtml('didimdol')
         + '</div>';
     }
 
@@ -1421,7 +1795,24 @@
         + '<span class="tag pass">✓ 주택가격 ' + price + '억 ≤ 6억</span>'
         + '<span class="tag pass">✓ 소득 ' + income.toLocaleString() + '만 ≤ ' + bIncomeLimit.toLocaleString() + '만</span>'
         + '</div></div></div>'
+        + '<div class="result-spacer"></div>'
+        + '<div class="group-label">상환방식</div>'
+        + repayHtml('bogeumjari')
         + '</div>';
+    }
+
+    // 신생아 특례 미해당 사유 블록 (다른 상품은 해당되지만 신생아만 미해당인 경우)
+    var nbFailBlock = '';
+    if (!newbornOk) {
+      var failNbTags = [];
+      if (!nbHouseOk)  failNbTags.push('주택상황 (' + house + ') — 무주택·생애최초·1주택(대환 목적)만 해당');
+      if (!nbIncomeOk) failNbTags.push('소득 ' + income.toLocaleString() + '만 > 20,000만 (2억)');
+      if (!nbAssetOk)  failNbTags.push('순자산 ' + asset + '억 > 4.88억');
+      if (!nbPriceOk)  failNbTags.push('주택가격 ' + price + '억 > 9억');
+      var nbFailTagsHtml = failNbTags.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
+      nbFailBlock = '<div class="result-spacer"></div>'
+        + '<div class="group-label">신생아 특례 미해당 사유</div>'
+        + '<div class="result-group"><div class="tag-section"><div class="tags">' + nbFailTagsHtml + '</div></div></div>';
     }
 
     return '<div class="result-header-area"><div class="result-badge-wrap">'
@@ -1430,9 +1821,7 @@
       + '</div></div>'
       + tabsHtml
       + paneNewborn + paneDidimdol + paneBogeumjari
-      + '<div class="result-spacer"></div>'
-      + '<div class="group-label">상환방식</div>'
-      + repayHtml('didimdol')
+      + nbFailBlock
       + '<div class="result-spacer"></div>'
       + noticeHtml()
       + '<div class="result-spacer"></div>'
@@ -1484,7 +1873,8 @@
     const bHouseOk = house !== '1주택이상';
     let bIncomeLimit = 7000;
     if (household === '신혼') bIncomeLimit = 8500;
-    if (children === '2명이상' || isNewborn) bIncomeLimit = 10000;
+    if (children === '1명') bIncomeLimit = Math.max(bIncomeLimit, 9000);
+    if (children === '2명이상') bIncomeLimit = 10000;
     const bIncomeOk    = income <= bIncomeLimit;
     const bPriceOk     = price <= 6;
     const bogeumjariOk = bHouseOk && bIncomeOk && bPriceOk;
@@ -1505,11 +1895,14 @@
           newbornOk, didimdolOk, bogeumjariOk,
           income, price, asset, household, house, children,
           nbRate, nbLtvLimit, nbMaxLimit, nbFinalLimit,
+          nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk,
           dLtvLimit, dMaxLimit, dFinalLimit, dIncomeLimit, dPriceLimit,
           bLtvLimit, bMaxLimit, bFinalLimit, bIncomeLimit
         });
       } else {
-        html = buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk);
+        html = buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk, false,
+          dHouseOk, dAssetOk, dIncomeOk, dPriceOk, dIncomeLimit, dPriceLimit,
+          bHouseOk, bIncomeOk, bPriceOk, bIncomeLimit);
       }
 
     // ══ 케이스 A: 둘 다 해당 ══
@@ -1770,6 +2163,11 @@
         <div class="result-spacer"></div>
         <div class="group-label">자격 검토</div>
         <div class="result-group">
+          ${isNewborn ? `
+          <div class="tag-section">
+            <div class="tag-section-label">신생아 특례 미해당 사유</div>
+            <div class="tags">${buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk, true)}</div>
+          </div>` : ''}
           <div class="tag-section">
             <div class="tag-section-label">디딤돌 미해당 사유</div>
             <div class="tags">${failD.map(r=>`<span class="tag fail">✗ ${r}</span>`).join('')}</div>
@@ -1998,12 +2396,23 @@
   }
 
   function restartApp() {
+    loanType = null;
     answers.household = null;
     answers.house = null;
     answers.children = null;
     document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
-    ['income','price','asset'].forEach(id => document.getElementById(id).value = '');
-    ['incomeErr','priceErr','assetErr'].forEach(id => document.getElementById(id).textContent = '');
+    ['income','price','asset'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    ['incomeErr','priceErr','assetErr'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '';
+    });
+
+    // 결과 슬라이드 초기화 (시중대출 폼이 있을 수 있으므로)
+    const resultSlide = document.querySelector('[data-slide="6"]');
+    if (resultSlide) resultSlide.innerHTML = '<div id="resultContent"></div>';
 
     const allSlides = document.querySelectorAll('.slide');
     allSlides[current].classList.remove('active');
