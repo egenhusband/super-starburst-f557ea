@@ -875,6 +875,38 @@
   }
   .btn-donate:active { transform: scale(0.97); opacity: 0.85; }
 
+  /* ── 주요은행 필터 탭 ── */
+  .major-tabs-wrap {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .major-tabs-wrap::-webkit-scrollbar { display: none; }
+  .major-tab {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1.5px solid var(--separator);
+    background: var(--bg3);
+    color: var(--label2);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .major-tab.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
   /* ── 비교 체크박스 ── */
   .compare-check {
     width: 24px; height: 24px;
@@ -898,9 +930,9 @@
   /* ── 하단 비교 바 ── */
   .compare-bar {
     position: fixed;
-    bottom: 0; left: 50%;
-    transform: translateX(-50%) translateY(100%);
-    width: 100%; max-width: 430px;
+    bottom: 0; left: 0; right: 0;
+    max-width: 430px;
+    margin: 0 auto;
     background: var(--accent);
     padding: 14px 20px max(env(safe-area-inset-bottom), 14px);
     display: flex;
@@ -910,6 +942,7 @@
     z-index: 200;
     transition: transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.28s;
     opacity: 0;
+    transform: translateY(100%);
   }
 
   /* ── 비교 패널 (바텀시트) ── */
@@ -976,6 +1009,40 @@
   .cmp-row:last-of-type .cmp-col-val {
     border-radius: 0 0 10px 10px;
   }
+
+  /* ── 비교 힌트 플로팅 ── */
+  .compare-hint {
+    position: fixed;
+    bottom: 20px; left: 0; right: 0;
+    max-width: 430px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+    z-index: 199;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  .compare-hint.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .compare-hint-bubble {
+    background: rgba(30,30,32,0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--separator);
+    border-radius: 20px;
+    padding: 9px 16px;
+    font-size: 13px;
+    color: var(--label2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .compare-hint-bubble span { color: var(--accent); font-weight: 600; }
 
   @keyframes shake {
     0%,100% { transform: translateX(0); }
@@ -1324,12 +1391,30 @@
             <span class="bank-unit">억원</span>
           </div>
         </div>
+        <div id="bankLoanMsg" style="font-size:11px;color:var(--red);padding:0 2px;min-height:14px;margin-top:-4px"></div>
 
         <div class="bank-form-row">
           <label class="bank-form-label">대출기간</label>
           <div class="bank-input-wrap">
             <input class="bank-input" id="bankYears" type="number" min="1" max="50" step="1" placeholder="예: 30" oninput="updateBankCalc()">
             <span class="bank-unit">년</span>
+          </div>
+        </div>
+        <div id="bankYearsMsg" style="font-size:11px;color:var(--label3);padding:0 2px;min-height:14px;margin-top:-4px"></div>
+
+        <div class="bank-form-row" style="align-items:center">
+          <label class="bank-form-label">지역</label>
+          <div style="display:flex;gap:8px;">
+            <button class="bank-tag-btn active" id="regionM" onclick="selectRegion('M',this)">수도권</button>
+            <button class="bank-tag-btn" id="regionN" onclick="selectRegion('N',this)">비수도권</button>
+          </div>
+        </div>
+
+        <div class="bank-form-row" style="align-items:center">
+          <label class="bank-form-label">생애최초</label>
+          <div style="display:flex;gap:8px;">
+            <button class="bank-tag-btn" id="fbY" onclick="selectFirstBuyer('Y',this)">예</button>
+            <button class="bank-tag-btn active" id="fbN" onclick="selectFirstBuyer('N',this)">아니오</button>
           </div>
         </div>
 
@@ -1373,6 +1458,48 @@
 
   // 시중대출 필터 상태
   const bankFilter = { mrtg: ['A'], rate: ['F','C'], rpay: ['D','S'] };
+  let bankRegion     = 'M'; // 'M'=수도권, 'N'=비수도권
+  let bankFirstBuyer = 'N'; // 'Y'=생애최초, 'N'=아님
+
+  // LTV 한도 계산 (생애최초·지역 기반)
+  function getBankLtvLimit() {
+    if (bankFirstBuyer === 'Y') {
+      return bankRegion === 'M' ? 70 : 80;
+    }
+    return 70; // 수도권·비수도권 모두 70%
+  }
+
+  // 주택가격별 최대 대출한도 (억원)
+  function getBankPriceLimit(price) {
+    if (price <= 15) return 6;
+    if (price <= 25) return 4;
+    return 2;
+  }
+
+  function selectRegion(val, btn) {
+    bankRegion = val;
+    document.querySelectorAll('#regionM,#regionN').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    updateBankCalc();
+    // 수도권이면 대출기간 30년 제한 안내
+    const yearsEl  = document.getElementById('bankYears');
+    const yearsMsg = document.getElementById('bankYearsMsg');
+    if (val === 'M' && yearsEl) {
+      if (parseFloat(yearsEl.value) > 30) yearsEl.value = 30;
+      yearsEl.max = 30;
+      if (yearsMsg) yearsMsg.textContent = '수도권은 최대 30년까지 가능합니다';
+    } else if (yearsEl) {
+      yearsEl.max = 50;
+      if (yearsMsg) yearsMsg.textContent = '';
+    }
+  }
+
+  function selectFirstBuyer(val, btn) {
+    bankFirstBuyer = val;
+    document.querySelectorAll('#fbY,#fbN').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    updateBankCalc();
+  }
 
   function toggleMrtg(val, btn) {
     const idx = bankFilter.mrtg.indexOf(val);
@@ -1391,13 +1518,41 @@
   }
 
   function updateBankCalc() {
-    const price = parseFloat(document.getElementById('bankPrice')?.value);
-    const loan  = parseFloat(document.getElementById('bankLoan')?.value);
-    const badge = document.getElementById('bankLtvBadge');
-    if (badge && price > 0 && loan > 0) {
-      const ltv = Math.round((loan / price) * 100);
+    const price     = parseFloat(document.getElementById('bankPrice')?.value);
+    const loanInput = document.getElementById('bankLoan');
+    const loan      = parseFloat(loanInput?.value);
+    const badge     = document.getElementById('bankLtvBadge');
+    const loanMsg   = document.getElementById('bankLoanMsg');
+
+    if (!price || price <= 0) {
+      if (badge)   badge.textContent = '';
+      if (loanMsg) loanMsg.textContent = '';
+      return;
+    }
+
+    const ltvLimit   = getBankLtvLimit();
+    const priceLimit = getBankPriceLimit(price);
+    const ltvMaxLoan = Math.floor(price * ltvLimit) / 100; // 억원, 소수점
+    const maxLoan    = Math.min(ltvMaxLoan, priceLimit);
+
+    // 대출금액 초과 시 자동 클리핑 + 메시지
+    if (loan > 0) {
+      if (loan > maxLoan) {
+        if (loanInput) loanInput.value = maxLoan.toFixed(1);
+        if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억 (LTV ${ltvLimit}% · 가격대 한도 ${priceLimit}억 중 낮은 값)`;
+      } else {
+        if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억까지 가능`;
+      }
+    } else {
+      if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억까지 가능`;
+    }
+
+    // LTV 배지
+    const actualLoan = parseFloat(loanInput?.value);
+    if (badge && actualLoan > 0) {
+      const ltv = Math.round((actualLoan / price) * 100);
       badge.textContent = 'LTV ' + ltv + '%';
-      badge.style.color = ltv > 70 ? '#ef4444' : '#22c55e';
+      badge.style.color = ltv > ltvLimit ? 'var(--red)' : 'var(--green)';
     } else if (badge) {
       badge.textContent = '';
     }
@@ -1466,15 +1621,17 @@
     }
   }
 
+  // 페이지네이션 상태
+  let bankCurrentPage = 1;
+  const BANK_PAGE_SIZE = 10;
+
   function renderBankResults(data, loanEok, years) {
     const area = document.getElementById('bankResultArea');
     const { baseList, optionList } = data;
 
-    // baseList 맵핑
     const baseMap = {};
     baseList.forEach(b => { baseMap[b.fin_co_no + '_' + b.fin_prdt_cd] = b; });
 
-    // 필터 적용
     const filtered = optionList.filter(o => {
       const mrtgOk = bankFilter.mrtg.includes(o.mrtg_type);
       const rateOk = bankFilter.rate.includes(o.lend_rate_type);
@@ -1487,7 +1644,6 @@
       return;
     }
 
-    // 상품별 그룹핑 → 최저금리 정렬
     const prodMap = {};
     filtered.forEach(o => {
       const key = o.fin_co_no + '_' + o.fin_prdt_cd;
@@ -1503,13 +1659,52 @@
         return minA - minB;
       });
 
-    bankAllProds = prods; // 전역 보관 (비교 패널용)
+    bankAllProds = prods;
+    bankCurrentPage = 1;
+    bankMajorFilter = 'ALL';
+    renderBankPage(loanEok, years);
+
+    // 힌트 플로팅 표시
+    showCompareHint();
+  }
+
+  // ── 주요은행 필터 ──
+  const MAJOR_BANKS = ['KB국민은행', '우리은행', '신한은행', 'KEB하나은행', 'NH농협은행'];
+  let bankMajorFilter = 'ALL'; // 'ALL' | 은행명
+
+  function selectMajorBank(name) {
+    bankMajorFilter = name;
+    bankCurrentPage = 1;
+    renderBankPage(bankLoanCtx.loanEok, bankLoanCtx.years);
+  }
+
+  function renderBankPage(loanEok, years) {
+    const area  = document.getElementById('bankResultArea');
+    let   prods = bankAllProds;
+
+    // 주요은행 필터 적용
+    if (bankMajorFilter !== 'ALL') {
+      const majorFiltered = prods.filter(p => p.base.kor_co_nm === bankMajorFilter);
+      // 주요은행이 상단에 오도록 — 필터 모드면 해당 은행만 표시
+      prods = majorFiltered;
+    } else {
+      // 전체 모드: 주요은행을 상단으로 올리고 나머지를 뒤에 붙임
+      const majors = prods.filter(p => MAJOR_BANKS.includes(p.base.kor_co_nm));
+      const others = prods.filter(p => !MAJOR_BANKS.includes(p.base.kor_co_nm));
+      prods = [...majors, ...others];
+    }
+
+    const totalPage = Math.ceil(prods.length / BANK_PAGE_SIZE);
+    const curPage   = Math.min(bankCurrentPage, totalPage || 1);
+    const start     = (curPage - 1) * BANK_PAGE_SIZE;
+    const pageProds = prods.slice(start, start + BANK_PAGE_SIZE);
 
     const loanWon = loanEok * 100000000;
     const n       = years * 12;
 
-    const cards = prods.map((p, i) => {
-      const b        = p.base;
+    const cards = pageProds.map((p, localIdx) => {
+      const i      = start + localIdx; // 필터된 목록 기준 전체 인덱스
+      const b      = p.base;
       const minRate  = Math.min(...p.options.map(o => o.lend_rate_min));
       const maxRate  = Math.max(...p.options.map(o => o.lend_rate_max));
       const avgRate  = p.options.reduce((s, o) => s + (o.lend_rate_avg || o.lend_rate_min || 0), 0) / p.options.length;
@@ -1517,8 +1712,8 @@
       const rpayTypes = [...new Set(p.options.map(o => o.rpay_type_nm))].join(' · ');
       const isOnline  = b.join_way && (b.join_way.includes('인터넷') || b.join_way.includes('스마트폰'));
 
-      const r       = avgRate / 12 / 100;
-      const monthly = r > 0 ? Math.round((loanWon * r * Math.pow(1+r,n)) / (Math.pow(1+r,n)-1)) : 0;
+      const r          = avgRate / 12 / 100;
+      const monthly    = r > 0 ? Math.round((loanWon * r * Math.pow(1+r,n)) / (Math.pow(1+r,n)-1)) : 0;
       const monthlyStr = monthly > 0 ? Math.round(monthly/10000).toLocaleString() + '만원/월' : '-';
 
       const rankBadge = i === 0
@@ -1529,13 +1724,12 @@
         ? '<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--green-dim);color:var(--green);font-weight:700">3위</span>'
         : '';
 
-      const safeKey = CSS.escape(p.key);
+      const isChecked = bankCompareSet.has(p.key);
 
       return `
-        <div class="result-group bank-card" id="bcard-${i}" style="margin-bottom:8px;cursor:default">
+        <div class="result-group bank-card" id="bcard-${i}" style="margin-bottom:8px">
           <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
-            <!-- 체크박스 -->
-            <div class="compare-check" id="chk-${i}" onclick="toggleCompare('${p.key}',${i})" title="비교에 추가">
+            <div class="compare-check${isChecked ? ' checked' : ''}" id="chk-${i}" onclick="toggleCompare('${p.key}',${i})">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
             <div style="flex:1;min-width:0">
@@ -1544,7 +1738,7 @@
                 <span style="font-weight:700;font-size:15px">${b.kor_co_nm}</span>
                 ${isOnline ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(10,132,255,0.12);color:var(--accent)">앱/인터넷</span>' : ''}
               </div>
-              <div style="font-size:12px;color:var(--label3);letter-spacing:-0.2px">${b.fin_prdt_nm}</div>
+              <div style="font-size:12px;color:var(--label3)">${b.fin_prdt_nm}</div>
             </div>
           </div>
           <div class="rate-limit-row" style="margin-bottom:8px">
@@ -1565,16 +1759,69 @@
         </div>`;
     }).join('');
 
+    // 페이지네이션 버튼
+    const pagination = totalPage > 1 ? `
+      <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;padding-bottom:4px">
+        <button onclick="bankGoPage(${curPage-1},${loanEok},${years})"
+          style="width:36px;height:36px;border-radius:10px;border:1.5px solid var(--separator);background:var(--bg3);color:${curPage===1?'var(--label3)':'var(--label1)'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;"
+          ${curPage===1?'disabled':''}>‹</button>
+        ${Array.from({length:totalPage},(_,i)=>i+1).map(p=>`
+          <button onclick="bankGoPage(${p},${loanEok},${years})"
+            style="min-width:36px;height:36px;border-radius:10px;border:1.5px solid ${p===curPage?'var(--accent)':'var(--separator)'};background:${p===curPage?'var(--accent-dim)':'var(--bg3)'};color:${p===curPage?'var(--accent)':'var(--label2)'};font-size:13px;font-weight:${p===curPage?'700':'400'};cursor:pointer;font-family:inherit;padding:0 4px">${p}</button>
+        `).join('')}
+        <button onclick="bankGoPage(${curPage+1},${loanEok},${years})"
+          style="width:36px;height:36px;border-radius:10px;border:1.5px solid var(--separator);background:var(--bg3);color:${curPage===totalPage?'var(--label3)':'var(--label1)'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;"
+          ${curPage===totalPage?'disabled':''}>›</button>
+      </div>` : '';
+
+    // 주요은행 필터 탭
+    const majorTabs = ['ALL', ...MAJOR_BANKS].map(name => {
+      const label  = name === 'ALL' ? '전체' : name.replace('KEB하나은행','하나은행').replace('NH농협은행','농협은행').replace('KB국민은행','국민은행');
+      const active = bankMajorFilter === name;
+      return `<button onclick="selectMajorBank('${name}')" class="major-tab${active?' active':''}">${label}</button>`;
+    }).join('');
+
     area.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div class="group-label" style="margin-bottom:0">금리 낮은 순 · 총 ${prods.length}개 상품</div>
-        <div style="font-size:11px;color:var(--label3)">체크 후 비교</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="group-label" style="margin-bottom:0">금리 낮은 순 · 총 ${bankAllProds.length}개</div>
+        <div style="font-size:11px;color:var(--label3)">${curPage}/${totalPage||1} 페이지</div>
       </div>
+      <div class="major-tabs-wrap">${majorTabs}</div>
       <div style="font-size:11px;color:var(--label3);margin-bottom:14px">※ 전월 취급 평균금리 기준 · 실제 금리는 심사 후 결정됩니다</div>
       ${cards}
+      ${pagination}
       <div class="result-spacer"></div>
       ${noticeHtml()}
     `;
+  }
+
+  function bankGoPage(page, loanEok, years) {
+    const prods     = bankMajorFilter === 'ALL' ? bankAllProds : bankAllProds.filter(p => p.base.kor_co_nm === bankMajorFilter);
+    const total     = Math.ceil(prods.length / BANK_PAGE_SIZE);
+    if (page < 1 || page > total) return;
+    bankCurrentPage = page;
+    renderBankPage(loanEok, years);
+    document.getElementById('bankResultArea')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── 힌트 플로팅 ──
+  let _hintTimeout = null;
+  function showCompareHint() {
+    let hint = document.getElementById('compareHint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.id = 'compareHint';
+      hint.className = 'compare-hint';
+      hint.innerHTML = `<div class="compare-hint-bubble">☑️ 카드를 <span>체크</span>하면 상품을 비교할 수 있어요</div>`;
+      document.querySelector('.app').appendChild(hint);
+    }
+    // 이미 compareBar가 표시중이면 힌트 숨김
+    const bar = document.getElementById('compareBar');
+    if (bar && parseFloat(bar.style.opacity) > 0) return;
+
+    requestAnimationFrame(() => hint.classList.add('visible'));
+    clearTimeout(_hintTimeout);
+    _hintTimeout = setTimeout(() => hint.classList.remove('visible'), 4000);
   }
 
   // ── 비교 체크 토글 ──
@@ -1606,16 +1853,34 @@
       document.querySelector('.app').appendChild(bar);
     }
     const cnt = bankCompareSet.size;
-    if (cnt < 2) {
+
+    if (cnt === 0) {
       bar.style.transform = 'translateY(100%)';
       bar.style.opacity   = '0';
+      // 힌트 다시 표시
+      setTimeout(showCompareHint, 400);
       return;
     }
+
+    // 힌트 숨기고 바 표시
+    const hint = document.getElementById('compareHint');
+    if (hint) {
+      hint.classList.remove('visible');
+      clearTimeout(_hintTimeout);
+    }
+
+    if (cnt < 2) {
+      bar.style.transform = 'translateY(0)';
+      bar.style.opacity   = '1';
+      bar.innerHTML = `<span style="font-size:14px;font-weight:500;color:rgba(255,255,255,0.8)">${cnt}개 선택됨 · 1개 더 선택하면 비교 가능</span>`;
+      return;
+    }
+
     bar.style.transform = 'translateY(0)';
     bar.style.opacity   = '1';
     bar.innerHTML = `
-      <span style="font-size:14px;font-weight:600;color:#fff">${cnt}개 상품 선택됨</span>
-      <button onclick="showComparePanel()" style="background:#fff;color:#0a84ff;border:none;border-radius:10px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">비교하기</button>
+      <span style="font-size:14px;font-weight:600;color:#fff">${cnt}개 선택됨</span>
+      <button onclick="showComparePanel()" style="background:#fff;color:var(--accent);border:none;border-radius:10px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:-0.3px">비교하기 →</button>
     `;
   }
 
