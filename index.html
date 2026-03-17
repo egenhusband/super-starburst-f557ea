@@ -1444,7 +1444,7 @@
 
       </div>
 
-      <button class="btn-next" style="margin-top:16px;width:100%;opacity:1;height:52px;min-height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:14px;font-size:16px;font-weight:600;padding:0" id="bankSearchBtn" onclick="searchBankLoans()">
+      <button class="btn-next" style="margin-top:16px;width:100%;height:52px;min-height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:14px;font-size:16px;font-weight:600;padding:0" id="bankSearchBtn" onclick="searchBankLoans()" disabled>
         🔍 금리 비교하기
       </button>
 
@@ -1556,6 +1556,15 @@
     } else if (badge) {
       badge.textContent = '';
     }
+
+    // 검색 버튼 활성화: 주택가격 + 대출금액 + 대출기간 모두 입력 시
+    const years    = parseFloat(document.getElementById('bankYears')?.value);
+    const searchBtn = document.getElementById('bankSearchBtn');
+    if (searchBtn) {
+      const allFilled = price > 0 && actualLoan > 0 && years > 0;
+      searchBtn.disabled = !allFilled;
+      searchBtn.style.opacity = allFilled ? '1' : '';
+    }
   }
 
   // ── 비교 선택 상태 ──
@@ -1576,6 +1585,7 @@
     }
 
     bankCompareSet.clear();
+    _hintDismissed = false;
     updateCompareBar();
 
     area.innerHTML = `
@@ -1661,7 +1671,8 @@
 
     bankAllProds = prods;
     bankCurrentPage = 1;
-    bankMajorFilter = 'ALL';
+    bankSortBy = 'rate';
+    bankMajorFirst = false;
     renderBankPage(loanEok, years);
 
     // 힌트 플로팅 표시
@@ -1670,25 +1681,44 @@
 
   // ── 주요은행 필터 ──
   const MAJOR_BANKS = ['KB국민은행', '우리은행', '신한은행', 'KEB하나은행', 'NH농협은행'];
-  let bankMajorFilter = 'ALL'; // 'ALL' | 은행명
+  let bankMajorFirst = false; // 주요은행 먼저보기 토글
 
-  function selectMajorBank(name) {
-    bankMajorFilter = name;
+  function toggleMajorFirst() {
+    bankMajorFirst = !bankMajorFirst;
+    bankCurrentPage = 1;
+    renderBankPage(bankLoanCtx.loanEok, bankLoanCtx.years);
+  }
+
+  let bankSortBy = 'rate'; // 'rate' | 'monthly'
+
+  function setBankSort(val) {
+    bankSortBy = val;
     bankCurrentPage = 1;
     renderBankPage(bankLoanCtx.loanEok, bankLoanCtx.years);
   }
 
   function renderBankPage(loanEok, years) {
-    const area  = document.getElementById('bankResultArea');
-    let   prods = bankAllProds;
+    const area = document.getElementById('bankResultArea');
+    const loanWon = loanEok * 100000000;
+    const n       = years * 12;
 
-    // 주요은행 필터 적용
-    if (bankMajorFilter !== 'ALL') {
-      const majorFiltered = prods.filter(p => p.base.kor_co_nm === bankMajorFilter);
-      // 주요은행이 상단에 오도록 — 필터 모드면 해당 은행만 표시
-      prods = majorFiltered;
+    // 월납입 캐싱 (정렬용)
+    let prods = bankAllProds.map(p => {
+      const avgRate = p.options.reduce((s, o) => s + (o.lend_rate_avg || o.lend_rate_min || 0), 0) / p.options.length;
+      const r       = avgRate / 12 / 100;
+      const monthly = r > 0 ? Math.round((loanWon * r * Math.pow(1+r,n)) / (Math.pow(1+r,n)-1)) : 0;
+      return { ...p, _minRate: Math.min(...p.options.map(o => o.lend_rate_min)), _monthly: monthly };
+    });
+
+    // 정렬
+    if (bankSortBy === 'rate') {
+      prods.sort((a, b) => a._minRate - b._minRate);
     } else {
-      // 전체 모드: 주요은행을 상단으로 올리고 나머지를 뒤에 붙임
+      prods.sort((a, b) => (a._monthly || Infinity) - (b._monthly || Infinity));
+    }
+
+    // 주요은행 먼저보기
+    if (bankMajorFirst) {
       const majors = prods.filter(p => MAJOR_BANKS.includes(p.base.kor_co_nm));
       const others = prods.filter(p => !MAJOR_BANKS.includes(p.base.kor_co_nm));
       prods = [...majors, ...others];
@@ -1699,25 +1729,19 @@
     const start     = (curPage - 1) * BANK_PAGE_SIZE;
     const pageProds = prods.slice(start, start + BANK_PAGE_SIZE);
 
-    const loanWon = loanEok * 100000000;
-    const n       = years * 12;
-
     const cards = pageProds.map((p, localIdx) => {
-      const i      = start + localIdx; // 필터된 목록 기준 전체 인덱스
+      const i      = start + localIdx;
       const b      = p.base;
-      const minRate  = Math.min(...p.options.map(o => o.lend_rate_min));
+      const minRate  = p._minRate;
       const maxRate  = Math.max(...p.options.map(o => o.lend_rate_max));
-      const avgRate  = p.options.reduce((s, o) => s + (o.lend_rate_avg || o.lend_rate_min || 0), 0) / p.options.length;
+      const monthly  = p._monthly;
+      const monthlyStr = monthly > 0 ? Math.round(monthly/10000).toLocaleString() + '만원/월' : '-';
       const rateTypes = [...new Set(p.options.map(o => o.lend_rate_type_nm))].join(' · ');
       const rpayTypes = [...new Set(p.options.map(o => o.rpay_type_nm))].join(' · ');
       const isOnline  = b.join_way && (b.join_way.includes('인터넷') || b.join_way.includes('스마트폰'));
 
-      const r          = avgRate / 12 / 100;
-      const monthly    = r > 0 ? Math.round((loanWon * r * Math.pow(1+r,n)) / (Math.pow(1+r,n)-1)) : 0;
-      const monthlyStr = monthly > 0 ? Math.round(monthly/10000).toLocaleString() + '만원/월' : '-';
-
       const rankBadge = i === 0
-        ? '<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(255,107,157,0.15);color:#ff6b9d;font-weight:700">최저금리</span>'
+        ? `<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(255,107,157,0.15);color:#ff6b9d;font-weight:700">${bankSortBy==='rate'?'최저금리':'최저납입'}</span>`
         : i === 1
         ? '<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--accent-dim);color:var(--accent);font-weight:700">2위</span>'
         : i === 2
@@ -1774,20 +1798,27 @@
           ${curPage===totalPage?'disabled':''}>›</button>
       </div>` : '';
 
-    // 주요은행 필터 탭
-    const majorTabs = ['ALL', ...MAJOR_BANKS].map(name => {
-      const label  = name === 'ALL' ? '전체' : name.replace('KEB하나은행','하나은행').replace('NH농협은행','농협은행').replace('KB국민은행','국민은행');
-      const active = bankMajorFilter === name;
-      return `<button onclick="selectMajorBank('${name}')" class="major-tab${active?' active':''}">${label}</button>`;
-    }).join('');
+    // 정렬 필터 + 주요은행 토글
+    const sortBar = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px">
+        <div style="display:flex;gap:4px">
+          <button onclick="setBankSort('rate')" style="padding:6px 12px;border-radius:20px;border:1.5px solid ${bankSortBy==='rate'?'var(--accent)':'var(--separator)'};background:${bankSortBy==='rate'?'var(--accent-dim)':'var(--bg3)'};color:${bankSortBy==='rate'?'var(--accent)':'var(--label2)'};font-family:inherit;font-size:12px;font-weight:${bankSortBy==='rate'?'700':'400'};cursor:pointer">금리 낮은 순</button>
+          <button onclick="setBankSort('monthly')" style="padding:6px 12px;border-radius:20px;border:1.5px solid ${bankSortBy==='monthly'?'var(--accent)':'var(--separator)'};background:${bankSortBy==='monthly'?'var(--accent-dim)':'var(--bg3)'};color:${bankSortBy==='monthly'?'var(--accent)':'var(--label2)'};font-family:inherit;font-size:12px;font-weight:${bankSortBy==='monthly'?'700':'400'};cursor:pointer">월납입 낮은 순</button>
+        </div>
+        <button onclick="toggleMajorFirst()" style="display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:20px;border:1.5px solid ${bankMajorFirst?'var(--accent)':'var(--separator)'};background:${bankMajorFirst?'var(--accent-dim)':'var(--bg3)'};color:${bankMajorFirst?'var(--accent)':'var(--label3)'};font-family:inherit;font-size:11px;font-weight:${bankMajorFirst?'700':'400'};cursor:pointer;white-space:nowrap">
+          <span style="font-size:13px">${bankMajorFirst?'🏦':'🏦'}</span> 주요은행 먼저
+        </button>
+      </div>
+      <div style="font-size:11px;color:var(--label3);margin-bottom:12px;display:flex;justify-content:space-between">
+        <span>※ 전월 취급 평균금리 기준 · 실제 금리는 심사 후 결정됩니다</span>
+        <span>${curPage}/${totalPage||1}p</span>
+      </div>`;
 
     area.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="group-label" style="margin-bottom:0">금리 낮은 순 · 총 ${bankAllProds.length}개</div>
-        <div style="font-size:11px;color:var(--label3)">${curPage}/${totalPage||1} 페이지</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="group-label" style="margin-bottom:0">총 ${bankAllProds.length}개 상품</div>
       </div>
-      <div class="major-tabs-wrap">${majorTabs}</div>
-      <div style="font-size:11px;color:var(--label3);margin-bottom:14px">※ 전월 취급 평균금리 기준 · 실제 금리는 심사 후 결정됩니다</div>
+      ${sortBar}
       ${cards}
       ${pagination}
       <div class="result-spacer"></div>
@@ -1796,8 +1827,7 @@
   }
 
   function bankGoPage(page, loanEok, years) {
-    const prods     = bankMajorFilter === 'ALL' ? bankAllProds : bankAllProds.filter(p => p.base.kor_co_nm === bankMajorFilter);
-    const total     = Math.ceil(prods.length / BANK_PAGE_SIZE);
+    const total = Math.ceil(bankAllProds.length / BANK_PAGE_SIZE);
     if (page < 1 || page > total) return;
     bankCurrentPage = page;
     renderBankPage(loanEok, years);
@@ -1805,8 +1835,9 @@
   }
 
   // ── 힌트 플로팅 ──
-  let _hintTimeout = null;
+  let _hintDismissed = false;
   function showCompareHint() {
+    if (_hintDismissed) return;
     let hint = document.getElementById('compareHint');
     if (!hint) {
       hint = document.createElement('div');
@@ -1815,13 +1846,18 @@
       hint.innerHTML = `<div class="compare-hint-bubble">☑️ 카드를 <span>체크</span>하면 상품을 비교할 수 있어요</div>`;
       document.querySelector('.app').appendChild(hint);
     }
-    // 이미 compareBar가 표시중이면 힌트 숨김
+    // compareBar가 이미 표시 중이면 스킵
     const bar = document.getElementById('compareBar');
     if (bar && parseFloat(bar.style.opacity) > 0) return;
 
     requestAnimationFrame(() => hint.classList.add('visible'));
-    clearTimeout(_hintTimeout);
-    _hintTimeout = setTimeout(() => hint.classList.remove('visible'), 4000);
+    // 자동 숨김 없음 — 체크 시에만 사라짐
+  }
+
+  function hideCompareHint() {
+    _hintDismissed = true;
+    const hint = document.getElementById('compareHint');
+    if (hint) hint.classList.remove('visible');
   }
 
   // ── 비교 체크 토글 ──
@@ -1857,17 +1893,11 @@
     if (cnt === 0) {
       bar.style.transform = 'translateY(100%)';
       bar.style.opacity   = '0';
-      // 힌트 다시 표시
-      setTimeout(showCompareHint, 400);
       return;
     }
 
-    // 힌트 숨기고 바 표시
-    const hint = document.getElementById('compareHint');
-    if (hint) {
-      hint.classList.remove('visible');
-      clearTimeout(_hintTimeout);
-    }
+    // 첫 체크 시 힌트 영구 숨김
+    hideCompareHint();
 
     if (cnt < 2) {
       bar.style.transform = 'translateY(0)';
