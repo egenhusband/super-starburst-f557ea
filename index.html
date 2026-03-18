@@ -578,9 +578,8 @@
 
   /* ── 상환방식 ── */
   .repay-section {
-    background: var(--bg3);
-    border-radius: 14px;
-    padding: 18px 20px;
+    border-radius: 0;
+    padding: 0;
   }
   .repay-item {
     display: flex;
@@ -685,9 +684,8 @@
 
   /* ── 태그 섹션 ── */
   .tag-section {
-    background: var(--bg3);
-    border-radius: 14px;
-    padding: 18px 20px;
+    border-radius: 0;
+    padding: 4px 0;
   }
   .tag-section-label {
     font-size: 10.5px;
@@ -1731,6 +1729,15 @@
     updateBankCalc();
   }
 
+  // ── 시중대출 필터 + 전역 상태 ──
+  const bankFilter   = { mrtg: ['A'], rate: ['F','C'], rpay: ['D','S'] };
+  let bankCompareSet = new Set();
+  let bankAllProds   = [];
+  let bankLoanCtx    = { loanEok: 0, loanInputEok: 0, bangMan: 0, years: 30 };
+  let bankCurrentPage = 1;
+  let bankSortBy     = 'rate';
+  let bankMajorFirst = false;
+
   function toggleMrtg(val, btn) {
     const idx = bankFilter.mrtg.indexOf(val);
     if (idx >= 0) { if (bankFilter.mrtg.length > 1) { bankFilter.mrtg.splice(idx,1); btn.classList.remove('active'); } }
@@ -1790,11 +1797,6 @@
     // 검색 버튼 활성화
     checkBankSearchBtn();
   }
-
-  // ── 비교 선택 상태 ──
-  let bankCompareSet = new Set(); // 선택된 상품 key 목록
-  let bankAllProds   = [];        // 마지막 검색 결과 전체 보관 (비교 패널용)
-  let bankLoanCtx    = { loanEok: 0, years: 30 }; // 월납입 계산용
 
   // ── 시중대출 API 조회 ──
   async function searchBankLoans() {
@@ -1857,8 +1859,6 @@
     }
   }
 
-  // 페이지네이션 상태
-  let bankCurrentPage = 1;
   const BANK_PAGE_SIZE = 10;
 
   function renderBankResults(data, loanEok, years, loanInputEok, bangMan) {
@@ -1916,15 +1916,12 @@
 
   // ── 주요은행 필터 ──
   const MAJOR_BANKS = ['KB국민은행', '우리은행', '신한은행', 'KEB하나은행', 'NH농협은행'];
-  let bankMajorFirst = false; // 주요은행 먼저보기 토글
 
   function toggleMajorFirst() {
     bankMajorFirst = !bankMajorFirst;
     bankCurrentPage = 1;
     renderBankPage(bankLoanCtx.loanEok, bankLoanCtx.years);
   }
-
-  let bankSortBy = 'rate'; // 'rate' | 'monthly'
 
   function setBankSort(val) {
     bankSortBy = val;
@@ -2518,9 +2515,11 @@
       + '<div class="result-spacer"></div>'
       + '<div class="group-label">자격 검토</div>'
       + '<div class="result-group">'
-      + '<div class="tag-section"><div class="tag-section-label">신생아 특례 미해당 사유</div><div class="tags">' + failTags + '</div></div>'
-      + '<div class="tag-section"><div class="tag-section-label">디딤돌 미해당 사유</div><div class="tags">' + failDTags + '</div></div>'
-      + '<div class="tag-section"><div class="tag-section-label">보금자리론 미해당 사유</div><div class="tags">' + failBTags + '</div></div>'
+      + '<div class="tag-section-label">신생아 특례 미해당 사유</div><div class="tags">' + failTags + '</div>'
+      + '<div style="height:8px"></div>'
+      + '<div class="tag-section-label">디딤돌 미해당 사유</div><div class="tags">' + failDTags + '</div>'
+      + '<div style="height:8px"></div>'
+      + '<div class="tag-section-label">보금자리론 미해당 사유</div><div class="tags">' + failBTags + '</div>'
       + '</div>'
       + '<div class="result-spacer"></div>'
       + noticeHtml()
@@ -2579,7 +2578,7 @@
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val" style="color:#ff6b9d">' + formatLimit(nbFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
-        + '<div class="result-group">' + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30) + '</div>'
+        + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -2612,7 +2611,7 @@
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue">' + formatLimit(dFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
-        + '<div class="result-group">' + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children) + '</div>'
+        + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -2639,7 +2638,7 @@
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val green">' + formatLimit(bFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
-        + '<div class="result-group">' + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children) + '</div>'
+        + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -2805,19 +2804,15 @@
             </div>
           </div>
           <div class="result-spacer-sm"></div>
-          <div class="result-group">
-            ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children)}
-          </div>
+          ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children)}
           <div class="result-spacer"></div>
           <div class="group-label">충족 조건</div>
           <div class="result-group">
-            <div class="tag-section">
-              <div class="tags">
+            <div class="tags">
                 <span class="tag pass">✓ 주택상황 (${house})</span>
                 <span class="tag pass">✓ 순자산 ${asset}억 ≤ 5.11억</span>
                 <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${dIncomeLimit.toLocaleString()}만</span>
                 <span class="tag pass">✓ 주택가격 ${price}억 ≤ ${dPriceLimit}억</span>
-              </div>
             </div>
           </div>
         </div>
@@ -2843,18 +2838,14 @@
             </div>
           </div>
           <div class="result-spacer-sm"></div>
-          <div class="result-group">
-            ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children)}
-          </div>
+          ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children)}
           <div class="result-spacer"></div>
           <div class="group-label">충족 조건</div>
           <div class="result-group">
-            <div class="tag-section">
-              <div class="tags">
+            <div class="tags">
                 <span class="tag pass">✓ 주택상황 (${house})</span>
                 <span class="tag pass">✓ 주택가격 ${price}억 ≤ 6억</span>
                 <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${bIncomeLimit.toLocaleString()}만</span>
-              </div>
             </div>
           </div>
         </div>
@@ -2903,19 +2894,15 @@
           </div>
         </div>
         <div class="result-spacer-sm"></div>
-        <div class="result-group">
-          ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children)}
-        </div>
+        ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children)}
         <div class="result-spacer"></div>
         <div class="group-label">충족 조건</div>
         <div class="result-group">
-          <div class="tag-section">
-            <div class="tags">
+          <div class="tags">
               <span class="tag pass">✓ 주택상황 (${house})</span>
               <span class="tag pass">✓ 순자산 ${asset}억 ≤ 5.11억</span>
               <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${dIncomeLimit.toLocaleString()}만</span>
               <span class="tag pass">✓ 주택가격 ${price}억 ≤ ${dPriceLimit}억</span>
-            </div>
           </div>
         </div>
         <div class="result-spacer"></div>
@@ -2961,23 +2948,18 @@
           </div>
         </div>
         <div class="result-spacer-sm"></div>
-        <div class="result-group">
-          ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children)}
-        </div>
+        ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children)}
         <div class="result-spacer"></div>
         <div class="group-label">자격 검토</div>
         <div class="result-group">
-          <div class="tag-section">
-            <div class="tag-section-label">디딤돌 미해당 사유</div>
-            <div class="tags">${failD.map(r=>`<span class="tag fail">✗ ${r}</span>`).join('')}</div>
-          </div>
-          <div class="tag-section">
-            <div class="tag-section-label">보금자리론 충족 조건</div>
-            <div class="tags">
-              <span class="tag pass">✓ 주택상황 (${house})</span>
-              <span class="tag pass">✓ 주택가격 ${price}억 ≤ 6억</span>
-              <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${bIncomeLimit.toLocaleString()}만</span>
-            </div>
+          <div class="tag-section-label">디딤돌 미해당 사유</div>
+          <div class="tags">${failD.map(r=>`<span class="tag fail">✗ ${r}</span>`).join('')}</div>
+          <div style="height:10px"></div>
+          <div class="tag-section-label">보금자리론 충족 조건</div>
+          <div class="tags">
+            <span class="tag pass">✓ 주택상황 (${house})</span>
+            <span class="tag pass">✓ 주택가격 ${price}억 ≤ 6억</span>
+            <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${bIncomeLimit.toLocaleString()}만</span>
           </div>
         </div>
         <div class="result-spacer"></div>
@@ -3101,7 +3083,6 @@
       : '만 40세 미만 근로자이며 고정금리 선택 시만 가능';
     return `
       <div class="result-group">
-        <div class="repay-section">
           <div class="repay-item">
             <div class="repay-name">원리금균등분할상환</div>
             <div class="repay-desc">매월 납부액(원금+이자)이 일정 — 가계 계획 세우기 좋아요.</div>
@@ -3114,7 +3095,6 @@
             <div class="repay-name">체증식 분할상환</div>
             <div class="repay-desc">초반엔 적게 내고 시간이 갈수록 상환액이 늘어요. ${teungjeungNote}.</div>
           </div>
-        </div>
         <div class="repay-tenure">
           <span class="repay-tenure-label">대출 만기</span>
           <span class="repay-tenure-val">${tenure}</span>
