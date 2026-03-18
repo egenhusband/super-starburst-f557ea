@@ -1049,11 +1049,118 @@
     50%       { opacity: 0.5; transform: scale(0.8); }
   }
 
-  @keyframes shake {
-    0%,100% { transform: translateX(0); }
-    25%      { transform: translateX(-4px); }
-    75%      { transform: translateX(4px); }
+  /* ── 시중대출 최초 진입 팝업 ── */
+  .bank-notice-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 400;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
   }
+  .bank-notice-sheet {
+    width: 100%; max-width: 430px;
+    background: var(--bg2);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px max(env(safe-area-inset-bottom), 28px);
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+  }
+  .bank-notice-overlay.open .bank-notice-sheet {
+    transform: translateY(0);
+  }
+  .bank-notice-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--label1);
+    margin-bottom: 4px;
+    letter-spacing: -0.4px;
+  }
+  .bank-notice-sub {
+    font-size: 12px;
+    color: var(--label3);
+    margin-bottom: 16px;
+  }
+  .bank-notice-item {
+    display: flex;
+    gap: 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--separator);
+  }
+  .bank-notice-item:last-of-type { border-bottom: none; }
+  .bank-notice-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+    margin-top: 1px;
+  }
+  .bank-notice-text {
+    font-size: 13px;
+    color: var(--label2);
+    line-height: 1.65;
+    font-weight: 300;
+  }
+  .bank-notice-text strong { color: var(--label1); font-weight: 600; }
+  .btn-notice-confirm {
+    width: 100%;
+    height: 52px;
+    background: var(--accent);
+    border: none;
+    border-radius: 14px;
+    color: #fff;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 20px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── 지역 드롭다운 ── */
+  .bank-region-select {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg2);
+    border: 1.5px solid var(--separator);
+    border-radius: 12px;
+    padding: 0 14px;
+    height: 52px;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--label1);
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.4)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+    transition: border-color 0.18s;
+  }
+  .bank-region-select:focus { border-color: var(--accent); }
+  .bank-region-select option { background: #1c1c1e; color: #fff; }
+
+  /* ── 방공제 안내 배지 ── */
+  .bang-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(255,214,10,0.07);
+    border: 1px solid rgba(255,214,10,0.2);
+    border-radius: 10px;
+    margin-top: -4px;
+  }
+  .bang-badge-text {
+    font-size: 12px;
+    color: rgba(255,214,10,0.8);
+    line-height: 1.5;
+  }
+  .bang-badge-text strong { color: var(--yellow); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -1362,6 +1469,7 @@
     resultSlide.classList.add('active');
     resultSlide.innerHTML = buildBankLoanFormHtml();
     current = allSlides.length - 1;
+    setTimeout(showBankNotice, 400); // 슬라이드 전환 후 팝업
   }
 
   // ── 시중대출 입력 폼 HTML ──
@@ -1411,12 +1519,34 @@
         </div>
         <div id="bankYearsMsg" style="font-size:11px;color:var(--label3);padding:0 2px;min-height:14px;margin-top:-4px"></div>
 
-        <div class="bank-form-row" style="align-items:center">
+        <div class="bank-form-row">
           <label class="bank-form-label">지역</label>
-          <div style="display:flex;gap:8px;">
-            <button class="bank-tag-btn active" id="regionM" onclick="selectRegion('M',this)">수도권</button>
-            <button class="bank-tag-btn" id="regionN" onclick="selectRegion('N',this)">비수도권</button>
-          </div>
+          <select class="bank-region-select" id="bankRegionSelect" onchange="selectRegionDetail(this.value)">
+            <option value="">지역을 선택해주세요</option>
+            <optgroup label="서울 / 수도권">
+              <option value="seoul">서울특별시</option>
+              <option value="incheon_gangwha">인천 — 강화군·옹진군</option>
+              <option value="incheon_special">인천 — 서구 일부·경제특구</option>
+              <option value="incheon_etc">인천 — 그 외</option>
+              <option value="metro_city">의정부·구리·하남·고양·수원·성남·안양·부천·광명·과천·의왕·군포·용인·화성·세종·김포</option>
+              <option value="siheung_banwol">시흥 — 반월특수지역</option>
+              <option value="siheung_etc">시흥 — 그 외</option>
+              <option value="namyangju_core">남양주 — 호평·별내·금곡·일패·이패·삼패·가운·수석·지금·도농</option>
+              <option value="namyangju_etc">남양주 — 그 외</option>
+              <option value="gyeonggi_city">경기 — 안산시·광주시·파주시·이천시·평택시</option>
+            </optgroup>
+            <optgroup label="광역시">
+              <option value="metro_gun">광주·대구·대전·부산·울산 — 군지역</option>
+              <option value="metro_etc">광주·대구·대전·부산·울산 — 그 외</option>
+            </optgroup>
+            <optgroup label="그 외">
+              <option value="other">그 밖의 지역</option>
+            </optgroup>
+          </select>
+        </div>
+        <div id="bangBadge" style="display:none" class="bang-badge">
+          <span style="font-size:16px">🔒</span>
+          <div class="bang-badge-text" id="bangBadgeText"></div>
         </div>
 
         <div class="bank-form-row" style="align-items:center">
@@ -1465,10 +1595,119 @@
     `;
   }
 
-  // 시중대출 필터 상태
-  const bankFilter = { mrtg: ['A'], rate: ['F','C'], rpay: ['D','S'] };
-  let bankRegion     = 'M'; // 'M'=수도권, 'N'=비수도권
-  let bankFirstBuyer = 'N'; // 'Y'=생애최초, 'N'=아님
+  // ── 방공제 테이블 (단위: 만원) ──
+  const BANG_TABLE = {
+    seoul:           5500,
+    incheon_gangwha: 2500,
+    incheon_special: 2800,
+    incheon_etc:     4800,
+    metro_city:      4800,
+    siheung_banwol:  2500,
+    siheung_etc:     4800,
+    namyangju_core:  4800,
+    namyangju_etc:   2500,
+    gyeonggi_city:   2800,
+    metro_gun:       2500,
+    metro_etc:       2800,
+    other:           2500,
+  };
+  // 수도권 여부 (LTV 30년 제한용)
+  const METRO_REGIONS = new Set([
+    'seoul','incheon_gangwha','incheon_special','incheon_etc',
+    'metro_city','siheung_banwol','siheung_etc',
+    'namyangju_core','namyangju_etc','gyeonggi_city'
+  ]);
+
+  let bankRegionKey  = ''; // 선택된 지역 key
+  let bankRegion     = 'M'; // 'M'=수도권, 'N'=비수도권 (기존 LTV 로직용)
+  let bankFirstBuyer = 'N';
+
+  function getBangAmount() {
+    return BANG_TABLE[bankRegionKey] || 0; // 만원
+  }
+
+  function selectRegionDetail(val) {
+    bankRegionKey = val;
+    bankRegion    = METRO_REGIONS.has(val) ? 'M' : 'N';
+
+    // 방공제 배지 업데이트
+    const badge    = document.getElementById('bangBadge');
+    const badgeTxt = document.getElementById('bangBadgeText');
+    const bang     = getBangAmount();
+    if (val && bang > 0) {
+      badgeTxt.innerHTML = `선택 지역 방공제 <strong>${bang.toLocaleString()}만원</strong> 적용 — 실질 대출금액에서 차감 후 월납입 계산`;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+
+    // 수도권 대출기간 30년 제한
+    const yearsEl  = document.getElementById('bankYears');
+    const yearsMsg = document.getElementById('bankYearsMsg');
+    if (bankRegion === 'M' && yearsEl) {
+      if (parseFloat(yearsEl.value) > 30) yearsEl.value = 30;
+      yearsEl.max = 30;
+      if (yearsMsg) yearsMsg.textContent = '수도권은 최대 30년까지 가능합니다';
+    } else if (yearsEl) {
+      yearsEl.max = 50;
+      if (yearsMsg) yearsMsg.textContent = '';
+    }
+
+    updateBankCalc();
+    checkBankSearchBtn();
+  }
+
+  function checkBankSearchBtn() {
+    const price    = parseFloat(document.getElementById('bankPrice')?.value);
+    const loan     = parseFloat(document.getElementById('bankLoan')?.value);
+    const years    = parseFloat(document.getElementById('bankYears')?.value);
+    const searchBtn = document.getElementById('bankSearchBtn');
+    if (!searchBtn) return;
+    const allFilled = price > 0 && loan > 0 && years > 0 && bankRegionKey !== '';
+    searchBtn.disabled    = !allFilled;
+    searchBtn.style.opacity = allFilled ? '1' : '';
+  }
+
+  // ── 최초 1회 주의사항 팝업 ──
+  function showBankNotice() {
+    if (localStorage.getItem('bankNoticeSeen')) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'bank-notice-overlay';
+    overlay.id = 'bankNoticeOverlay';
+    overlay.innerHTML = `
+      <div class="bank-notice-sheet" id="bankNoticeSheet">
+        <div class="bank-notice-title">⚠️ 시중 주담대 이용 전 확인사항</div>
+        <div class="bank-notice-sub">실제 대출 신청 전 반드시 읽어주세요</div>
+        <div class="bank-notice-item">
+          <div class="bank-notice-icon">📊</div>
+          <div class="bank-notice-text"><strong>금리는 전월 취급 평균금리 기준</strong>이며, 실제 적용 금리는 신용도·소득·담보 심사 후 결정됩니다.</div>
+        </div>
+        <div class="bank-notice-item">
+          <div class="bank-notice-icon">🔒</div>
+          <div class="bank-notice-text"><strong>방공제(최우선변제 소액보증금)</strong>가 대출금에서 차감됩니다. 지역별 금액이 다르며, 이 앱에서는 선택 지역 기준으로 자동 적용합니다.</div>
+        </div>
+        <div class="bank-notice-item">
+          <div class="bank-notice-icon">📋</div>
+          <div class="bank-notice-text"><strong>LTV·DSR·DTI</strong> 규제에 따라 실제 대출 가능 금액은 더 낮아질 수 있습니다.</div>
+        </div>
+        <div class="bank-notice-item">
+          <div class="bank-notice-icon">🏦</div>
+          <div class="bank-notice-text">표시된 상품은 금융감독원 <strong>금융상품 한눈에</strong> 데이터 기준이며, 일부 상품은 누락될 수 있습니다.</div>
+        </div>
+        <button class="btn-notice-confirm" onclick="closeBankNotice()">확인했어요</button>
+      </div>
+    `;
+    document.querySelector('.app').appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('open'));
+  }
+
+  function closeBankNotice() {
+    localStorage.setItem('bankNoticeSeen', '1');
+    const overlay = document.getElementById('bankNoticeOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('open');
+    setTimeout(() => overlay.remove(), 320);
+  }
 
   // LTV 한도 계산 (생애최초·지역 기반)
   function getBankLtvLimit() {
@@ -1483,24 +1722,6 @@
     if (price <= 15) return 6;
     if (price <= 25) return 4;
     return 2;
-  }
-
-  function selectRegion(val, btn) {
-    bankRegion = val;
-    document.querySelectorAll('#regionM,#regionN').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    updateBankCalc();
-    // 수도권이면 대출기간 30년 제한 안내
-    const yearsEl  = document.getElementById('bankYears');
-    const yearsMsg = document.getElementById('bankYearsMsg');
-    if (val === 'M' && yearsEl) {
-      if (parseFloat(yearsEl.value) > 30) yearsEl.value = 30;
-      yearsEl.max = 30;
-      if (yearsMsg) yearsMsg.textContent = '수도권은 최대 30년까지 가능합니다';
-    } else if (yearsEl) {
-      yearsEl.max = 50;
-      if (yearsMsg) yearsMsg.textContent = '';
-    }
   }
 
   function selectFirstBuyer(val, btn) {
@@ -1566,14 +1787,8 @@
       badge.textContent = '';
     }
 
-    // 검색 버튼 활성화: 주택가격 + 대출금액 + 대출기간 모두 입력 시
-    const years    = parseFloat(document.getElementById('bankYears')?.value);
-    const searchBtn = document.getElementById('bankSearchBtn');
-    if (searchBtn) {
-      const allFilled = price > 0 && actualLoan > 0 && years > 0;
-      searchBtn.disabled = !allFilled;
-      searchBtn.style.opacity = allFilled ? '1' : '';
-    }
+    // 검색 버튼 활성화
+    checkBankSearchBtn();
   }
 
   // ── 비교 선택 상태 ──
@@ -1583,18 +1798,22 @@
 
   // ── 시중대출 API 조회 ──
   async function searchBankLoans() {
-    const price = parseFloat(document.getElementById('bankPrice')?.value);
-    const loan  = parseFloat(document.getElementById('bankLoan')?.value);
-    const years = parseFloat(document.getElementById('bankYears')?.value) || 30;
-    const area  = document.getElementById('bankResultArea');
+    const price     = parseFloat(document.getElementById('bankPrice')?.value);
+    const loanInput = parseFloat(document.getElementById('bankLoan')?.value);
+    const years     = parseFloat(document.getElementById('bankYears')?.value) || 30;
+    const area      = document.getElementById('bankResultArea');
 
-    if (!price || !loan) {
+    if (!price || !loanInput) {
       area.innerHTML = '<div class="result-group"><div class="result-tagline grey-border">주택가격과 대출금액을 입력해주세요.</div></div>';
       return;
     }
 
+    // 방공제 차감
+    const bangMan  = getBangAmount(); // 만원
+    const bangEok  = bangMan / 10000; // 억원
+    const netLoan  = Math.max(loanInput - bangEok, 0);
+
     bankCompareSet.clear();
-    _hintDismissed = false;
     updateCompareBar();
 
     area.innerHTML = `
@@ -1605,7 +1824,6 @@
       </div>`;
 
     try {
-      // 은행(020000) + 저축은행(030300) — 전 페이지 조회
       const sectors = [
         { code: '020000', label: '은행권' },
         { code: '030300', label: '저축은행' }
@@ -1618,22 +1836,21 @@
 
         let page = 1;
         let safeguard = 0;
-        while (safeguard++ < 20) { // 최대 20페이지 안전장치
+        while (safeguard++ < 20) {
           const res = await fetch(`/.netlify/functions/mortgage?sector=${s.code}&page=${page}`);
           if (!res.ok) break;
           const data = await res.json();
           allBase    = allBase.concat(data.baseList    || []);
           allOptions = allOptions.concat(data.optionList || []);
-
           if (prog) prog.textContent = `${s.label} 조회 중... (${page}/${data.maxPage || '?'}페이지)`;
-
           if (!data.hasMore) break;
           page++;
         }
       }
 
-      bankLoanCtx = { loanEok: loan, years };
-      renderBankResults({ baseList: allBase, optionList: allOptions }, loan, years);
+      // netLoan(방공제 차감액)으로 월납입 계산, bangMan 정보도 전달
+      bankLoanCtx = { loanEok: netLoan, loanInputEok: loanInput, bangMan, years };
+      renderBankResults({ baseList: allBase, optionList: allOptions }, netLoan, years, loanInput, bangMan);
 
     } catch (e) {
       area.innerHTML = `<div class="result-group"><div class="result-tagline grey-border">데이터를 불러오지 못했습니다.<br><small style="color:var(--label3)">${e.message}</small></div></div>`;
@@ -1644,9 +1861,18 @@
   let bankCurrentPage = 1;
   const BANK_PAGE_SIZE = 10;
 
-  function renderBankResults(data, loanEok, years) {
+  function renderBankResults(data, loanEok, years, loanInputEok, bangMan) {
     const area = document.getElementById('bankResultArea');
     const { baseList, optionList } = data;
+
+    const bangBanner = (bangMan > 0 && loanInputEok > loanEok) ? `
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,214,10,0.07);border:1px solid rgba(255,214,10,0.2);border-radius:10px;margin-bottom:14px">
+        <span style="font-size:16px">🔒</span>
+        <div style="font-size:12px;color:rgba(255,214,10,0.8);line-height:1.5">
+          방공제 <strong style="color:var(--yellow)">${bangMan.toLocaleString()}만원</strong> 차감 적용
+          &nbsp;·&nbsp; ${loanInputEok.toFixed(1)}억 → <strong style="color:#fff">${loanEok.toFixed(2)}억</strong> 기준으로 월납입 계산
+        </div>
+      </div>` : '';
 
     const baseMap = {};
     baseList.forEach(b => { baseMap[b.fin_co_no + '_' + b.fin_prdt_cd] = b; });
@@ -1799,6 +2025,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div class="group-label" style="margin-bottom:0">총 ${prods.length}개 상품</div>
       </div>
+      ${bangBanner}
       ${sortBar}
       ${cards}
       <div class="result-spacer"></div>
