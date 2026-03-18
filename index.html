@@ -1816,6 +1816,7 @@
     const netLoan  = Math.max(loanInput - bangEok, 0);
 
     bankCompareSet.clear();
+    bankBangBanner = '';
     updateCompareBar();
 
     area.innerHTML = `
@@ -1861,11 +1862,14 @@
 
   const BANK_PAGE_SIZE = 10;
 
+  let bankBangBanner = ''; // 방공제 배너 HTML (renderBankPage에서 사용)
+
   function renderBankResults(data, loanEok, years, loanInputEok, bangMan) {
     const area = document.getElementById('bankResultArea');
     const { baseList, optionList } = data;
 
-    const bangBanner = (bangMan > 0 && loanInputEok > loanEok) ? `
+    // 방공제 배너 — renderBankPage에서도 접근 가능하도록 외부 변수에 저장
+    bankBangBanner = (bangMan > 0 && loanInputEok > loanEok) ? `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,214,10,0.07);border:1px solid rgba(255,214,10,0.2);border-radius:10px;margin-bottom:14px">
         <span style="font-size:16px">🔒</span>
         <div style="font-size:12px;color:rgba(255,214,10,0.8);line-height:1.5">
@@ -2022,7 +2026,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div class="group-label" style="margin-bottom:0">총 ${prods.length}개 상품</div>
       </div>
-      ${bangBanner}
+      ${bankBangBanner}
       ${sortBar}
       ${cards}
       <div class="result-spacer"></div>
