@@ -1044,6 +1044,11 @@
   }
   .compare-hint-bubble span { color: var(--accent); font-weight: 600; }
 
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: 0.5; transform: scale(0.8); }
+  }
+
   @keyframes shake {
     0%,100% { transform: translateX(0); }
     25%      { transform: translateX(-4px); }
@@ -1371,6 +1376,10 @@
             <div class="result-title">조건을 입력해주세요</div>
           </div>
         </div>
+        <div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(48,209,88,0.1);border:1px solid rgba(48,209,88,0.25)">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse-dot 1.8s ease-in-out infinite"></span>
+          <span style="font-size:11px;font-weight:600;color:var(--green);letter-spacing:-0.1px">실시간 대출 규제 반영 중</span>
+        </div>
       </div>
 
       <div class="result-group" style="display:flex;flex-direction:column;gap:10px;margin-top:8px;padding:14px 14px">
@@ -1445,7 +1454,7 @@
       </div>
 
       <button class="btn-next" style="margin-top:16px;width:100%;height:52px;min-height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:14px;font-size:16px;font-weight:600;padding:0" id="bankSearchBtn" onclick="searchBankLoans()" disabled>
-        🔍 금리 비교하기
+        🔍 시중은행 대출 찾기
       </button>
 
       <div id="bankResultArea" style="margin-top:16px"></div>
@@ -1693,16 +1702,15 @@
 
   function setBankSort(val) {
     bankSortBy = val;
-    bankCurrentPage = 1;
     renderBankPage(bankLoanCtx.loanEok, bankLoanCtx.years);
   }
 
   function renderBankPage(loanEok, years) {
-    const area = document.getElementById('bankResultArea');
+    const area    = document.getElementById('bankResultArea');
     const loanWon = loanEok * 100000000;
     const n       = years * 12;
 
-    // 월납입 캐싱 (정렬용)
+    // 월납입 계산 + 정렬용 캐싱
     let prods = bankAllProds.map(p => {
       const avgRate = p.options.reduce((s, o) => s + (o.lend_rate_avg || o.lend_rate_min || 0), 0) / p.options.length;
       const r       = avgRate / 12 / 100;
@@ -1710,35 +1718,27 @@
       return { ...p, _minRate: Math.min(...p.options.map(o => o.lend_rate_min)), _monthly: monthly };
     });
 
-    // 정렬
     if (bankSortBy === 'rate') {
       prods.sort((a, b) => a._minRate - b._minRate);
     } else {
       prods.sort((a, b) => (a._monthly || Infinity) - (b._monthly || Infinity));
     }
 
-    // 주요은행 먼저보기
     if (bankMajorFirst) {
       const majors = prods.filter(p => MAJOR_BANKS.includes(p.base.kor_co_nm));
       const others = prods.filter(p => !MAJOR_BANKS.includes(p.base.kor_co_nm));
       prods = [...majors, ...others];
     }
 
-    const totalPage = Math.ceil(prods.length / BANK_PAGE_SIZE);
-    const curPage   = Math.min(bankCurrentPage, totalPage || 1);
-    const start     = (curPage - 1) * BANK_PAGE_SIZE;
-    const pageProds = prods.slice(start, start + BANK_PAGE_SIZE);
-
-    const cards = pageProds.map((p, localIdx) => {
-      const i      = start + localIdx;
-      const b      = p.base;
-      const minRate  = p._minRate;
-      const maxRate  = Math.max(...p.options.map(o => o.lend_rate_max));
-      const monthly  = p._monthly;
+    const cards = prods.map((p, i) => {
+      const b          = p.base;
+      const minRate    = p._minRate;
+      const maxRate    = Math.max(...p.options.map(o => o.lend_rate_max));
+      const monthly    = p._monthly;
       const monthlyStr = monthly > 0 ? Math.round(monthly/10000).toLocaleString() + '만원/월' : '-';
-      const rateTypes = [...new Set(p.options.map(o => o.lend_rate_type_nm))].join(' · ');
-      const rpayTypes = [...new Set(p.options.map(o => o.rpay_type_nm))].join(' · ');
-      const isOnline  = b.join_way && (b.join_way.includes('인터넷') || b.join_way.includes('스마트폰'));
+      const rateTypes  = [...new Set(p.options.map(o => o.lend_rate_type_nm))].join(' · ');
+      const rpayTypes  = [...new Set(p.options.map(o => o.rpay_type_nm))].join(' · ');
+      const isOnline   = b.join_way && (b.join_way.includes('인터넷') || b.join_way.includes('스마트폰'));
 
       const rankBadge = i === 0
         ? `<span style="font-size:10px;padding:2px 7px;border-radius:20px;background:rgba(255,107,157,0.15);color:#ff6b9d;font-weight:700">${bankSortBy==='rate'?'최저금리':'최저납입'}</span>`
@@ -1753,14 +1753,14 @@
       return `
         <div class="result-group bank-card" id="bcard-${i}" style="margin-bottom:8px">
           <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
-            <div class="compare-check${isChecked ? ' checked' : ''}" id="chk-${i}" onclick="toggleCompare('${p.key}',${i})">
+            <div class="compare-check${isChecked?' checked':''}" id="chk-${i}" onclick="toggleCompare('${p.key}',${i})">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
                 ${rankBadge}
                 <span style="font-weight:700;font-size:15px">${b.kor_co_nm}</span>
-                ${isOnline ? '<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(10,132,255,0.12);color:var(--accent)">앱/인터넷</span>' : ''}
+                ${isOnline?'<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(10,132,255,0.12);color:var(--accent)">앱/인터넷</span>':''}
               </div>
               <div style="font-size:12px;color:var(--label3)">${b.fin_prdt_nm}</div>
             </div>
@@ -1783,22 +1783,6 @@
         </div>`;
     }).join('');
 
-    // 페이지네이션 버튼
-    const pagination = totalPage > 1 ? `
-      <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;padding-bottom:4px">
-        <button onclick="bankGoPage(${curPage-1},${loanEok},${years})"
-          style="width:36px;height:36px;border-radius:10px;border:1.5px solid var(--separator);background:var(--bg3);color:${curPage===1?'var(--label3)':'var(--label1)'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;"
-          ${curPage===1?'disabled':''}>‹</button>
-        ${Array.from({length:totalPage},(_,i)=>i+1).map(p=>`
-          <button onclick="bankGoPage(${p},${loanEok},${years})"
-            style="min-width:36px;height:36px;border-radius:10px;border:1.5px solid ${p===curPage?'var(--accent)':'var(--separator)'};background:${p===curPage?'var(--accent-dim)':'var(--bg3)'};color:${p===curPage?'var(--accent)':'var(--label2)'};font-size:13px;font-weight:${p===curPage?'700':'400'};cursor:pointer;font-family:inherit;padding:0 4px">${p}</button>
-        `).join('')}
-        <button onclick="bankGoPage(${curPage+1},${loanEok},${years})"
-          style="width:36px;height:36px;border-radius:10px;border:1.5px solid var(--separator);background:var(--bg3);color:${curPage===totalPage?'var(--label3)':'var(--label1)'};font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;"
-          ${curPage===totalPage?'disabled':''}>›</button>
-      </div>` : '';
-
-    // 정렬 필터 + 주요은행 토글
     const sortBar = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px">
         <div style="display:flex;gap:4px">
@@ -1806,33 +1790,23 @@
           <button onclick="setBankSort('monthly')" style="padding:6px 12px;border-radius:20px;border:1.5px solid ${bankSortBy==='monthly'?'var(--accent)':'var(--separator)'};background:${bankSortBy==='monthly'?'var(--accent-dim)':'var(--bg3)'};color:${bankSortBy==='monthly'?'var(--accent)':'var(--label2)'};font-family:inherit;font-size:12px;font-weight:${bankSortBy==='monthly'?'700':'400'};cursor:pointer">월납입 낮은 순</button>
         </div>
         <button onclick="toggleMajorFirst()" style="display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:20px;border:1.5px solid ${bankMajorFirst?'var(--accent)':'var(--separator)'};background:${bankMajorFirst?'var(--accent-dim)':'var(--bg3)'};color:${bankMajorFirst?'var(--accent)':'var(--label3)'};font-family:inherit;font-size:11px;font-weight:${bankMajorFirst?'700':'400'};cursor:pointer;white-space:nowrap">
-          <span style="font-size:13px">${bankMajorFirst?'🏦':'🏦'}</span> 주요은행 먼저
+          🏦 주요은행 먼저
         </button>
       </div>
-      <div style="font-size:11px;color:var(--label3);margin-bottom:12px;display:flex;justify-content:space-between">
-        <span>※ 전월 취급 평균금리 기준 · 실제 금리는 심사 후 결정됩니다</span>
-        <span>${curPage}/${totalPage||1}p</span>
-      </div>`;
+      <div style="font-size:11px;color:var(--label3);margin-bottom:12px">※ 전월 취급 평균금리 기준 · 실제 금리는 심사 후 결정됩니다</div>`;
 
     area.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div class="group-label" style="margin-bottom:0">총 ${bankAllProds.length}개 상품</div>
+        <div class="group-label" style="margin-bottom:0">총 ${prods.length}개 상품</div>
       </div>
       ${sortBar}
       ${cards}
-      ${pagination}
       <div class="result-spacer"></div>
-      ${noticeHtml()}
+      ${bankNoticeHtml()}
     `;
   }
 
-  function bankGoPage(page, loanEok, years) {
-    const total = Math.ceil(bankAllProds.length / BANK_PAGE_SIZE);
-    if (page < 1 || page > total) return;
-    bankCurrentPage = page;
-    renderBankPage(loanEok, years);
-    document.getElementById('bankResultArea')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  function bankGoPage() {} // unused
 
   // ── 힌트 플로팅 ──
   let _hintDismissed = false;
@@ -2017,7 +1991,11 @@
     const panel = document.getElementById('comparePanel');
     if (!panel) return;
     panel.classList.remove('open');
-    setTimeout(() => { panel.style.display = 'none'; }, 300);
+    setTimeout(() => {
+      panel.style.display = 'none';
+      // 선택된 상품이 있으면 compareBar 다시 표시
+      updateCompareBar();
+    }, 300);
   }
 
   // ── 한도 포맷 ──
@@ -2118,6 +2096,22 @@
     const amt = calcMonthly(principal, annualRate, method, loanYears);
     const el  = document.getElementById(`mc-amount-${uid}`);
     if (el) el.textContent = formatWon(amt);
+  }
+
+  // ── 시중은행 전용 주의사항 ──
+  function bankNoticeHtml() {
+    const items = [
+      '표시된 금리는 전월 취급 평균금리 기준이에요. 실제 적용 금리는 신용도·소득·대출기간 등에 따라 달라질 수 있으니, 가입 전 꼭 해당 은행에 직접 확인하세요.',
+      '월납입 추정액은 원리금균등상환 방식으로 계산한 참고용 수치예요. 실제 납입액과 차이가 있을 수 있어요.',
+      '고정금리·변동금리 외에 <strong>혼합금리</strong>(일정 기간 고정 후 변동)는 고정금리로 분류돼요.',
+      'DSR(총부채원리금상환비율), 방공제 등 세부 규제는 반영되어 있지 않아요. 이 결과는 참고용이며, 최종 대출 가능 여부는 금융사 심사로 결정돼요.',
+      '담보 평가 방식, 규제지역 여부에 따라 실제 한도가 달라질 수 있어요.',
+    ];
+    return `
+      <div class="group-label">꼭 확인해 주세요</div>
+      <div class="notice-list">
+        ${items.map(t => `<div class="notice-item">${t}</div>`).join('')}
+      </div>`;
   }
 
   // ── 공통: 주의사항 bullet ──
