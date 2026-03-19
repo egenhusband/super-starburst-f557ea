@@ -2109,9 +2109,18 @@
     bar.style.transform = 'translateY(0)';
     bar.style.opacity   = '1';
     bar.innerHTML = `
+      <button onclick="resetCompare()" style="background:rgba(255,255,255,0.15);border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:500;color:#fff;cursor:pointer;font-family:inherit">✕ 초기화</button>
       <span style="font-size:14px;font-weight:600;color:#fff">${cnt}개 선택됨</span>
       <button onclick="showComparePanel()" style="background:#fff;color:var(--accent);border:none;border-radius:10px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:-0.3px">비교하기 →</button>
     `;
+  }
+
+  // ── 비교 체크 전체 초기화 ──
+  function resetCompare() {
+    bankCompareSet.clear();
+    // 카드 체크박스 UI 모두 해제
+    document.querySelectorAll('.compare-check.checked').forEach(el => el.classList.remove('checked'));
+    updateCompareBar();
   }
 
   // ── 비교 패널 ──
@@ -2166,7 +2175,7 @@
         vals: cols.map(c => `<span style="font-size:13px">${c.avgRate.toFixed(2)}%</span>`)
       },
       {
-        label: `월납입액<br>추정<br><span style="font-size:9px;color:var(--label3);font-weight:400">${loanEok.toFixed(2)}억 ${years}년</span>`,
+        label: `<span style="font-size:12px;font-weight:600;color:var(--label2);line-height:1.4">월납입액<br>추정</span><br><span style="font-size:10px;color:var(--label3);font-weight:400">${loanEok.toFixed(2)}억 ${years}년</span>`,
         vals: cols.map(c => `<span style="font-size:15px;font-weight:700;color:${c.monthly === minMonthly ? 'var(--green)' : 'var(--label1)'}">${c.monthlyStr}</span>`)
       },
       {
@@ -2336,7 +2345,7 @@
       '표시 금리는 전월 취급 평균금리 기준이며, 실제 금리는 심사 후 결정됩니다.',
       '월납입 추정액은 원리금균등상환 방식 참고용 수치로 실제와 다를 수 있습니다.',
       '혼합금리(일정 기간 고정 후 변동)는 고정금리로 분류됩니다.',
-      'DSR·방공제 등 세부 규제는 미반영이며, 최종 대출 가능 여부는 금융사 심사로 결정됩니다.',
+      '시뮬레이션으로 구현하지 못하는 세부 규제는 미반영이며 최종 대출 가능 여부는 금융사 심사로 결정됩니다.',
       '담보 평가 방식·규제지역 여부에 따라 실제 한도가 달라질 수 있습니다.',
     ];
     return `
@@ -3250,7 +3259,18 @@
       if (el) el.textContent = '';
     });
 
-    // 결과 슬라이드 초기화 (시중대출 폼이 있을 수 있으므로)
+    // 비교 상태 완전 초기화
+    bankCompareSet.clear();
+    bankAllProds = [];
+    bankBangBanner = '';
+    const bar = document.getElementById('compareBar');
+    if (bar) { bar.style.transform = 'translateY(100%)'; bar.style.opacity = '0'; }
+    const panel = document.getElementById('comparePanel');
+    if (panel) { panel.classList.remove('open'); panel.style.display = 'none'; }
+    const hint = document.getElementById('compareHint');
+    if (hint) hint.classList.remove('visible');
+
+    // 결과 슬라이드 초기화
     const resultSlide = document.querySelector('[data-slide="6"]');
     if (resultSlide) resultSlide.innerHTML = '<div id="resultContent"></div>';
 
