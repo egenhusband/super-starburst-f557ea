@@ -975,11 +975,11 @@
     margin-bottom: 2px;
   }
   .cmp-row-label {
-    width: 72px;
+    width: 56px;
     flex-shrink: 0;
     font-size: 11px;
     color: var(--label3);
-    padding: 12px 8px 12px 0;
+    padding: 12px 6px 12px 0;
     line-height: 1.5;
     display: flex;
     align-items: center;
@@ -2139,48 +2139,54 @@
       return { b, minRate, maxRate, avgRate, monthly, monthlyStr, rateTypes, rpayTypes, isOnline };
     });
 
-    // 최저금리 컬럼 하이라이트
-    const minRateVal = Math.min(...cols.map(c => c.minRate));
+    const minRateVal   = Math.min(...cols.map(c => c.minRate));
+    const minMonthly   = Math.min(...cols.map(c => c.monthly));
+
+    // 열 너비: 2개 50/50, 3개 33/33/33
+    const colPct       = cols.length === 2 ? '50%' : '33.33%';
+    const gridCols     = cols.map(() => colPct).join(' ');
 
     const colHeaders = cols.map(c => `
       <div class="cmp-col-head">
-        <div style="font-size:13px;font-weight:700;color:var(--label1)">${c.b.kor_co_nm}</div>
-        <div style="font-size:11px;color:var(--label3);margin-top:2px">${c.b.fin_prdt_nm}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--label1);word-break:keep-all">${c.b.kor_co_nm}</div>
+        <div style="font-size:10px;color:var(--label3);margin-top:3px;line-height:1.4;word-break:keep-all">${c.b.fin_prdt_nm}</div>
       </div>`).join('');
 
     const rows = [
       {
         label: '금리 범위',
-        vals: cols.map(c => `<span style="font-size:15px;font-weight:700;color:${c.minRate === minRateVal ? '#ff6b9d' : 'var(--accent)'}">${c.minRate.toFixed(2)}~${c.maxRate.toFixed(2)}%</span>`)
-      },
-      {
-        label: '전월 평균금리',
-        vals: cols.map(c => `${c.avgRate.toFixed(2)}%`)
-      },
-      {
-        label: `월납입 추정<br><span style="font-size:10px;color:var(--label3)">${loanEok}억 · ${years}년</span>`,
         vals: cols.map(c => {
-          const minMonthly = Math.min(...cols.map(x => x.monthly));
-          return `<span style="font-weight:600;color:${c.monthly === minMonthly ? 'var(--green)' : 'var(--label1)'}">${c.monthlyStr}</span>`;
+          const color = c.minRate === minRateVal ? '#ff6b9d' : 'var(--accent)';
+          return `<div style="font-weight:700;color:${color};line-height:1.6">
+            <div style="font-size:14px">${c.minRate.toFixed(2)}%</div>
+            <div style="font-size:11px;color:var(--label3);font-weight:400">~ ${c.maxRate.toFixed(2)}%</div>
+          </div>`;
         })
       },
       {
-        label: '금리 방식',
-        vals: cols.map(c => c.rateTypes)
+        label: '전월<br>평균금리',
+        vals: cols.map(c => `<span style="font-size:13px">${c.avgRate.toFixed(2)}%</span>`)
       },
       {
-        label: '상환 방식',
-        vals: cols.map(c => c.rpayTypes)
+        label: `월납입<br>추정<br><span style="font-size:9px;color:var(--label3);font-weight:400;line-height:1.3">${loanEok.toFixed(2)}억<br>${years}년</span>`,
+        vals: cols.map(c => `<span style="font-size:15px;font-weight:700;color:${c.monthly === minMonthly ? 'var(--green)' : 'var(--label1)'}">${c.monthlyStr}</span>`)
       },
       {
-        label: '온라인 가입',
+        label: '금리<br>방식',
+        vals: cols.map(c => `<span style="font-size:12px">${c.rateTypes}</span>`)
+      },
+      {
+        label: '상환<br>방식',
+        vals: cols.map(c => `<span style="font-size:12px">${c.rpayTypes}</span>`)
+      },
+      {
+        label: '온라인<br>가입',
         vals: cols.map(c => c.isOnline
-          ? '<span style="color:var(--green)">✓ 가능</span>'
-          : '<span style="color:var(--label3)">－</span>')
+          ? '<span style="color:var(--green);font-size:13px">✓ 가능</span>'
+          : '<span style="color:var(--label3);font-size:13px">－</span>')
       }
     ];
 
-    // 패널 오버레이
     let panel = document.getElementById('comparePanel');
     if (!panel) {
       panel = document.createElement('div');
@@ -2190,21 +2196,21 @@
     }
     panel.innerHTML = `
       <div class="compare-panel-inner">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-shrink:0">
           <div style="font-size:17px;font-weight:700">상품 비교</div>
-          <button onclick="closeComparePanel()" style="background:var(--bg4);border:none;border-radius:8px;padding:6px 12px;color:var(--label2);font-size:13px;cursor:pointer;font-family:inherit">닫기</button>
+          <button onclick="closeComparePanel()" style="background:var(--bg4);border:none;border-radius:8px;padding:6px 14px;color:var(--label2);font-size:13px;cursor:pointer;font-family:inherit">닫기</button>
         </div>
-        <div class="cmp-header-row">
-          <div class="cmp-row-label"></div>
-          <div class="cmp-row-vals" style="grid-template-columns:repeat(${cols.length},1fr)">${colHeaders}</div>
+        <div style="display:flex;gap:0;margin-bottom:2px">
+          <div style="width:56px;flex-shrink:0"></div>
+          <div style="flex:1;display:grid;grid-template-columns:${gridCols};gap:2px">${colHeaders}</div>
         </div>
         ${rows.map(row => `
-      <div class="cmp-row">
-        <div class="cmp-row-label">${row.label}</div>
-        <div class="cmp-row-vals" style="grid-template-columns:repeat(${cols.length},1fr)">
-          ${row.vals.map(v => `<div class="cmp-col-val">${v}</div>`).join('')}
-        </div>
-      </div>`).join('')}
+        <div style="display:flex;gap:0;margin-bottom:2px">
+          <div class="cmp-row-label">${row.label}</div>
+          <div style="flex:1;display:grid;grid-template-columns:${gridCols};gap:2px">
+            ${row.vals.map(v => `<div class="cmp-col-val">${v}</div>`).join('')}
+          </div>
+        </div>`).join('')}
         <div style="font-size:11px;color:var(--label3);margin-top:16px;line-height:1.6">
           ※ 월납입은 원리금균등 방식 · 전월평균금리 기준 약식 계산값으로 실제와 다를 수 있습니다.<br>
           ※ 실제 금리 및 한도는 해당 금융회사에 직접 문의하세요.
@@ -2331,7 +2337,7 @@
     const items = [
       '표시된 금리는 전월 취급 평균금리 기준이에요. 실제 적용 금리는 신용도·소득·대출기간 등에 따라 달라질 수 있으니, 가입 전 꼭 해당 은행에 직접 확인하세요.',
       '월납입 추정액은 원리금균등상환 방식으로 계산한 참고용 수치예요. 실제 납입액과 차이가 있을 수 있어요.',
-      '고정금리·변동금리 외에 <strong>혼합금리</strong>(일정 기간 고정 후 변동)는 고정금리로 분류돼요.',
+      '고정금리·변동금리 외에 <strong style="white-space:nowrap">혼합금리</strong>(일정 기간 고정 후 변동)는 고정금리로 분류돼요.',
       'DSR(총부채원리금상환비율), 방공제 등 세부 규제는 반영되어 있지 않아요. 이 결과는 참고용이며, 최종 대출 가능 여부는 금융사 심사로 결정돼요.',
       '담보 평가 방식, 규제지역 여부에 따라 실제 한도가 달라질 수 있어요.',
     ];
