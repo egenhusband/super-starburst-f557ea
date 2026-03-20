@@ -70,3 +70,4 @@ function fetchPage(auth, topFinGrpNo, pageNo) {
     });
   });
 }
+
