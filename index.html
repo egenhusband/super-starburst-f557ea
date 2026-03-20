@@ -2112,10 +2112,10 @@
       const isChecked = bankCompareSet.has(p.key);
 
       // 상세 정보 필드
-      const spclCnd  = b.spcl_cnd  || '-';
-      const mtrtInt  = b.mtrt_int  || '-';
+      const erlyRpayFee = b.erly_rpay_fee || '-';
+      const loanInciExpn = b.loan_inci_expn || '-';
       const dlyRate  = b.dly_rate  || '-';
-      const loanLmt  = b.loan_lmt_cnt || '-';
+      const loanLmt  = b.loan_lmt  || '-';
       const joinWay  = b.join_way  || '-';
 
       return `
@@ -2156,12 +2156,8 @@
           </div>
           <div id="detail-${i}" style="display:none;margin-top:12px;border-top:1px solid var(--separator);padding-top:12px">
             <div class="bank-detail-row">
-              <div class="bank-detail-label">우대금리</div>
-              <div class="bank-detail-val">${spclCnd}</div>
-            </div>
-            <div class="bank-detail-row">
               <div class="bank-detail-label">중도상환수수료</div>
-              <div class="bank-detail-val">${mtrtInt}</div>
+              <div class="bank-detail-val">${erlyRpayFee}</div>
             </div>
             <div class="bank-detail-row">
               <div class="bank-detail-label">연체이자율</div>
@@ -2170,6 +2166,10 @@
             <div class="bank-detail-row">
               <div class="bank-detail-label">대출한도</div>
               <div class="bank-detail-val">${loanLmt}</div>
+            </div>
+            <div class="bank-detail-row">
+              <div class="bank-detail-label">대출 부대비용</div>
+              <div class="bank-detail-val">${loanInciExpn}</div>
             </div>
             <div class="bank-detail-row">
               <div class="bank-detail-label">가입방법</div>
@@ -2324,11 +2324,11 @@
       const rateTypes  = [...new Set(p.options.map(o => o.lend_rate_type_nm))].join('<br>');
       const rpayTypes  = [...new Set(p.options.map(o => o.rpay_type_nm))].join('<br>');
       const isOnline   = b.join_way && (b.join_way.includes('인터넷') || b.join_way.includes('스마트폰'));
-      const spclCnd   = b.spcl_cnd   || '-';
-      const mtrtInt   = b.mtrt_int   || '-';
-      const dlyRate   = b.dly_rate   || '-';
-      const loanLmt   = b.loan_lmt_cnt || '-';
-      return { b, minRate, maxRate, avgRate, monthly, monthlyStr, rateTypes, rpayTypes, isOnline, spclCnd, mtrtInt, dlyRate, loanLmt };
+      const erlyRpayFee  = b.erly_rpay_fee  || '-';
+      const loanInciExpn = b.loan_inci_expn || '-';
+      const dlyRate      = b.dly_rate       || '-';
+      const loanLmt      = b.loan_lmt       || '-';
+      return { b, minRate, maxRate, avgRate, monthly, monthlyStr, rateTypes, rpayTypes, isOnline, erlyRpayFee, loanInciExpn, dlyRate, loanLmt };
     });
 
     const minRateVal   = Math.min(...cols.map(c => c.minRate));
@@ -2378,12 +2378,8 @@
           : '<span style="color:var(--label3);font-size:13px">－</span>')
       },
       {
-        label: '우대금리<br>조건',
-        vals: cols.map(c => `<span style="font-size:11px;color:var(--label2);line-height:1.6;text-align:left;display:block">${c.spclCnd}</span>`)
-      },
-      {
         label: '중도상환<br>수수료',
-        vals: cols.map(c => `<span style="font-size:11px;color:var(--label2);line-height:1.6;text-align:left;display:block">${c.mtrtInt}</span>`)
+        vals: cols.map(c => `<span style="font-size:11px;color:var(--label2);line-height:1.6;text-align:left;display:block">${c.erlyRpayFee}</span>`)
       },
       {
         label: '연체<br>이자율',
@@ -2392,6 +2388,10 @@
       {
         label: '대출<br>한도',
         vals: cols.map(c => `<span style="font-size:11px;color:var(--label2);line-height:1.6;text-align:left;display:block">${c.loanLmt}</span>`)
+      },
+      {
+        label: '부대<br>비용',
+        vals: cols.map(c => `<span style="font-size:11px;color:var(--label2);line-height:1.6;text-align:left;display:block">${c.loanInciExpn}</span>`)
       }
     ];
 
