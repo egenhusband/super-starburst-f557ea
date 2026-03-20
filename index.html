@@ -1263,6 +1263,161 @@
     font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
   }
+
+  /* ── 1. 카드 순차 페이드인 ── */
+  @keyframes cardFadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .card-animate {
+    opacity: 0;
+    animation: cardFadeUp 0.32s cubic-bezier(0.4,0,0.2,1) forwards;
+  }
+
+  /* ── 2. 로딩 프로그레스바 ── */
+  .fetch-loader {
+    padding: 48px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .fetch-loader-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--label2);
+    letter-spacing: -0.3px;
+  }
+  .fetch-loader-sub {
+    font-size: 12px;
+    color: var(--label3);
+    margin-top: -6px;
+  }
+  .fetch-progress-track {
+    width: 100%;
+    max-width: 220px;
+    height: 3px;
+    background: var(--separator);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  @keyframes indeterminate {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(320%); }
+  }
+  .fetch-progress-fill {
+    height: 100%;
+    width: 35%;
+    background: var(--accent);
+    border-radius: 3px;
+    animation: indeterminate 1.3s ease-in-out infinite;
+  }
+
+  /* ── 7. 상세보기 슬라이드다운 ── */
+  .bank-detail-panel {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.32s cubic-bezier(0.4,0,0.2,1);
+  }
+  .bank-detail-panel.open { max-height: 600px; }
+  .bank-detail-inner {
+    margin-top: 12px;
+    border-top: 1px solid var(--separator);
+    padding-top: 12px;
+  }
+
+  /* ── 8. 보금자리론 그라디언트 카드 ── */
+  .bogeumjari-hero {
+    background: linear-gradient(135deg, rgba(48,209,88,0.12) 0%, rgba(48,209,88,0.04) 100%);
+    border: 1px solid rgba(48,209,88,0.25);
+    border-radius: 16px;
+    padding: 18px 20px;
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .bogeumjari-hero::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 120px; height: 120px;
+    background: radial-gradient(circle, rgba(48,209,88,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .bogeumjari-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(48,209,88,0.12);
+    border: 1px solid rgba(48,209,88,0.25);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--green);
+    letter-spacing: 0.2px;
+    margin-bottom: 10px;
+  }
+  .bogeumjari-hero-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--label1);
+    line-height: 1.55;
+    letter-spacing: -0.3px;
+  }
+  .bogeumjari-hero-sub {
+    font-size: 12px;
+    color: var(--label2);
+    margin-top: 5px;
+    font-weight: 300;
+    line-height: 1.65;
+  }
+
+  /* ── 6. 처음부터 다시하기 확인 바텀시트 ── */
+  .restart-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 450;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .restart-confirm-overlay.open { display: flex; }
+  .restart-confirm-sheet {
+    width: 100%; max-width: 430px;
+    background: var(--bg2);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px max(env(safe-area-inset-bottom), 24px);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+  .restart-confirm-overlay.open .restart-confirm-sheet { transform: translateY(0); }
+  .restart-confirm-title {
+    font-size: 17px; font-weight: 700; color: var(--label1);
+    margin-bottom: 6px; letter-spacing: -0.4px;
+  }
+  .restart-confirm-desc {
+    font-size: 13px; color: var(--label3);
+    margin-bottom: 20px; line-height: 1.6;
+  }
+  .restart-confirm-btns { display: flex; gap: 10px; }
+  .btn-restart-cancel {
+    flex: 1; height: 52px; background: var(--bg4); border: none;
+    border-radius: 14px; color: var(--label2);
+    font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer;
+  }
+  .btn-restart-confirm {
+    flex: 1; height: 52px; background: var(--red); border: none;
+    border-radius: 14px; color: #fff;
+    font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25%      { transform: translateX(-4px); }
+    75%      { transform: translateX(4px); }
+  }
 </style>
 </head>
 <body>
@@ -1294,6 +1449,18 @@
         💳 결제하러 가기
       </a>
       <button class="btn-pay-pw" onclick="closePayAndShowPw()">🔑 비밀번호 입력하러 가기</button>
+    </div>
+  </div>
+
+  <!-- 처음부터 다시하기 확인 바텀시트 -->
+  <div class="restart-confirm-overlay" id="restartConfirmOverlay">
+    <div class="restart-confirm-sheet">
+      <div class="restart-confirm-title">처음부터 다시할까요?</div>
+      <div class="restart-confirm-desc">입력한 정보와 결과가 모두 초기화됩니다.</div>
+      <div class="restart-confirm-btns">
+        <button class="btn-restart-cancel" onclick="closeRestartConfirm()">취소</button>
+        <button class="btn-restart-confirm" onclick="closeRestartConfirm(); restartApp()">다시하기</button>
+      </div>
     </div>
   </div>
 
@@ -1493,8 +1660,13 @@
   let loanType = null;  // 'fund' | 'bank'
   const answers = { household: null, house: null, children: null };
 
+  function haptic(ms) {
+    if (navigator.vibrate) navigator.vibrate(ms || 8);
+  }
+
   document.querySelectorAll('.option-card').forEach(card => {
     card.addEventListener('click', () => {
+      haptic(8);
       const group = card.dataset.group;
       document.querySelectorAll(`[data-group="${group}"]`).forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
@@ -1732,7 +1904,7 @@
       <div id="bankResultArea" style="margin-top:16px"></div>
 
       <div class="result-spacer"></div>
-      <button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>
+      <button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>
       </div>
     `;
   }
@@ -1994,10 +2166,12 @@
     updateCompareBar();
 
     area.innerHTML = `
-      <div style="text-align:center;padding:40px 20px;color:var(--label3)">
-        <div style="font-size:28px;margin-bottom:12px">🔄</div>
-        <div style="font-size:14px;font-weight:500;color:var(--label2);margin-bottom:6px">금리 정보를 불러오는 중...</div>
-        <div style="font-size:12px" id="fetchProgress">은행권 조회 중</div>
+      <div class="fetch-loader">
+        <div class="fetch-loader-title">금리 정보를 불러오는 중...</div>
+        <div class="fetch-progress-track">
+          <div class="fetch-progress-fill"></div>
+        </div>
+        <div class="fetch-loader-sub" id="fetchProgress">은행권 조회 중</div>
       </div>`;
 
     try {
@@ -2176,7 +2350,7 @@
       const joinWay  = b.join_way  || '-';
 
       return `
-        <div class="result-group bank-card" id="bcard-${i}" style="margin-bottom:8px">
+        <div class="result-group bank-card card-animate" id="bcard-${i}" style="margin-bottom:8px;animation-delay:${i * 0.05}s">
           <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
             <div class="compare-check${isChecked?' checked':''}" id="chk-${i}" onclick="toggleCompare('${p.key}',${i})">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -2211,26 +2385,28 @@
               상세 ▾
             </button>
           </div>
-          <div id="detail-${i}" style="display:none;margin-top:12px;border-top:1px solid var(--separator);padding-top:12px">
-            <div class="bank-detail-row">
-              <div class="bank-detail-label">중도상환수수료</div>
-              <div class="bank-detail-val">${erlyRpayFee}</div>
-            </div>
-            <div class="bank-detail-row">
-              <div class="bank-detail-label">연체이자율</div>
-              <div class="bank-detail-val">${dlyRate}</div>
-            </div>
-            <div class="bank-detail-row">
-              <div class="bank-detail-label">대출한도</div>
-              <div class="bank-detail-val">${loanLmt}</div>
-            </div>
-            <div class="bank-detail-row">
-              <div class="bank-detail-label">대출 부대비용</div>
-              <div class="bank-detail-val">${loanInciExpn}</div>
-            </div>
-            <div class="bank-detail-row">
-              <div class="bank-detail-label">가입방법</div>
-              <div class="bank-detail-val">${joinWay}</div>
+          <div class="bank-detail-panel" id="detail-${i}">
+            <div class="bank-detail-inner">
+              <div class="bank-detail-row">
+                <div class="bank-detail-label">중도상환수수료</div>
+                <div class="bank-detail-val">${erlyRpayFee}</div>
+              </div>
+              <div class="bank-detail-row">
+                <div class="bank-detail-label">연체이자율</div>
+                <div class="bank-detail-val">${dlyRate}</div>
+              </div>
+              <div class="bank-detail-row">
+                <div class="bank-detail-label">대출한도</div>
+                <div class="bank-detail-val">${loanLmt}</div>
+              </div>
+              <div class="bank-detail-row">
+                <div class="bank-detail-label">대출 부대비용</div>
+                <div class="bank-detail-val">${loanInciExpn}</div>
+              </div>
+              <div class="bank-detail-row">
+                <div class="bank-detail-label">가입방법</div>
+                <div class="bank-detail-val">${joinWay}</div>
+              </div>
             </div>
           </div>
         </div>`;
@@ -2293,13 +2469,13 @@
     const idx = id.split('-')[1];
     const btn = document.getElementById('detailBtn-' + idx);
     if (!el) return;
-    const open = el.style.display === 'none' || el.style.display === '';
-    el.style.display  = open ? 'block' : 'none';
+    const open = el.classList.toggle('open');
     if (btn) btn.textContent = open ? '상세 ▴' : '상세 ▾';
   }
 
   // ── 비교 체크 토글 ──
   function toggleCompare(key, idx) {
+    haptic(8);
     const chk = document.getElementById('chk-' + idx);
     if (bankCompareSet.has(key)) {
       bankCompareSet.delete(key);
@@ -2799,7 +2975,7 @@
       + '<div class="result-spacer"></div>'
       + noticeHtml()
       + '<div class="result-spacer-sm"></div>'
-      + '<button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>';
+      + '<button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>';
   }
 
   function buildNewbornHtml(o) {
@@ -2903,7 +3079,11 @@
     var paneBogeumjari = '';
     if (bogeumjariOk) {
       paneBogeumjari = '<div class="tab-pane3' + (firstTab === 'bogeumjari' ? ' active' : '') + '" id="pane3-bogeumjari">'
-        + '<div class="result-tagline green-border">DSR을 보지 않기 때문에 소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.</div>'
+        + '<div class="bogeumjari-hero">
+  <div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div>
+  <div class="bogeumjari-hero-text">DSR을 보지 않아요</div>
+  <div class="bogeumjari-hero-sub">소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.<br>총부채원리금상환비율(DSR) 규제 적용 제외 상품이에요.</div>
+</div>'
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group"><div class="rate-limit-row">'
@@ -2949,7 +3129,7 @@
       + '<div class="result-spacer"></div>'
       + noticeHtml()
       + '<div class="result-spacer-sm"></div>'
-      + '<button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>';
+      + '<button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>';
   }
 
   // ── 디딤돌 금리 범위 (household·house 기반) ──
@@ -3095,7 +3275,11 @@
 
         <!-- 보금자리론 패널 -->
         <div class="tab-pane" id="pane-bogeumjari">
-          <div class="result-tagline green-border">DSR을 보지 않기 때문에 소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.</div>
+          <div class="bogeumjari-hero">
+  <div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div>
+  <div class="bogeumjari-hero-text">DSR을 보지 않아요</div>
+  <div class="bogeumjari-hero-sub">소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.<br>총부채원리금상환비율(DSR) 규제 적용 제외 상품이에요.</div>
+</div>
           <div class="result-spacer"></div>
           <div class="group-label">상품 정보</div>
           <div class="result-group">
@@ -3134,7 +3318,7 @@
         ${noticeHtml()}
         <div class="result-spacer"></div>
         <div class="result-spacer-sm"></div>
-        <button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>`;
+        <button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>`;
 
     // ══ 케이스 B: 디딤돌만 해당 ══
     } else if (didimdolOk) {
@@ -3184,7 +3368,7 @@
         ${noticeHtml()}
         <div class="result-spacer"></div>
         <div class="result-spacer-sm"></div>
-        <button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>`;
+        <button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>`;
 
     // ══ 케이스 C: 보금자리론만 해당 ══
     } else if (bogeumjariOk) {
@@ -3199,7 +3383,11 @@
             </div>
           </div>
         </div>
-        <div class="result-tagline green-border">DSR을 보지 않기 때문에 소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.</div>
+        <div class="bogeumjari-hero">
+  <div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div>
+  <div class="bogeumjari-hero-text">DSR을 보지 않아요</div>
+  <div class="bogeumjari-hero-sub">소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.<br>총부채원리금상환비율(DSR) 규제 적용 제외 상품이에요.</div>
+</div>
         <div class="result-spacer"></div>
         <div class="group-label">상품 정보</div>
         <div class="result-group">
@@ -3238,7 +3426,7 @@
         ${noticeHtml()}
         <div class="result-spacer"></div>
         <div class="result-spacer-sm"></div>
-        <button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>`;
+        <button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>`;
 
     // ══ 케이스 D: 해당 없음 ══
     } else {
@@ -3281,10 +3469,20 @@
         ${noticeHtml()}
         <div class="result-spacer"></div>
         <div class="result-spacer-sm"></div>
-        <button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>`;
+        <button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>`;
     }
 
     document.getElementById('resultContent').innerHTML = html;
+
+    // 결과 카드 순차 페이드인
+    requestAnimationFrame(() => {
+      const children = document.getElementById('resultContent')?.children;
+      if (!children) return;
+      Array.from(children).forEach((el, i) => {
+        el.style.opacity = '0';
+        el.style.animation = `cardFadeUp 0.32s cubic-bezier(0.4,0,0.2,1) ${i * 0.04}s forwards`;
+      });
+    });
   }
 
   function switchTab(tab) {
@@ -3488,6 +3686,20 @@
           카카오페이로 후원하기
         </a>
       </div>`;
+  }
+
+  function confirmRestart() {
+    const overlay = document.getElementById('restartConfirmOverlay');
+    if (!overlay) return;
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => overlay.classList.add('open'));
+  }
+
+  function closeRestartConfirm() {
+    const overlay = document.getElementById('restartConfirmOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('open');
+    setTimeout(() => { overlay.style.display = 'none'; }, 300);
   }
 
   function restartApp() {
