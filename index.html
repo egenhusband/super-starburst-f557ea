@@ -1872,9 +1872,12 @@
 
   // LTV 한도 계산 (규제지역·생애최초·지역 기반)
   function getBankLtvLimit() {
-    if (REG_ZONES.has(bankRegionKey)) return 40; // 규제지역: 무주택·1주택 모두 40%
+    if (REG_ZONES.has(bankRegionKey)) {
+      // 규제지역: 생애최초 70%, 일반 40%
+      return bankFirstBuyer === 'Y' ? 70 : 40;
+    }
     if (bankFirstBuyer === 'Y') {
-      return bankRegion === 'M' ? 70 : 80; // 생애최초: 수도권 70%, 비수도권 80%
+      return bankRegion === 'M' ? 70 : 80; // 비규제: 수도권 70%, 비수도권 80%
     }
     return 70;
   }
