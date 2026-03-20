@@ -905,7 +905,30 @@
     font-weight: 700;
   }
 
-  /* ── 비교 체크박스 ── */
+  /* ── 상품 상세 정보 ── */
+  .bank-detail-row {
+    display: flex;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--separator);
+    align-items: flex-start;
+  }
+  .bank-detail-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .bank-detail-label {
+    font-size: 11px;
+    color: var(--label3);
+    width: 80px;
+    flex-shrink: 0;
+    padding-top: 1px;
+    line-height: 1.5;
+  }
+  .bank-detail-val {
+    font-size: 11px;
+    color: var(--label2);
+    flex: 1;
+    line-height: 1.6;
+    word-break: keep-all;
+  }
   .compare-check {
     width: 24px; height: 24px;
     border-radius: 7px;
@@ -961,6 +984,8 @@
     background: var(--bg2);
     border-radius: 20px 20px 0 0;
     padding: 20px 20px max(env(safe-area-inset-bottom), 24px);
+    max-height: 85dvh;
+    overflow-y: auto;
     transform: translateY(100%);
     transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
   }
@@ -1157,10 +1182,120 @@
     line-height: 1.5;
   }
   .bang-badge-text strong { color: var(--yellow); font-weight: 600; }
+
+  /* ── 비밀번호 진입 화면 ── */
+  .pw-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 32px;
+  }
+  .pw-logo { font-size: 48px; margin-bottom: 16px; }
+  .pw-title {
+    font-size: 22px; font-weight: 700; color: var(--label1);
+    letter-spacing: -0.5px; margin-bottom: 6px; text-align: center;
+  }
+  .pw-sub {
+    font-size: 13px; color: var(--label3); margin-bottom: 32px;
+    text-align: center; line-height: 1.6;
+  }
+  .pw-input-wrap {
+    width: 100%; background: var(--bg3); border: 1.5px solid var(--separator);
+    border-radius: 14px; padding: 0 18px; height: 56px;
+    display: flex; align-items: center; transition: border-color 0.18s; margin-bottom: 8px;
+  }
+  .pw-input-wrap:focus-within { border-color: var(--accent); }
+  .pw-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    font-family: 'Noto Sans KR', sans-serif; font-size: 18px; font-weight: 500;
+    color: var(--label1); min-width: 0; letter-spacing: 2px;
+  }
+  .pw-input::placeholder { color: var(--label3); font-size: 14px; letter-spacing: 0; font-weight: 300; }
+  .pw-err { font-size: 12px; color: var(--red); min-height: 18px; margin-bottom: 12px; width: 100%; padding: 0 4px; }
+  .btn-pw-submit {
+    width: 100%; height: 52px; background: var(--accent); border: none;
+    border-radius: 14px; color: #fff; font-family: 'Noto Sans KR', sans-serif;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 12px; transition: opacity 0.18s;
+  }
+  .btn-pw-submit:active { opacity: 0.85; }
+  .btn-pw-guest {
+    width: 100%; height: 52px; background: transparent;
+    border: 1.5px solid var(--separator); border-radius: 14px; color: var(--label2);
+    font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+
+  /* ── 결제 유도 팝업 ── */
+  .pay-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    z-index: 400; display: none; align-items: flex-end; justify-content: center;
+  }
+  .pay-overlay.open { display: flex; }
+  .pay-sheet {
+    width: 100%; max-width: 430px; background: var(--bg2);
+    border-radius: 20px 20px 0 0;
+    padding: 28px 24px max(env(safe-area-inset-bottom), 28px);
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+  }
+  .pay-overlay.open .pay-sheet { transform: translateY(0); }
+  .pay-icon { font-size: 36px; margin-bottom: 12px; }
+  .pay-title { font-size: 20px; font-weight: 700; color: var(--label1); letter-spacing: -0.4px; margin-bottom: 8px; }
+  .pay-desc { font-size: 13px; color: var(--label2); line-height: 1.7; font-weight: 300; margin-bottom: 24px; }
+  .btn-pay-go {
+    width: 100%; height: 52px; background: var(--accent); border: none;
+    border-radius: 14px; color: #fff; font-family: 'Noto Sans KR', sans-serif;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-bottom: 10px; text-decoration: none; transition: opacity 0.18s;
+  }
+  .btn-pay-go:active { opacity: 0.85; }
+  .btn-pay-pw {
+    width: 100%; height: 52px; background: var(--bg3);
+    border: 1.5px solid var(--separator); border-radius: 14px; color: var(--label2);
+    font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
 </style>
 </head>
 <body>
 <div class="app">
+
+  <!-- 비밀번호 진입 화면 -->
+  <div class="pw-screen" id="pwScreen">
+    <div style="width:100%;max-width:390px;display:flex;flex-direction:column;align-items:center">
+    <div class="pw-logo">🏠</div>
+    <div class="pw-title">시중 주택담보대출 계산기</div>
+    <div class="pw-sub">비밀번호를 입력하거나<br>둘러보기로 먼저 체험해보세요</div>
+    <div class="pw-input-wrap">
+      <input class="pw-input" id="pwInput" type="password" placeholder="비밀번호 입력"
+        onkeydown="if(event.key==='Enter') submitPassword()">
+    </div>
+    <div class="pw-err" id="pwErr"></div>
+    <button class="btn-pw-submit" onclick="submitPassword()">입장하기</button>
+    <button class="btn-pw-guest" onclick="enterAsGuest()">둘러볼게요</button>
+    </div>
+  </div>
+
+  <!-- 결제 유도 팝업 -->
+  <div class="pay-overlay" id="payOverlay">
+    <div class="pay-sheet">
+      <div class="pay-icon">🔒</div>
+      <div class="pay-title">결과를 확인하려면 구매가 필요해요</div>
+      <div class="pay-desc">정확한 대출 한도·금리 분석 결과는<br>구매 후 이용하실 수 있어요.<br>이미 구매하셨다면 비밀번호로 입장해 주세요.</div>
+      <a class="btn-pay-go" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">
+        💳 결제하러 가기
+      </a>
+      <button class="btn-pay-pw" onclick="closePayAndShowPw()">🔑 비밀번호 입력하러 가기</button>
+    </div>
+  </div>
 
   <div class="progress-wrap" id="progressWrap">
     <div class="progress-track">
@@ -1416,6 +1551,7 @@
       navigateTo(7);
       document.getElementById('bottomNav').style.display = 'none';
       document.getElementById('progressWrap').style.display = 'none';
+      if (isGuestMode) setTimeout(showPayPopup, 400);
       return;
     }
     navigateTo(current + 1);
@@ -1975,6 +2111,13 @@
 
       const isChecked = bankCompareSet.has(p.key);
 
+      // 상세 정보 필드
+      const spclCnd  = b.spcl_cnd  || '-';
+      const mtrtInt  = b.mtrt_int  || '-';
+      const dlyRate  = b.dly_rate  || '-';
+      const loanLmt  = b.loan_lmt_cnt || '-';
+      const joinWay  = b.join_way  || '-';
+
       return `
         <div class="result-group bank-card" id="bcard-${i}" style="margin-bottom:8px">
           <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
@@ -2000,10 +2143,38 @@
               <span class="info-pill-val">${monthlyStr}</span>
             </div>
           </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <span style="font-size:11px;color:var(--label3)">${rateTypes}</span>
-            <span style="font-size:11px;color:var(--label3)">·</span>
-            <span style="font-size:11px;color:var(--label3)">${rpayTypes}</span>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <span style="font-size:11px;color:var(--label3)">${rateTypes}</span>
+              <span style="font-size:11px;color:var(--label3)">·</span>
+              <span style="font-size:11px;color:var(--label3)">${rpayTypes}</span>
+            </div>
+            <button onclick="toggleBankDetail('detail-${i}')" id="detailBtn-${i}"
+              style="flex-shrink:0;background:var(--bg4);border:none;border-radius:8px;padding:4px 10px;font-size:11px;color:var(--label2);cursor:pointer;font-family:inherit;margin-left:8px">
+              상세 ▾
+            </button>
+          </div>
+          <div id="detail-${i}" style="display:none;margin-top:12px;border-top:1px solid var(--separator);padding-top:12px">
+            <div class="bank-detail-row">
+              <div class="bank-detail-label">우대금리</div>
+              <div class="bank-detail-val">${spclCnd}</div>
+            </div>
+            <div class="bank-detail-row">
+              <div class="bank-detail-label">중도상환수수료</div>
+              <div class="bank-detail-val">${mtrtInt}</div>
+            </div>
+            <div class="bank-detail-row">
+              <div class="bank-detail-label">연체이자율</div>
+              <div class="bank-detail-val">${dlyRate}</div>
+            </div>
+            <div class="bank-detail-row">
+              <div class="bank-detail-label">대출한도</div>
+              <div class="bank-detail-val">${loanLmt}</div>
+            </div>
+            <div class="bank-detail-row">
+              <div class="bank-detail-label">가입방법</div>
+              <div class="bank-detail-val">${joinWay}</div>
+            </div>
           </div>
         </div>`;
     }).join('');
@@ -2058,6 +2229,16 @@
     _hintDismissed = true;
     const hint = document.getElementById('compareHint');
     if (hint) hint.classList.remove('visible');
+  }
+
+  function toggleBankDetail(id) {
+    const el  = document.getElementById(id);
+    const idx = id.split('-')[1];
+    const btn = document.getElementById('detailBtn-' + idx);
+    if (!el) return;
+    const open = el.style.display === 'none' || el.style.display === '';
+    el.style.display  = open ? 'block' : 'none';
+    if (btn) btn.textContent = open ? '상세 ▴' : '상세 ▾';
   }
 
   // ── 비교 체크 토글 ──
@@ -2143,7 +2324,11 @@
       const rateTypes  = [...new Set(p.options.map(o => o.lend_rate_type_nm))].join('<br>');
       const rpayTypes  = [...new Set(p.options.map(o => o.rpay_type_nm))].join('<br>');
       const isOnline   = b.join_way && (b.join_way.includes('인터넷') || b.join_way.includes('스마트폰'));
-      return { b, minRate, maxRate, avgRate, monthly, monthlyStr, rateTypes, rpayTypes, isOnline };
+      const spclCnd   = b.spcl_cnd   || '-';
+      const mtrtInt   = b.mtrt_int   || '-';
+      const dlyRate   = b.dly_rate   || '-';
+      const loanLmt   = b.loan_lmt_cnt || '-';
+      return { b, minRate, maxRate, avgRate, monthly, monthlyStr, rateTypes, rpayTypes, isOnline, spclCnd, mtrtInt, dlyRate, loanLmt };
     });
 
     const minRateVal   = Math.min(...cols.map(c => c.minRate));
@@ -2191,6 +2376,22 @@
         vals: cols.map(c => c.isOnline
           ? '<span style="color:var(--green);font-size:13px">✓ 가능</span>'
           : '<span style="color:var(--label3);font-size:13px">－</span>')
+      },
+      {
+        label: '우대금리<br>조건',
+        vals: cols.map(c => `<span style="font-size:11px;color:var(--label2);line-height:1.6;text-align:left;display:block">${c.spclCnd}</span>`)
+      },
+      {
+        label: '중도상환<br>수수료',
+        vals: cols.map(c => `<span style="font-size:11px;color:var(--label2);line-height:1.6;text-align:left;display:block">${c.mtrtInt}</span>`)
+      },
+      {
+        label: '연체<br>이자율',
+        vals: cols.map(c => `<span style="font-size:11px;color:var(--label2);line-height:1.6;text-align:left;display:block">${c.dlyRate}</span>`)
+      },
+      {
+        label: '대출<br>한도',
+        vals: cols.map(c => `<span style="font-size:11px;color:var(--label2);line-height:1.6;text-align:left;display:block">${c.loanLmt}</span>`)
       }
     ];
 
@@ -3285,6 +3486,62 @@
     document.getElementById('btnBack').disabled = true;
     document.getElementById('btnNext').disabled = true;
   }
+
+  // ── 비밀번호 & 게스트 모드 ──
+  const CORRECT_PW = 'egenhusband^^';
+  let isGuestMode  = false;
+
+  // 이미 인증된 경우 비밀번호 화면 즉시 숨김
+  if (localStorage.getItem('authVerified') === '1') {
+    document.getElementById('pwScreen').style.display = 'none';
+  }
+
+  function submitPassword() {
+    const val = document.getElementById('pwInput').value;
+    if (val === CORRECT_PW) {
+      isGuestMode = false;
+      localStorage.setItem('authVerified', '1');
+      document.getElementById('pwScreen').style.display = 'none';
+      document.getElementById('pwErr').textContent = '';
+    } else {
+      document.getElementById('pwErr').textContent = '비밀번호가 올바르지 않아요.';
+      document.getElementById('pwInput').value = '';
+    }
+  }
+
+  function enterAsGuest() {
+    isGuestMode = true;
+    document.getElementById('pwScreen').style.display = 'none';
+  }
+
+  // ── 결제 팝업 ──
+  function showPayPopup() {
+    if (!isGuestMode) return;
+    const overlay = document.getElementById('payOverlay');
+    overlay.classList.add('open');
+  }
+
+  function closePayAndShowPw() {
+    document.getElementById('payOverlay').classList.remove('open');
+    const pwScreen = document.getElementById('pwScreen');
+    pwScreen.style.display = 'flex';
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwErr').textContent = '';
+  }
+
+  // 기금대출 결과 진입 시 팝업 — goNext()에서 renderResult 호출 후 훅
+  const _origRenderResult = renderResult;
+  renderResult = function(income, price, asset) {
+    _origRenderResult(income, price, asset);
+    if (isGuestMode) setTimeout(showPayPopup, 400);
+  };
+
+  // 시중은행 조회 버튼 시 팝업 — searchBankLoans 래핑
+  const _origSearchBankLoans = searchBankLoans;
+  searchBankLoans = async function() {
+    if (isGuestMode) { showPayPopup(); return; }
+    return _origSearchBankLoans();
+  };
 
   setProgress(0);
 </script>
