@@ -2128,6 +2128,10 @@
           <div class="bank-notice-icon">🏦</div>
           <div class="bank-notice-text">표시된 상품은 금융감독원 <strong>금융상품 한눈에</strong> 데이터 기준이며, 일부 상품은 누락될 수 있습니다.</div>
         </div>
+        <div class="bank-notice-item">
+          <div class="bank-notice-icon">📋</div>
+          <div class="bank-notice-text"><strong>DSR 시뮬레이션</strong>은 무대출 상황 기준 참고용이며, 기존 대출이 있다면 실제 한도는 더 낮을 수 있습니다.</div>
+        </div>
         <button class="btn-notice-confirm" onclick="closeBankNotice()">확인했어요</button>
       </div>
     `;
@@ -2276,7 +2280,7 @@
 
     if (dsrMsg && income > 0 && actualLoanVal > 1) {
       const stressRate = getDsrStressRate();
-      const avgRate    = 4.0; // 참고용 평균금리 (전월 평균 기준 추정)
+      const avgRate    = 5.0; // 참고용 평균금리 (전월 평균 기준 추정)
       const loanYears  = years > 0 ? years : 30;
       const dsrMax     = calcDsrMaxLoan(income, avgRate, loanYears);
       const dsrMaxLoan = Math.min(dsrMax, maxLoan); // LTV와 DSR 중 낮은 값
@@ -2297,7 +2301,7 @@
       dsrMsg.textContent = '대출 1억 이하 — DSR 미적용';
     } else if (dsrMsg) {
       dsrMsg.style.color = 'var(--label3)';
-      dsrMsg.textContent = 'DSR 계산에 사용됩니다 (대출 1억 초과 시 적용)';
+      dsrMsg.textContent = '추정 DSR 계산에 사용됩니다 (대출 1억 초과 시 적용)';
     }
 
     // 검색 버튼 활성화
@@ -2449,15 +2453,15 @@
   function toggleMajorFirst() {
     bankMajorFirst = !bankMajorFirst;
     bankCurrentPage = 1;
-    renderBankPage(bankLoanCtx.loanEok, bankLoanCtx.years);
+    renderBankPage(bankLoanCtx.loanEok, bankLoanCtx.years, true);
   }
 
   function setBankSort(val) {
     bankSortBy = val;
-    renderBankPage(bankLoanCtx.loanEok, bankLoanCtx.years);
+    renderBankPage(bankLoanCtx.loanEok, bankLoanCtx.years, true);
   }
 
-  function renderBankPage(loanEok, years) {
+  function renderBankPage(loanEok, years, noAnimate) {
     const area    = document.getElementById('bankResultArea');
     const loanWon = loanEok * 100000000;
     const n       = years * 12;
@@ -2510,7 +2514,7 @@
       const joinWay  = b.join_way  || '-';
 
       return `
-        <div class="result-group bank-card card-animate" id="bcard-${i}" style="margin-bottom:8px;animation-delay:${i * 0.05}s">
+        <div class="result-group bank-card${noAnimate ? '' : ' card-animate'}" id="bcard-${i}" style="margin-bottom:8px${noAnimate ? '' : `;animation-delay:${i * 0.05}s`}">
           <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
             <div class="compare-check${isChecked?' checked':''}" id="chk-${i}" onclick="toggleCompare('${p.key}',${i})">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -2939,8 +2943,8 @@
       '표시 금리는 전월 취급 평균금리 기준이며, 실제 금리는 신용도·소득·담보 심사 후 결정됩니다.',
       '월납입 추정액은 원리금균등상환 방식 참고용 수치로 실제 납입액과 다를 수 있습니다.',
       '혼합금리(일정 기간 고정 후 변동)는 고정금리로 분류됩니다.',
-      'DSR·DTI 등 소득 기반 규제는 미반영이며, 최종 대출 가능 여부는 금융사 심사로 결정됩니다.',
       '규제지역 외 지역은 LTV 70% 기준으로 계산되며, 실제 규제 적용과 다를 수 있습니다.',
+      'DSR 시뮬레이션은 무대출 상황 기준의 참고용 결과입니다. 최종 대출 가능 여부 및 한도는 금융사 심사로 결정되며, 기존 대출이 있을 경우 실제 한도는 더 낮거나 심사가 불가할 수 있습니다.',
       'DSR 시뮬레이션은 모든 대출이 없는 무대출 상황을 가정합니다. 기존 주담대·신용대출·2금융권 대출이 있다면 실제 대출 가능 금액은 더 적거나 심사가 불가할 수 있으며, 반드시 수탁 은행 상담이 필요합니다.',
       '스트레스 DSR 가산금리는 변동·혼합금리 상품에만 적용되며, 고정금리 상품은 미적용입니다.',
     ];
