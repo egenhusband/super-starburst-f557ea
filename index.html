@@ -1326,7 +1326,99 @@
     padding-top: 12px;
   }
 
-  /* ── 8. 보금자리론 그라디언트 카드 ── */
+  /* ── 디딤돌 그라디언트 카드 ── */
+  .didimdol-hero {
+    background: linear-gradient(135deg, rgba(10,132,255,0.12) 0%, rgba(10,132,255,0.04) 100%);
+    border: 1px solid rgba(10,132,255,0.25);
+    border-radius: 16px;
+    padding: 18px 20px;
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .didimdol-hero::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 120px; height: 120px;
+    background: radial-gradient(circle, rgba(10,132,255,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .didimdol-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(10,132,255,0.12);
+    border: 1px solid rgba(10,132,255,0.25);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.2px;
+    margin-bottom: 10px;
+  }
+  .didimdol-hero-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--label1);
+    line-height: 1.55;
+    letter-spacing: -0.3px;
+  }
+  .didimdol-hero-sub {
+    font-size: 12px;
+    color: var(--label2);
+    margin-top: 5px;
+    font-weight: 300;
+    line-height: 1.65;
+  }
+
+  /* ── 신생아 특례 그라디언트 카드 ── */
+  .newborn-hero {
+    background: linear-gradient(135deg, rgba(255,107,157,0.12) 0%, rgba(255,107,157,0.04) 100%);
+    border: 1px solid rgba(255,107,157,0.25);
+    border-radius: 16px;
+    padding: 18px 20px;
+    margin-bottom: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .newborn-hero::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 120px; height: 120px;
+    background: radial-gradient(circle, rgba(255,107,157,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .newborn-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,107,157,0.12);
+    border: 1px solid rgba(255,107,157,0.25);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #ff6b9d;
+    letter-spacing: 0.2px;
+    margin-bottom: 10px;
+  }
+  .newborn-hero-text {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--label1);
+    line-height: 1.55;
+    letter-spacing: -0.3px;
+  }
+  .newborn-hero-sub {
+    font-size: 12px;
+    color: var(--label2);
+    margin-top: 5px;
+    font-weight: 300;
+    line-height: 1.65;
+  }
   .bogeumjari-hero {
     background: linear-gradient(135deg, rgba(48,209,88,0.12) 0%, rgba(48,209,88,0.04) 100%);
     border: 1px solid rgba(48,209,88,0.25);
@@ -1490,7 +1582,7 @@
         <div class="option-card" data-group="loanType" data-val="bank" onclick="selectLoanType('bank')">
           <div>
             <div class="option-title">🏦 시중 대출</div>
-            <div class="option-desc">주요 은행 · 저축은행 - 시중 주담대 상품</div>
+            <div class="option-desc">전월 기준 금리 비교</div>
           </div>
           <div class="option-check"></div>
         </div>
@@ -1796,32 +1888,13 @@
 
       <div class="result-group" style="display:flex;flex-direction:column;gap:10px;margin-top:8px;padding:14px 14px">
 
-        <div class="bank-form-row">
-          <label class="bank-form-label">주택가격</label>
-          <div class="bank-input-wrap">
-            <input class="bank-input" id="bankPrice" type="number" min="0" step="0.1" placeholder="예: 5" oninput="updateBankCalc()">
-            <span class="bank-unit">억원</span>
+        <div class="bank-form-row" style="align-items:center">
+          <label class="bank-form-label">생애최초</label>
+          <div style="display:flex;gap:8px;">
+            <button class="bank-tag-btn" id="fbY" onclick="selectFirstBuyer('Y',this)">예</button>
+            <button class="bank-tag-btn active" id="fbN" onclick="selectFirstBuyer('N',this)">아니오</button>
           </div>
         </div>
-
-        <div class="bank-form-row">
-          <label class="bank-form-label">대출금액</label>
-          <div class="bank-input-wrap">
-            <input class="bank-input" id="bankLoan" type="number" min="0" step="0.1" placeholder="예: 3" oninput="updateBankCalc()">
-            <span class="bank-ltv-badge" id="bankLtvBadge"></span>
-            <span class="bank-unit">억원</span>
-          </div>
-        </div>
-        <div id="bankLoanMsg" style="font-size:11px;color:var(--red);padding:0 2px;min-height:14px;margin-top:-4px"></div>
-
-        <div class="bank-form-row">
-          <label class="bank-form-label">대출기간</label>
-          <div class="bank-input-wrap">
-            <input class="bank-input" id="bankYears" type="number" min="1" max="50" step="1" placeholder="예: 30" oninput="updateBankCalc()">
-            <span class="bank-unit">년</span>
-          </div>
-        </div>
-        <div id="bankYearsMsg" style="font-size:11px;color:var(--label3);padding:0 2px;min-height:14px;margin-top:-4px"></div>
 
         <div class="bank-form-row">
           <label class="bank-form-label">지역</label>
@@ -1863,13 +1936,32 @@
           <div class="bang-badge-text" id="bangBadgeText"></div>
         </div>
 
-        <div class="bank-form-row" style="align-items:center">
-          <label class="bank-form-label">생애최초</label>
-          <div style="display:flex;gap:8px;">
-            <button class="bank-tag-btn" id="fbY" onclick="selectFirstBuyer('Y',this)">예</button>
-            <button class="bank-tag-btn active" id="fbN" onclick="selectFirstBuyer('N',this)">아니오</button>
+        <div class="bank-form-row">
+          <label class="bank-form-label">주택가격</label>
+          <div class="bank-input-wrap">
+            <input class="bank-input" id="bankPrice" type="number" min="0" step="0.1" placeholder="예: 5" oninput="updateBankCalc()">
+            <span class="bank-unit">억원</span>
           </div>
         </div>
+
+        <div class="bank-form-row">
+          <label class="bank-form-label">대출금액</label>
+          <div class="bank-input-wrap">
+            <input class="bank-input" id="bankLoan" type="number" min="0" step="0.1" placeholder="예: 3" oninput="updateBankCalc()">
+            <span class="bank-ltv-badge" id="bankLtvBadge"></span>
+            <span class="bank-unit">억원</span>
+          </div>
+        </div>
+        <div id="bankLoanMsg" style="font-size:11px;color:var(--red);padding:0 2px;min-height:14px;margin-top:-4px"></div>
+
+        <div class="bank-form-row">
+          <label class="bank-form-label">대출기간</label>
+          <div class="bank-input-wrap">
+            <input class="bank-input" id="bankYears" type="number" min="1" max="50" step="1" placeholder="예: 30" oninput="updateBankCalc()">
+            <span class="bank-unit">년</span>
+          </div>
+        </div>
+        <div id="bankYearsMsg" style="font-size:11px;color:var(--label3);padding:0 2px;min-height:14px;margin-top:-4px"></div>
 
         <div class="bank-form-row" style="align-items:center">
           <label class="bank-form-label">주택종류</label>
@@ -2794,6 +2886,7 @@
     return `
         <div class="group-label">주의사항</div>
         <div class="notice-list">
+          <div class="notice-item">기본 LTV 70% / DTI 60% 적용, 상품·상황별 상이</div>
           <div class="notice-item">자세한 조건은 <strong>주택금융공사 업무처리기준</strong> 확인 필수</div>
         </div>`;
   }
@@ -3018,7 +3111,7 @@
     var paneNewborn = '';
     if (newbornOk) {
       paneNewborn = '<div class="tab-pane3' + (firstTab === 'newborn' ? ' active' : '') + '" id="pane3-newborn">'
-        + '<div class="result-tagline" style="border-left:3px solid #ff6b9d">최저 1.8% 특례금리 · 기본 5년 적용 (추가 출산 시 최장 15년)</div>'
+        + '<div class="newborn-hero"><div class="newborn-hero-badge">👶 신생아 특례 핵심 혜택</div><div class="newborn-hero-text">최저 1.8% 특례금리</div><div class="newborn-hero-sub">기본 5년 적용 · 추가 출산 시 1명당 5년 연장 (최장 15년)<br>시중 어디서도 볼 수 없는 파격적인 금리예요.</div></div>'
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group"><div class="rate-limit-row">'
@@ -3051,7 +3144,7 @@
     var paneDidimdol = '';
     if (didimdolOk) {
       paneDidimdol = '<div class="tab-pane3' + (firstTab === 'didimdol' ? ' active' : '') + '" id="pane3-didimdol">'
-        + '<div class="result-tagline">시중 어디에서도 볼 수 없는 파격적인 금리 혜택입니다.</div>'
+        + '<div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div></div>'
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group"><div class="rate-limit-row">'
@@ -3238,7 +3331,7 @@
 
         <!-- 디딤돌 패널 -->
         <div class="tab-pane active" id="pane-didimdol">
-          <div class="result-tagline">시중 어디에서도 볼 수 없는 파격적인 금리 혜택입니다.</div>
+          <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div></div>
           <div class="result-spacer"></div>
           <div class="group-label">상품 정보</div>
           <div class="result-group">
@@ -3327,7 +3420,7 @@
             </div>
           </div>
         </div>
-        <div class="result-tagline">시중 어디에서도 볼 수 없는 파격적인 금리 혜택입니다.</div>
+        <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div></div>
         <div class="result-spacer"></div>
         <div class="group-label">상품 정보</div>
         <div class="result-group">
