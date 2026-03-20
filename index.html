@@ -329,7 +329,7 @@
     color: var(--label2);
     line-height: 1.7;
     font-weight: 300;
-    padding: 16px 18px;
+    padding: 12px 16px;
     background: var(--bg3);
     border-radius: 14px;
     border-left: 3px solid var(--accent);
@@ -602,7 +602,7 @@
     line-height: 1.65;
   }
   .repay-tenure {
-    border-top: 1px solid var(--separator);
+    border-top: none;
     margin-top: 8px;
     padding: 12px 0 0 0;
     display: flex;
@@ -1323,7 +1323,7 @@
         <div class="option-card" data-group="loanType" data-val="bank" onclick="selectLoanType('bank')">
           <div>
             <div class="option-title">🏦 시중 대출</div>
-            <div class="option-desc">실시간 금리 비교</div>
+            <div class="option-desc">전월 기준 금리 비교</div>
           </div>
           <div class="option-check"></div>
         </div>
@@ -1655,23 +1655,33 @@
           <label class="bank-form-label">지역</label>
           <select class="bank-region-select" id="bankRegionSelect" onchange="selectRegionDetail(this.value)">
             <option value="">지역을 선택해주세요</option>
-            <optgroup label="서울 / 수도권">
-              <option value="seoul">서울특별시</option>
+            <optgroup label="🔴 규제지역 (LTV 40%)">
+              <option value="reg_seoul">서울특별시 (전역)</option>
+              <option value="reg_gwacheon">경기 — 과천시</option>
+              <option value="reg_gwangmyeong">경기 — 광명시</option>
+              <option value="reg_seongnam">경기 — 성남시 (분당·수정·중원구)</option>
+              <option value="reg_suwon">경기 — 수원시 (영통·장안·팔달구)</option>
+              <option value="reg_anyang">경기 — 안양시 (동안구)</option>
+              <option value="reg_yongin">경기 — 용인시 (수지구)</option>
+              <option value="reg_uiwang">경기 — 의왕시</option>
+              <option value="reg_hanam">경기 — 하남시</option>
+            </optgroup>
+            <optgroup label="수도권 (LTV 70%)">
               <option value="incheon_gangwha">인천 — 강화군·옹진군</option>
               <option value="incheon_special">인천 — 서구 일부·경제특구</option>
               <option value="incheon_etc">인천 — 그 외</option>
-              <option value="metro_city">의정부·구리·하남·고양·수원·성남·안양·부천·광명·과천·의왕·군포·용인·화성·세종·김포</option>
+              <option value="metro_city">경기 — 의정부·구리·고양·수원 일부·부천·광명 일부·과천 일부·의왕 일부·군포·용인 일부·화성·세종·김포</option>
               <option value="siheung_banwol">시흥 — 반월특수지역</option>
               <option value="siheung_etc">시흥 — 그 외</option>
               <option value="namyangju_core">남양주 — 호평·별내·금곡·일패·이패·삼패·가운·수석·지금·도농</option>
               <option value="namyangju_etc">남양주 — 그 외</option>
               <option value="gyeonggi_city">경기 — 안산시·광주시·파주시·이천시·평택시</option>
             </optgroup>
-            <optgroup label="광역시">
+            <optgroup label="광역시 (LTV 70%)">
               <option value="metro_gun">광주·대구·대전·부산·울산 — 군지역</option>
               <option value="metro_etc">광주·대구·대전·부산·울산 — 그 외</option>
             </optgroup>
-            <optgroup label="그 외">
+            <optgroup label="그 외 (LTV 70%)">
               <option value="other">그 밖의 지역</option>
             </optgroup>
           </select>
@@ -1716,7 +1726,7 @@
       </div>
 
       <button class="btn-next" style="margin-top:16px;width:100%;height:52px;min-height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:14px;font-size:16px;font-weight:600;padding:0" id="bankSearchBtn" onclick="searchBankLoans()" disabled>
-        🔍 시중은행 대출 찾기
+        🔍 내 조건으로 비교하기
       </button>
 
       <div id="bankResultArea" style="margin-top:16px"></div>
@@ -1729,7 +1739,17 @@
 
   // ── 방공제 테이블 (단위: 만원) ──
   const BANG_TABLE = {
-    seoul:           5500,
+    // 규제지역 (서울 전역 + 경기 8개)
+    reg_seoul:       5500,
+    reg_gwacheon:    4800,
+    reg_gwangmyeong: 4800,
+    reg_seongnam:    4800,
+    reg_suwon:       4800,
+    reg_anyang:      4800,
+    reg_yongin:      4800,
+    reg_uiwang:      4800,
+    reg_hanam:       4800,
+    // 수도권 일반
     incheon_gangwha: 2500,
     incheon_special: 2800,
     incheon_etc:     4800,
@@ -1743,9 +1763,18 @@
     metro_etc:       2800,
     other:           2500,
   };
-  // 수도권 여부 (LTV 30년 제한용)
+
+  // 규제지역 — LTV 40% 적용
+  const REG_ZONES = new Set([
+    'reg_seoul','reg_gwacheon','reg_gwangmyeong','reg_seongnam',
+    'reg_suwon','reg_anyang','reg_yongin','reg_uiwang','reg_hanam'
+  ]);
+
+  // 수도권 여부 (대출기간 30년 제한용)
   const METRO_REGIONS = new Set([
-    'seoul','incheon_gangwha','incheon_special','incheon_etc',
+    'reg_seoul','reg_gwacheon','reg_gwangmyeong','reg_seongnam',
+    'reg_suwon','reg_anyang','reg_yongin','reg_uiwang','reg_hanam',
+    'incheon_gangwha','incheon_special','incheon_etc',
     'metro_city','siheung_banwol','siheung_etc',
     'namyangju_core','namyangju_etc','gyeonggi_city'
   ]);
@@ -1812,15 +1841,15 @@
         <div class="bank-notice-sub">실제 대출 신청 전 반드시 읽어주세요</div>
         <div class="bank-notice-item">
           <div class="bank-notice-icon">📊</div>
-          <div class="bank-notice-text"><strong>금리는 전월 취급 평균금리 기준</strong>이며, 실제 적용 금리는 신용도·소득·담보 심사 후 결정됩니다.</div>
+          <div class="bank-notice-text"><strong>전월 취급 평균금리 기준</strong>으로 표시됩니다. 실제 적용 금리는 신용도·소득·담보 심사 후 결정되며 다를 수 있습니다.</div>
         </div>
         <div class="bank-notice-item">
           <div class="bank-notice-icon">🔒</div>
-          <div class="bank-notice-text"><strong>방공제(최우선변제 소액보증금)</strong>가 대출금에서 차감됩니다. 지역별 금액이 다르며, 이 앱에서는 선택 지역 기준으로 자동 적용합니다.</div>
+          <div class="bank-notice-text"><strong>방공제(최우선변제 소액보증금)</strong>가 대출금에서 자동 차감 적용됩니다. 지역 선택 시 해당 금액이 반영돼요.</div>
         </div>
         <div class="bank-notice-item">
-          <div class="bank-notice-icon">📋</div>
-          <div class="bank-notice-text"><strong>LTV·DSR·DTI</strong> 규제에 따라 실제 대출 가능 금액은 더 낮아질 수 있습니다.</div>
+          <div class="bank-notice-icon">🏙️</div>
+          <div class="bank-notice-text"><strong>규제지역(서울 전역·경기 8개 지역)</strong>은 LTV 40%가 적용됩니다. 드롭다운에서 🔴 규제지역을 선택하면 자동 반영돼요.</div>
         </div>
         <div class="bank-notice-item">
           <div class="bank-notice-icon">🏦</div>
@@ -1841,16 +1870,18 @@
     setTimeout(() => overlay.remove(), 320);
   }
 
-  // LTV 한도 계산 (생애최초·지역 기반)
+  // LTV 한도 계산 (규제지역·생애최초·지역 기반)
   function getBankLtvLimit() {
+    if (REG_ZONES.has(bankRegionKey)) return 40; // 규제지역: 무주택·1주택 모두 40%
     if (bankFirstBuyer === 'Y') {
-      return bankRegion === 'M' ? 70 : 80;
+      return bankRegion === 'M' ? 70 : 80; // 생애최초: 수도권 70%, 비수도권 80%
     }
-    return 70; // 수도권·비수도권 모두 70%
+    return 70;
   }
 
-  // 주택가격별 최대 대출한도 (억원)
+  // 고가주택 대출 한도 (규제지역 수도권 기준, 억원)
   function getBankPriceLimit(price) {
+    if (!REG_ZONES.has(bankRegionKey)) return Infinity; // 규제지역 아니면 한도 없음
     if (price <= 15) return 6;
     if (price <= 25) return 4;
     return 2;
@@ -1903,19 +1934,25 @@
 
     const ltvLimit   = getBankLtvLimit();
     const priceLimit = getBankPriceLimit(price);
-    const ltvMaxLoan = Math.floor(price * ltvLimit) / 100; // 억원, 소수점
-    const maxLoan    = Math.min(ltvMaxLoan, priceLimit);
+    const ltvMaxLoan = Math.floor(price * ltvLimit) / 100;
+    const maxLoan    = priceLimit === Infinity ? ltvMaxLoan : Math.min(ltvMaxLoan, priceLimit);
+    const isReg      = REG_ZONES.has(bankRegionKey);
 
     // 대출금액 초과 시 자동 클리핑 + 메시지
     if (loan > 0) {
       if (loan > maxLoan) {
         if (loanInput) loanInput.value = maxLoan.toFixed(1);
-        if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억 (LTV ${ltvLimit}% · 가격대 한도 ${priceLimit}억 중 낮은 값)`;
+        const reason = isReg && priceLimit < ltvMaxLoan
+          ? `LTV ${ltvLimit}% · 고가주택 한도 ${priceLimit}억 중 낮은 값`
+          : `LTV ${ltvLimit}% 기준`;
+        if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억 (${reason})`;
       } else {
-        if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억까지 가능`;
+        const regNote = isReg ? ` · ⚠️ 규제지역 LTV ${ltvLimit}%` : '';
+        if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억까지 가능${regNote}`;
       }
     } else {
-      if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억까지 가능`;
+      const regNote = isReg ? ` · ⚠️ 규제지역 LTV ${ltvLimit}%` : '';
+      if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억까지 가능${regNote}`;
     }
 
     // LTV 배지
@@ -2560,11 +2597,11 @@
   // ── 시중은행 전용 주의사항 ──
   function bankNoticeHtml() {
     const items = [
-      '표시 금리는 전월 취급 평균금리 기준이며, 실제 금리는 심사 후 결정됩니다.',
-      '월납입 추정액은 원리금균등상환 방식 참고용 수치로 실제와 다를 수 있습니다.',
+      '표시 금리는 전월 취급 평균금리 기준이며, 실제 금리는 신용도·소득·담보 심사 후 결정됩니다.',
+      '월납입 추정액은 원리금균등상환 방식 참고용 수치로 실제 납입액과 다를 수 있습니다.',
       '혼합금리(일정 기간 고정 후 변동)는 고정금리로 분류됩니다.',
-      '시뮬레이션으로 구현하지 못하는 세부 규제는 미반영이며 최종 대출 가능 여부는 금융사 심사로 결정됩니다.',
-      '담보 평가 방식·규제지역 여부에 따라 실제 한도가 달라질 수 있습니다.',
+      'DSR·DTI 등 소득 기반 규제는 미반영이며, 최종 대출 가능 여부는 금융사 심사로 결정됩니다.',
+      '규제지역 외 지역은 LTV 70% 기준으로 계산되며, 실제 규제 적용과 다를 수 있습니다.',
     ];
     return `
       <div class="group-label">꼭 확인해 주세요</div>
@@ -2726,7 +2763,7 @@
     var failNb = [];
     if (!nbHouseOk)  failNb.push('주택상황 (' + house + ') — 무주택·생애최초·1주택(대환 목적)만 해당');
     if (!nbIncomeOk) failNb.push('소득 ' + income.toLocaleString() + '만 > 20,000만 (2억)');
-    if (!nbAssetOk)  failNb.push('순자산 ' + asset + '억 > 4.88억');
+    if (!nbAssetOk)  failNb.push('순자산 ' + asset + '억 > 5.11억');
     if (!nbPriceOk)  failNb.push('주택가격 ' + price + '억 > 9억');
     var failTags = failNb.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
     if (tagsOnly) return failTags;
@@ -2817,7 +2854,7 @@
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
         + '<span class="tag pass">✓ 주택상황 (' + house + ')</span>'
         + '<span class="tag pass">✓ 소득 ' + income.toLocaleString() + '만 ≤ 20,000만</span>'
-        + '<span class="tag pass">✓ 순자산 ' + asset + '억 ≤ 4.88억</span>'
+        + '<span class="tag pass">✓ 순자산 ' + asset + '억 ≤ 5.11억</span>'
         + '<span class="tag pass">✓ 주택가격 ' + price + '억 ≤ 9억</span>'
         + '</div></div></div>'
         + '<div class="result-spacer"></div>'
@@ -2840,7 +2877,7 @@
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group"><div class="rate-limit-row">'
-        + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val blue">2.55~3.85%</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val blue">' + getDidimdolRateLabel(household, house) + '</span></div>'
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue">' + formatLimit(dFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
@@ -2867,7 +2904,7 @@
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group"><div class="rate-limit-row">'
-        + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val green">4.05~4.35%</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val green">4.05~4.45%</span></div>'
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val green">' + formatLimit(bFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
@@ -2891,7 +2928,7 @@
       var failNbTags = [];
       if (!nbHouseOk)  failNbTags.push('주택상황 (' + house + ') — 무주택·생애최초·1주택(대환 목적)만 해당');
       if (!nbIncomeOk) failNbTags.push('소득 ' + income.toLocaleString() + '만 > 20,000만 (2억)');
-      if (!nbAssetOk)  failNbTags.push('순자산 ' + asset + '억 > 4.88억');
+      if (!nbAssetOk)  failNbTags.push('순자산 ' + asset + '억 > 5.11억');
       if (!nbPriceOk)  failNbTags.push('주택가격 ' + price + '억 > 9억');
       var nbFailTagsHtml = failNbTags.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
       nbFailBlock = '<div class="result-spacer"></div>'
@@ -2912,6 +2949,12 @@
       + '<button class="btn-restart" onclick="restartApp()">↩ 처음부터 다시하기</button>';
   }
 
+  // ── 디딤돌 금리 범위 (household·house 기반) ──
+  function getDidimdolRateLabel(household, house) {
+    if (household === '신혼' || house === '생애최초') return '2.55~3.85%';
+    return '2.85~4.15%';
+  }
+
   function renderResult(income, price, asset) {
     const { household, house, children } = answers;
 
@@ -2921,7 +2964,7 @@
     // 신생아 특례 자격
     const nbHouseOk  = house === '무주택' || house === '생애최초' || house === '1주택(대환)';
     const nbIncomeOk = income <= 20000;
-    const nbAssetOk  = asset <= 4.88;
+    const nbAssetOk  = asset <= 5.11;
     const nbPriceOk  = price <= 9;
     const newbornOk  = isNewborn && nbHouseOk && nbIncomeOk && nbAssetOk && nbPriceOk;
 
@@ -3017,16 +3060,14 @@
 
         <!-- 디딤돌 패널 -->
         <div class="tab-pane active" id="pane-didimdol">
-          <div class="result-group">
-            <div class="result-tagline">시중 어디에서도 볼 수 없는 파격적인 금리 혜택입니다.</div>
-          </div>
+          <div class="result-tagline">시중 어디에서도 볼 수 없는 파격적인 금리 혜택입니다.</div>
           <div class="result-spacer"></div>
           <div class="group-label">상품 정보</div>
           <div class="result-group">
             <div class="rate-limit-row">
               <div class="info-pill">
                 <span class="info-pill-label">적용 금리</span>
-                <span class="info-pill-val blue">2.55~3.85%</span>
+                <span class="info-pill-val blue">${getDidimdolRateLabel(household, house)}</span>
               </div>
               <div class="info-pill">
                 <span class="info-pill-label">예상 한도</span>
@@ -3051,16 +3092,14 @@
 
         <!-- 보금자리론 패널 -->
         <div class="tab-pane" id="pane-bogeumjari">
-          <div class="result-group">
-            <div class="result-tagline green-border">DSR을 보지 않기 때문에 소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.</div>
-          </div>
+          <div class="result-tagline green-border">DSR을 보지 않기 때문에 소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.</div>
           <div class="result-spacer"></div>
           <div class="group-label">상품 정보</div>
           <div class="result-group">
             <div class="rate-limit-row">
               <div class="info-pill">
                 <span class="info-pill-label">적용 금리</span>
-                <span class="info-pill-val green">4.05~4.35%</span>
+                <span class="info-pill-val green">4.05~4.45%</span>
               </div>
               <div class="info-pill">
                 <span class="info-pill-label">예상 한도</span>
@@ -3106,16 +3145,14 @@
             </div>
           </div>
         </div>
-        <div class="result-group">
-          <div class="result-tagline">시중 어디에서도 볼 수 없는 파격적인 금리 혜택입니다.</div>
-        </div>
+        <div class="result-tagline">시중 어디에서도 볼 수 없는 파격적인 금리 혜택입니다.</div>
         <div class="result-spacer"></div>
         <div class="group-label">상품 정보</div>
         <div class="result-group">
           <div class="rate-limit-row">
             <div class="info-pill">
               <span class="info-pill-label">적용 금리</span>
-              <span class="info-pill-val blue">2.55~3.85%</span>
+              <span class="info-pill-val blue">${getDidimdolRateLabel(household, house)}</span>
             </div>
             <div class="info-pill">
               <span class="info-pill-label">예상 한도</span>
@@ -3159,16 +3196,14 @@
             </div>
           </div>
         </div>
-        <div class="result-group">
-          <div class="result-tagline green-border">DSR을 보지 않기 때문에 소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.</div>
-        </div>
+        <div class="result-tagline green-border">DSR을 보지 않기 때문에 소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.</div>
         <div class="result-spacer"></div>
         <div class="group-label">상품 정보</div>
         <div class="result-group">
           <div class="rate-limit-row">
             <div class="info-pill">
               <span class="info-pill-label">적용 금리</span>
-              <span class="info-pill-val green">4.05~4.35%</span>
+              <span class="info-pill-val green">4.05~4.45%</span>
             </div>
             <div class="info-pill">
               <span class="info-pill-label">예상 한도</span>
@@ -3219,9 +3254,7 @@
             </div>
           </div>
         </div>
-        <div class="result-group">
-          <div class="result-tagline grey-border">입력하신 조건은 주택기금 대출 요건을 충족하지 않습니다. 시중은행을 알아봐주세요.</div>
-        </div>
+        <div class="result-tagline grey-border">입력하신 조건은 주택기금 대출 요건을 충족하지 않습니다. 시중은행을 알아봐주세요.</div>
         <div class="result-spacer"></div>
         <div class="group-label">자격 검토</div>
         <div class="result-group">
@@ -3397,7 +3430,7 @@
       {
         q: '계약 전에 정확한 대출 금액을 알 수 있나요?',
         a: `아쉽게도 계약 전에는 정확한 금액을 확인하기 어려워요. 최종 계약서를 기준으로 심사하기 때문에, 사전에 대출 가능 여부나 금액을 확정하기는 힘들어요.<br><br>
-다만 <strong>한국주택금융공사 신청 화면</strong>에서 데이터 스크래핑을 통해 대출이 어려운 경우 팝업 알림을 보내주고 있어니, 신청 전 꼭 확인해보세요!`
+신청 전 <strong>기금e든든 홈페이지</strong> 또는 수탁은행에 사전 문의하시면 대략적인 가능 여부를 확인할 수 있어요.`
       },
       {
         q: '소득은 어떻게 증빙하나요?',
