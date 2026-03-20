@@ -1945,6 +1945,15 @@
         </div>
 
         <div class="bank-form-row">
+          <label class="bank-form-label">연소득</label>
+          <div class="bank-input-wrap">
+            <input class="bank-input" id="bankIncome" type="number" min="0" step="100" placeholder="예: 5000" oninput="updateBankCalc()">
+            <span class="bank-unit">만원</span>
+          </div>
+        </div>
+        <div id="bankIncomeMsg" style="font-size:11px;color:var(--label3);padding:0 2px;min-height:14px;margin-top:-4px">DSR 계산에 사용됩니다 (대출 1억 초과 시 적용)</div>
+
+        <div class="bank-form-row">
           <label class="bank-form-label">대출금액</label>
           <div class="bank-input-wrap">
             <input class="bank-input" id="bankLoan" type="number" min="0" step="0.1" placeholder="예: 3" oninput="updateBankCalc()">
@@ -2134,6 +2143,32 @@
     setTimeout(() => overlay.remove(), 320);
   }
 
+  // ── DSR 스트레스 가산금리 ──
+  // 고정금리 선택 시 0%, 수도권/규제지역 1.50%, 지방 0.75%
+  function getDsrStressRate() {
+    // 고정금리만 선택된 경우 스트레스 DSR 미적용
+    const onlyFixed = bankFilter.rate.includes('F') && !bankFilter.rate.includes('C');
+    if (onlyFixed) return 0;
+    // 수도권 or 규제지역 → 3단계 1.50%
+    if (bankRegion === 'M') return 1.50;
+    // 지방 → 2단계 0.75%
+    return 0.75;
+  }
+
+  // DSR 40% 기준 최대 월납입 → 최대 대출 가능 원금 역산
+  // avgRate: 전월평균금리 (%) / years: 대출기간 / stressRate: 스트레스 가산금리
+  function calcDsrMaxLoan(incomeMan, avgRate, years) {
+    const maxMonthlyPayment = (incomeMan * 10000 * 0.4) / 12; // 연소득 × 40% ÷ 12
+    const stressRate = getDsrStressRate();
+    const effectiveRate = avgRate + stressRate; // 스트레스 금리 합산
+    const r = effectiveRate / 12 / 100;
+    const n = years * 12;
+    if (r <= 0 || n <= 0) return Infinity;
+    // 원리금균등 역산: P = PMT × (1-(1+r)^-n) / r
+    const maxPrincipal = maxMonthlyPayment * (1 - Math.pow(1 + r, -n)) / r;
+    return maxPrincipal / 100000000; // 억원 단위
+  }
+
   // LTV 한도 계산 (규제지역·생애최초·지역 기반)
   function getBankLtvLimit() {
     if (REG_ZONES.has(bankRegionKey)) {
@@ -2179,6 +2214,7 @@
     const idx = bankFilter.rate.indexOf(val);
     if (idx >= 0) { if (bankFilter.rate.length > 1) { bankFilter.rate.splice(idx,1); btn.classList.remove('active'); } }
     else { bankFilter.rate.push(val); btn.classList.add('active'); }
+    updateBankCalc(); // 금리방식 변경 시 DSR 스트레스 재계산
   }
   function toggleRpay(val, btn) {
     const idx = bankFilter.rpay.indexOf(val);
@@ -2230,6 +2266,38 @@
       badge.style.color = ltv > ltvLimit ? 'var(--red)' : 'var(--green)';
     } else if (badge) {
       badge.textContent = '';
+    }
+
+    // DSR 계산 (대출 1억 초과 + 연소득 입력 시)
+    const income     = parseFloat(document.getElementById('bankIncome')?.value);
+    const dsrMsg     = document.getElementById('bankIncomeMsg');
+    const years      = parseFloat(document.getElementById('bankYears')?.value);
+    const actualLoanVal = parseFloat(loanInput?.value) || 0;
+
+    if (dsrMsg && income > 0 && actualLoanVal > 1) {
+      const stressRate = getDsrStressRate();
+      const avgRate    = 4.0; // 참고용 평균금리 (전월 평균 기준 추정)
+      const loanYears  = years > 0 ? years : 30;
+      const dsrMax     = calcDsrMaxLoan(income, avgRate, loanYears);
+      const dsrMaxLoan = Math.min(dsrMax, maxLoan); // LTV와 DSR 중 낮은 값
+
+      const stressLabel = stressRate > 0
+        ? ` (스트레스 +${stressRate}% 적용)`
+        : ' (고정금리 — 스트레스 미적용)';
+
+      if (actualLoanVal > dsrMax) {
+        dsrMsg.style.color = 'var(--red)';
+        dsrMsg.innerHTML = `⚠️ DSR 초과 — 연소득 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong> 가능${stressLabel}`;
+      } else {
+        dsrMsg.style.color = 'var(--green)';
+        dsrMsg.innerHTML = `✓ DSR 통과 — 연소득 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong> 가능${stressLabel}`;
+      }
+    } else if (dsrMsg && actualLoanVal <= 1 && income > 0) {
+      dsrMsg.style.color = 'var(--label3)';
+      dsrMsg.textContent = '대출 1억 이하 — DSR 미적용';
+    } else if (dsrMsg) {
+      dsrMsg.style.color = 'var(--label3)';
+      dsrMsg.textContent = 'DSR 계산에 사용됩니다 (대출 1억 초과 시 적용)';
     }
 
     // 검색 버튼 활성화
@@ -2873,6 +2941,8 @@
       '혼합금리(일정 기간 고정 후 변동)는 고정금리로 분류됩니다.',
       'DSR·DTI 등 소득 기반 규제는 미반영이며, 최종 대출 가능 여부는 금융사 심사로 결정됩니다.',
       '규제지역 외 지역은 LTV 70% 기준으로 계산되며, 실제 규제 적용과 다를 수 있습니다.',
+      'DSR 시뮬레이션은 모든 대출이 없는 무대출 상황을 가정합니다. 기존 주담대·신용대출·2금융권 대출이 있다면 실제 대출 가능 금액은 더 적거나 심사가 불가할 수 있으며, 반드시 수탁 은행 상담이 필요합니다.',
+      '스트레스 DSR 가산금리는 변동·혼합금리 상품에만 적용되며, 고정금리 상품은 미적용입니다.',
     ];
     return `
       <div class="group-label">꼭 확인해 주세요</div>
