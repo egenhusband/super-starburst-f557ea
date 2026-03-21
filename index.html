@@ -1230,9 +1230,14 @@
     border-radius: 10px; color: #fff; font-family: 'Noto Sans KR', sans-serif;
     font-size: 14px; font-weight: 600; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    transition: opacity 0.18s;
+    transition: opacity 0.2s;
   }
-  .btn-pw-submit:active { opacity: 0.85; }
+  .btn-pw-submit:active:not(:disabled) { opacity: 0.85; }
+  .btn-pw-submit:disabled {
+    opacity: 0;
+    pointer-events: none;
+    cursor: default;
+  }
   .btn-pw-guest {
     background: transparent; border: none; color: var(--label3);
     font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 400;
@@ -1564,8 +1569,9 @@
     <div class="pw-sub">비밀번호를 입력하거나<br>둘러보기로 먼저 체험해보세요</div>
     <div class="pw-input-wrap">
       <input class="pw-input" id="pwInput" type="password" placeholder="비밀번호 입력"
+        oninput="document.getElementById('btnPwSubmit').disabled = this.value.length === 0"
         onkeydown="if(event.key==='Enter') submitPassword()">
-      <button class="btn-pw-submit" onclick="submitPassword()">입장하기</button>
+      <button class="btn-pw-submit" id="btnPwSubmit" onclick="submitPassword()" disabled>입장하기</button>
     </div>
     <div class="pw-err" id="pwErr"></div>
     <a class="btn-pw-pay" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">💳 결제하러 가기</a>
@@ -4034,6 +4040,7 @@
     } else {
       document.getElementById('pwErr').textContent = '비밀번호가 올바르지 않아요.';
       document.getElementById('pwInput').value = '';
+      document.getElementById('btnPwSubmit').disabled = true;
     }
   }
 
@@ -4054,6 +4061,7 @@
     const pwScreen = document.getElementById('pwScreen');
     pwScreen.style.display = 'flex';
     document.getElementById('pwInput').value = '';
+    document.getElementById('btnPwSubmit').disabled = true;
     document.getElementById('pwErr').textContent = '';
   }
 
