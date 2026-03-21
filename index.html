@@ -4063,6 +4063,7 @@
 
   function closePayAndShowPw() {
     document.getElementById('payOverlay').classList.remove('open');
+    isGuestMode = false; // 결제 팝업 → 비번 화면 복귀 시 게스트 초기화
     const pwScreen = document.getElementById('pwScreen');
     pwScreen.style.display = 'flex';
     document.getElementById('pwInput').value = '';
