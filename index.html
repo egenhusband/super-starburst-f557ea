@@ -986,6 +986,7 @@
     padding: 20px 20px max(env(safe-area-inset-bottom), 24px);
     max-height: 85dvh;
     overflow-y: auto;
+    overflow-x: hidden;
     transform: translateY(100%);
     transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
   }
@@ -1017,15 +1018,21 @@
   .cmp-col-head {
     background: var(--bg3);
     border-radius: 10px 10px 0 0;
-    padding: 10px 10px 8px;
+    padding: 10px 8px 8px;
     text-align: center;
+    overflow: hidden;
+    word-break: break-all;
+    min-width: 0;
   }
   .cmp-col-val {
-    padding: 12px 10px;
+    padding: 12px 8px;
     font-size: 13px;
     color: var(--label1);
     text-align: center;
     line-height: 1.5;
+    overflow: hidden;
+    word-break: break-all;
+    min-width: 0;
   }
   .cmp-row:last-of-type .cmp-col-val {
     border-radius: 0 0 10px 10px;
@@ -2150,9 +2157,9 @@
   // ── DSR 스트레스 가산금리 ──
   // 고정금리 선택 시 0%, 수도권/규제지역 1.50%, 지방 0.75%
   function getDsrStressRate() {
-    // 고정금리만 선택된 경우 스트레스 DSR 미적용
+    // 고정금리만 선택 시 평균 0.8% 적용 (혼합형 1.2% / 주기형 0.6% 평균)
     const onlyFixed = bankFilter.rate.includes('F') && !bankFilter.rate.includes('C');
-    if (onlyFixed) return 0;
+    if (onlyFixed) return 0.8;
     // 수도권 or 규제지역 → 3단계 1.50%
     if (bankRegion === 'M') return 1.50;
     // 지방 → 2단계 0.75%
@@ -2287,7 +2294,7 @@
 
       const stressLabel = stressRate > 0
         ? ` (스트레스 +${stressRate}% 적용)`
-        : ' (고정금리 — 스트레스 미적용)';
+        : '';
 
       if (actualLoanVal > dsrMax) {
         dsrMsg.style.color = 'var(--red)';
@@ -2737,8 +2744,8 @@
 
     const colHeaders = cols.map(c => `
       <div class="cmp-col-head">
-        <div style="font-size:13px;font-weight:700;color:var(--label1);word-break:keep-all">${c.b.kor_co_nm}</div>
-        <div style="font-size:10px;color:var(--label3);margin-top:3px;line-height:1.4;word-break:keep-all">${c.b.fin_prdt_nm}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--label1);word-break:keep-all;line-height:1.4">${c.b.kor_co_nm}</div>
+        <div style="font-size:10px;color:var(--label3);margin-top:3px;line-height:1.4;word-break:break-all;overflow-wrap:break-word">${c.b.fin_prdt_nm}</div>
       </div>`).join('');
 
     const rows = [
@@ -2807,12 +2814,12 @@
         </div>
         <div style="display:flex;gap:0;margin-bottom:2px">
           <div style="width:56px;flex-shrink:0"></div>
-          <div style="flex:1;display:grid;grid-template-columns:${gridCols};gap:2px">${colHeaders}</div>
+          <div style="flex:1;min-width:0;display:grid;grid-template-columns:${gridCols};gap:2px">${colHeaders}</div>
         </div>
         ${rows.map(row => `
         <div style="display:flex;gap:0;margin-bottom:2px">
           <div class="cmp-row-label">${row.label}</div>
-          <div style="flex:1;display:grid;grid-template-columns:${gridCols};gap:2px">
+          <div style="flex:1;min-width:0;display:grid;grid-template-columns:${gridCols};gap:2px">
             ${row.vals.map(v => `<div class="cmp-col-val">${v}</div>`).join('')}
           </div>
         </div>`).join('')}
@@ -2946,7 +2953,7 @@
       '규제지역 외 지역은 LTV 70% 기준으로 계산되며, 실제 규제 적용과 다를 수 있습니다.',
       'DSR 시뮬레이션은 무대출 상황 기준의 참고용 결과입니다. 최종 대출 가능 여부 및 한도는 금융사 심사로 결정되며, 기존 대출이 있을 경우 실제 한도는 더 낮거나 심사가 불가할 수 있습니다.',
       'DSR 시뮬레이션은 모든 대출이 없는 무대출 상황을 가정합니다. 기존 주담대·신용대출·2금융권 대출이 있다면 실제 대출 가능 금액은 더 적거나 심사가 불가할 수 있으며, 반드시 수탁 은행 상담이 필요합니다.',
-      '스트레스 DSR 가산금리는 변동·혼합금리 상품에만 적용되며, 고정금리 상품은 미적용입니다.',
+      '고정금리는 혼합형(5년 고정, 약 1.2%)·주기형(5년 이상 고정, 약 0.6%) 유형에 따라 스트레스 금리 가산 범위가 다르며, 실제 금융사 심사 조건과 다를 수 있습니다. 참고용으로만 사용해 주세요.',
     ];
     return `
       <div class="group-label">꼭 확인해 주세요</div>
