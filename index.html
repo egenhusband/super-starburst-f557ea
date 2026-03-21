@@ -1237,6 +1237,40 @@
     border: 1.5px solid var(--separator); border-radius: 14px; color: var(--label2);
     font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .btn-pw-pay {
+    width: 100%; height: 52px; background: var(--accent); border: none;
+    border-radius: 14px; color: #fff; font-family: 'Noto Sans KR', sans-serif;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-bottom: 10px; text-decoration: none; transition: opacity 0.18s;
+  }
+  .btn-pw-pay:active { opacity: 0.85; }
+
+  /* 반짝이는 그라데이션 텍스트 */
+  @keyframes shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  .shimmer-text {
+    background: linear-gradient(90deg, #fff 0%, #fff 30%, #ffd60a 45%, #ff9f0a 55%, #fff 70%, #fff 100%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 2.4s linear infinite;
+    font-weight: 700;
+  }
+
+  /* 결제 팝업 소구 텍스트 */
+  .pay-copy {
+    font-size: 22px; font-weight: 700; color: var(--label1);
+    letter-spacing: -0.5px; line-height: 1.45; margin-bottom: 10px;
+  }
+  .pay-copy-sub {
+    font-size: 12px; color: var(--label3); line-height: 1.7;
+    font-weight: 300; margin-bottom: 24px;
   }
 
   /* ── 결제 유도 팝업 ── */
@@ -1534,6 +1568,7 @@
     </div>
     <div class="pw-err" id="pwErr"></div>
     <button class="btn-pw-submit" onclick="submitPassword()">입장하기</button>
+    <a class="btn-pw-pay" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">💳 결제하러 가기</a>
     <button class="btn-pw-guest" onclick="enterAsGuest()">둘러볼게요</button>
     </div>
   </div>
@@ -1541,13 +1576,25 @@
   <!-- 결제 유도 팝업 -->
   <div class="pay-overlay" id="payOverlay">
     <div class="pay-sheet">
-      <div class="pay-icon">🔒</div>
-      <div class="pay-title">결과를 확인하려면 구매가 필요해요</div>
-      <div class="pay-desc">정확한 대출 한도·금리 분석 결과는<br>구매 후 이용하실 수 있어요.<br>이미 구매하셨다면 비밀번호로 입장해 주세요.</div>
+      <div class="pay-icon">☕</div>
+      <div class="pay-copy"><span class="shimmer-text">커피 한 잔</span> 값으로<br>실시간 규제 반영한<br>계산기 사용해 보세요!</div>
+      <div class="pay-copy-sub">대출 분석 결과는 구매 후 이용하실 수 있어요.<br>이미 구매하셨다면 비밀번호로 입장해 주세요.</div>
       <a class="btn-pay-go" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">
         💳 결제하러 가기
       </a>
       <button class="btn-pay-pw" onclick="closePayAndShowPw()">🔑 비밀번호 입력하러 가기</button>
+    </div>
+  </div>
+
+  <!-- DSR 초과 확인 바텀시트 -->
+  <div class="restart-confirm-overlay" id="dsrConfirmOverlay">
+    <div class="restart-confirm-sheet">
+      <div class="restart-confirm-title">DSR 약식 계산 초과</div>
+      <div class="restart-confirm-desc" id="dsrConfirmDesc"></div>
+      <div class="restart-confirm-btns">
+        <button class="btn-restart-cancel" onclick="dsrConfirmReenter()">대출 금액 다시 입력할게요</button>
+        <button class="btn-restart-confirm" style="background:var(--accent)" onclick="dsrConfirmProceed()">네, 계산할게요</button>
+      </div>
     </div>
   </div>
 
@@ -2193,8 +2240,9 @@
   }
 
   // 고가주택 대출 한도 (규제지역 수도권 기준, 억원)
+  // 고가주택 대출 한도 (규제지역 + 수도권 전체 적용, 억원)
   function getBankPriceLimit(price) {
-    if (!REG_ZONES.has(bankRegionKey)) return Infinity; // 규제지역 아니면 한도 없음
+    if (bankRegion !== 'M') return Infinity; // 지방은 한도 없음
     if (price <= 15) return 6;
     if (price <= 25) return 4;
     return 2;
@@ -2251,22 +2299,23 @@
     const ltvMaxLoan = Math.floor(price * ltvLimit) / 100;
     const maxLoan    = priceLimit === Infinity ? ltvMaxLoan : Math.min(ltvMaxLoan, priceLimit);
     const isReg      = REG_ZONES.has(bankRegionKey);
+    const isMetro    = bankRegion === 'M';
 
-    // 대출금액 초과 시 자동 클리핑 + 메시지
-    if (loan > 0) {
-      if (loan > maxLoan) {
-        if (loanInput) loanInput.value = maxLoan.toFixed(1);
-        const reason = isReg && priceLimit < ltvMaxLoan
-          ? `LTV ${ltvLimit}% · 고가주택 한도 ${priceLimit}억 중 낮은 값`
-          : `LTV ${ltvLimit}% 기준`;
-        if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억 (${reason})`;
-      } else {
-        const regNote = isReg ? ` · ⚠️ 규제지역 LTV ${ltvLimit}%` : '';
-        if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억까지 가능${regNote}`;
-      }
-    } else {
-      const regNote = isReg ? ` · ⚠️ 규제지역 LTV ${ltvLimit}%` : '';
-      if (loanMsg) loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억까지 가능${regNote}`;
+    // 한도 제한 이유 항상 표시
+    const limitReason = isMetro && priceLimit < ltvMaxLoan
+      ? `고가주택 한도 ${priceLimit}억 적용 (LTV ${ltvLimit}% 기준 ${ltvMaxLoan.toFixed(1)}억)`
+      : isReg
+        ? `규제지역 LTV ${ltvLimit}% 기준`
+        : `LTV ${ltvLimit}% 기준`;
+
+    // 대출금액 초과 시 자동 클리핑
+    if (loan > 0 && loan > maxLoan) {
+      if (loanInput) loanInput.value = maxLoan.toFixed(1);
+    }
+
+    if (loanMsg) {
+      loanMsg.style.color = isMetro && priceLimit < ltvMaxLoan ? 'var(--yellow)' : 'var(--label3)';
+      loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억 · ${limitReason}`;
     }
 
     // LTV 배지
@@ -2315,6 +2364,44 @@
     checkBankSearchBtn();
   }
 
+  // ── DSR 초과 확인 팝업 ──
+  let _dsrPendingProceed = null; // 조회 계속 진행용 콜백
+  let _dsrMaxForReenter  = 0;   // 재입력 시 자동 세팅할 금액
+
+  function showDsrConfirm(dsrMax, loanVal, onProceed) {
+    const overlay = document.getElementById('dsrConfirmOverlay');
+    const desc    = document.getElementById('dsrConfirmDesc');
+    if (!overlay || !desc) { onProceed(); return; }
+    _dsrPendingProceed = onProceed;
+    _dsrMaxForReenter  = dsrMax;
+    desc.innerHTML = `입력하신 대출금액 <strong>${loanVal.toFixed(1)}억</strong>이 약식 DSR 계산 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong>을 초과해요.<br><small style="color:var(--label3);font-size:11px">무대출 가정 · 참고용 수치이며 실제와 다를 수 있어요</small>`;
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => overlay.classList.add('open'));
+  }
+
+  function closeDsrConfirm() {
+    const overlay = document.getElementById('dsrConfirmOverlay');
+    if (!overlay) return;
+    overlay.classList.remove('open');
+    setTimeout(() => { overlay.style.display = 'none'; }, 300);
+  }
+
+  function dsrConfirmProceed() {
+    closeDsrConfirm();
+    if (_dsrPendingProceed) { _dsrPendingProceed(); _dsrPendingProceed = null; }
+  }
+
+  function dsrConfirmReenter() {
+    closeDsrConfirm();
+    // DSR 최대 금액으로 자동 세팅
+    const loanEl = document.getElementById('bankLoan');
+    if (loanEl && _dsrMaxForReenter > 0) {
+      loanEl.value = _dsrMaxForReenter.toFixed(2);
+      updateBankCalc();
+    }
+    _dsrPendingProceed = null;
+  }
+
   // ── 시중대출 API 조회 ──
   async function searchBankLoans() {
     const price     = parseFloat(document.getElementById('bankPrice')?.value);
@@ -2326,6 +2413,22 @@
       area.innerHTML = '<div class="result-tagline grey-border">주택가격과 대출금액을 입력해주세요.</div>';
       return;
     }
+
+    // DSR 초과 여부 확인 (연소득 입력 + 대출 1억 초과 시)
+    const income = parseFloat(document.getElementById('bankIncome')?.value);
+    if (income > 0 && loanInput > 1) {
+      const loanYears = years > 0 ? years : 30;
+      const dsrMax    = calcDsrMaxLoan(income, 5.0, loanYears);
+      if (loanInput > dsrMax) {
+        showDsrConfirm(dsrMax, loanInput, () => _doSearchBankLoans(price, loanInput, years, area));
+        return;
+      }
+    }
+
+    _doSearchBankLoans(price, loanInput, years, area);
+  }
+
+  async function _doSearchBankLoans(price, loanInput, years, area) {
 
     // 방공제 차감
     const bangMan  = getBangAmount(); // 만원
