@@ -1226,16 +1226,21 @@
   .pw-err { font-size: 12px; color: var(--red); min-height: 18px; margin-bottom: 12px; width: 100%; padding: 0 4px; }
   .btn-pw-submit {
     flex-shrink: 0; height: 44px; padding: 0 16px;
-    background: var(--accent); border: none;
-    border-radius: 10px; color: #fff; font-family: 'Noto Sans KR', sans-serif;
-    font-size: 14px; font-weight: 600; cursor: pointer;
+    background: var(--bg4); border: none;
+    border-radius: 10px; color: var(--label3); font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px; font-weight: 600; cursor: default;
     display: flex; align-items: center; justify-content: center;
-    transition: opacity 0.2s;
+    transition: background 0.2s, color 0.2s;
+  }
+  .btn-pw-submit:not(:disabled) {
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
   }
   .btn-pw-submit:active:not(:disabled) { opacity: 0.85; }
   .btn-pw-submit:disabled {
-    opacity: 0;
-    pointer-events: none;
+    background: var(--bg4);
+    color: var(--label3);
     cursor: default;
   }
   .btn-pw-guest {
