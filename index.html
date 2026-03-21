@@ -4052,6 +4052,12 @@
   function enterAsGuest() {
     isGuestMode = true;
     document.getElementById('pwScreen').style.display = 'none';
+    // 이미 결과화면이 렌더링된 상태면 즉시 결제 팝업 노출
+    const resultContent = document.getElementById('resultContent');
+    const bankResultArea = document.getElementById('bankResultArea');
+    const hasResult = (resultContent && resultContent.innerHTML.trim() !== '') ||
+                      (bankResultArea && bankResultArea.innerHTML.trim() !== '');
+    if (hasResult) setTimeout(showPayPopup, 200);
   }
 
   // ── 결제 팝업 ──
