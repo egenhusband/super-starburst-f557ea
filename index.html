@@ -1213,7 +1213,7 @@
   }
   .pw-input-wrap {
     width: 100%; background: var(--bg3); border: 1.5px solid var(--separator);
-    border-radius: 14px; padding: 0 18px; height: 56px;
+    border-radius: 14px; padding: 0 6px 0 18px; height: 56px;
     display: flex; align-items: center; transition: border-color 0.18s; margin-bottom: 8px;
   }
   .pw-input-wrap:focus-within { border-color: var(--accent); }
@@ -1225,19 +1225,19 @@
   .pw-input::placeholder { color: var(--label3); font-size: 14px; letter-spacing: 0; font-weight: 300; }
   .pw-err { font-size: 12px; color: var(--red); min-height: 18px; margin-bottom: 12px; width: 100%; padding: 0 4px; }
   .btn-pw-submit {
-    width: 100%; height: 52px; background: var(--accent); border: none;
-    border-radius: 14px; color: #fff; font-family: 'Noto Sans KR', sans-serif;
-    font-size: 16px; font-weight: 600; cursor: pointer;
+    flex-shrink: 0; height: 44px; padding: 0 16px;
+    background: var(--accent); border: none;
+    border-radius: 10px; color: #fff; font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px; font-weight: 600; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
-    margin-bottom: 12px; transition: opacity 0.18s;
+    transition: opacity 0.18s;
   }
   .btn-pw-submit:active { opacity: 0.85; }
   .btn-pw-guest {
-    width: 100%; height: 52px; background: transparent;
-    border: 1.5px solid var(--separator); border-radius: 14px; color: var(--label2);
-    font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    margin-bottom: 16px;
+    background: transparent; border: none; color: var(--label3);
+    font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 400;
+    cursor: pointer; padding: 8px 0; text-decoration: underline;
+    text-underline-offset: 3px;
   }
   .btn-pw-pay {
     width: 100%; height: 52px; background: var(--accent); border: none;
@@ -1565,9 +1565,9 @@
     <div class="pw-input-wrap">
       <input class="pw-input" id="pwInput" type="password" placeholder="비밀번호 입력"
         onkeydown="if(event.key==='Enter') submitPassword()">
+      <button class="btn-pw-submit" onclick="submitPassword()">입장하기</button>
     </div>
     <div class="pw-err" id="pwErr"></div>
-    <button class="btn-pw-submit" onclick="submitPassword()">입장하기</button>
     <a class="btn-pw-pay" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">💳 결제하러 가기</a>
     <button class="btn-pw-guest" onclick="enterAsGuest()">둘러볼게요</button>
     </div>
@@ -2393,10 +2393,10 @@
 
   function dsrConfirmReenter() {
     closeDsrConfirm();
-    // DSR 최대 금액으로 자동 세팅
     const loanEl = document.getElementById('bankLoan');
     if (loanEl && _dsrMaxForReenter > 0) {
-      loanEl.value = _dsrMaxForReenter.toFixed(2);
+      // 소수점 1자리 내림으로 세팅 — 반올림으로 한도 초과 방지
+      loanEl.value = (Math.floor(_dsrMaxForReenter * 10) / 10).toFixed(1);
       updateBankCalc();
     }
     _dsrPendingProceed = null;
@@ -2419,7 +2419,7 @@
     if (income > 0 && loanInput > 1) {
       const loanYears = years > 0 ? years : 30;
       const dsrMax    = calcDsrMaxLoan(income, 5.0, loanYears);
-      if (loanInput > dsrMax) {
+      if (loanInput > dsrMax + 0.001) {
         showDsrConfirm(dsrMax, loanInput, () => _doSearchBankLoans(price, loanInput, years, area));
         return;
       }
