@@ -1816,8 +1816,39 @@
       </div>
     </div>
 
-    <!-- 3: 합산소득 -->
+    <!-- 3: 지역 -->
     <div class="slide" data-slide="3">
+      <div>
+        <div class="slide-question">구입 예정 주택의<br>지역을 선택해주세요</div>
+        <div class="slide-sub">LTV 계산에 반영됩니다</div>
+      </div>
+      <div class="options">
+        <div class="option-card" data-group="region" data-val="규제지역">
+          <div>
+            <div class="option-title">🔴 규제지역</div>
+            <div class="option-desc">서울 전역 (25개 자치구)<br>경기 과천시 · 광명시 · 성남시(분당·수정·중원구) · 수원시(영통·장안·팔달구) · 안양시(동안구) · 용인시(수지구) · 의왕시 · 하남시</div>
+          </div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" data-group="region" data-val="수도권">
+          <div>
+            <div class="option-title">수도권 (규제지역 외)</div>
+            <div class="option-desc">경기 (규제지역 제외한 나머지) · 인천 전체</div>
+          </div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" data-group="region" data-val="지방">
+          <div>
+            <div class="option-title">지방</div>
+            <div class="option-desc">수도권 외 모든 지역</div>
+          </div>
+          <div class="option-check"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4: 합산소득 -->
+    <div class="slide" data-slide="4">
       <div>
         <div class="slide-question">가구 합산<br>연소득은요?</div>
         <div class="slide-sub">부부 합산 세전 연간 소득을 입력해주세요</div>
@@ -1831,8 +1862,8 @@
       </div>
     </div>
 
-    <!-- 4: 주택가격 -->
-    <div class="slide" data-slide="4">
+    <!-- 5: 주택가격 -->
+    <div class="slide" data-slide="5">
       <div>
         <div class="slide-question">구입하려는<br>주택 가격은요?</div>
         <div class="slide-sub">실거래가 기준으로 입력해주세요</div>
@@ -1846,8 +1877,8 @@
       </div>
     </div>
 
-    <!-- 5: 순자산 -->
-    <div class="slide" data-slide="5">
+    <!-- 6: 순자산 -->
+    <div class="slide" data-slide="6">
       <div>
         <div class="slide-question">보유 순자산<br>규모는요?</div>
         <div class="slide-sub">총 자산에서 부채를 제외한 금액이에요</div>
@@ -1861,8 +1892,8 @@
       </div>
     </div>
 
-    <!-- 6: 결과 -->
-    <div class="slide result-slide" data-slide="6">
+    <!-- 7: 결과 -->
+    <div class="slide result-slide" data-slide="7">
       <div id="resultContent"></div>
     </div>
 
@@ -1876,10 +1907,10 @@
 </div>
 
 <script>
-  const TOTAL = 6;
-  let current = 0;      // 0 = intro, 1~6 = 기금대출 슬라이드
+  const TOTAL = 7;
+  let current = 0;      // 0 = intro, 1~7 = 기금대출 슬라이드
   let loanType = null;  // 'fund' | 'bank'
-  const answers = { household: null, house: null, children: null };
+  const answers = { household: null, house: null, children: null, region: null };
 
   function haptic(ms) {
     if (navigator.vibrate) navigator.vibrate(ms || 8);
@@ -1905,9 +1936,10 @@
     if (current === 1) return !!answers.household;
     if (current === 2) return !!answers.house;
     if (current === 3) return !!answers.children;
-    if (current === 4) return document.getElementById('income').value !== '';
-    if (current === 5) return document.getElementById('price').value !== '';
-    if (current === 6) return document.getElementById('asset').value !== '';
+    if (current === 4) return !!answers.region;
+    if (current === 5) return document.getElementById('income').value !== '';
+    if (current === 6) return document.getElementById('price').value !== '';
+    if (current === 7) return document.getElementById('asset').value !== '';
     return true;
   }
 
@@ -1933,7 +1965,7 @@
       navigateTo(1);
       return;
     }
-    if (current === 6) {
+    if (current === 7) {
       const income = parseFloat(document.getElementById('income').value);
       const price  = parseFloat(document.getElementById('price').value);
       const asset  = parseFloat(document.getElementById('asset').value);
@@ -1941,7 +1973,7 @@
       if (isNaN(price)  || price  < 0) { document.getElementById('priceErr').textContent  = '올바른 금액을 입력해주세요'; return; }
       if (isNaN(asset)  || asset  < 0) { document.getElementById('assetErr').textContent  = '올바른 금액을 입력해주세요'; return; }
       renderResult(income, price, asset);
-      navigateTo(7);
+      navigateTo(8);
       document.getElementById('bottomNav').style.display = 'none';
       document.getElementById('progressWrap').style.display = 'none';
       if (isGuestMode) setTimeout(showPayPopup, 400);
@@ -1990,7 +2022,7 @@
     document.getElementById('bottomNav').style.display = 'none';
     document.getElementById('progressWrap').style.display = 'none';
 
-    const resultSlide = document.querySelector('[data-slide="6"]');
+    const resultSlide = document.querySelector('[data-slide="7"]');
     resultSlide.classList.add('active');
     resultSlide.innerHTML = buildBankLoanFormHtml();
     current = allSlides.length - 1;
@@ -3062,7 +3094,7 @@
     const houseLabel    = household === '신혼' || children === '2명이상' ? '신혼·다자녀'
                         : house === '생애최초' ? '생애최초' : '일반';
     const reasonText = ltvApplied
-      ? `LTV 70% 기준 적용 · 주택가격 <em>${price}억 × 70%</em> = <em>${formatLimit(ltvLimit)}</em>`
+      ? `LTV ${Math.round(ltvLimit/price*100)}% 기준 적용 · 주택가격 <em>${price}억 × ${Math.round(ltvLimit/price*100)}%</em> = <em>${formatLimit(ltvLimit)}</em>`
       : `상품 한도 기준 적용 · <em>${houseLabel}</em> 가구 최대 한도 <em>${formatLimit(maxLimit)}</em>`;
 
     const annualRate   = colorCls === 'blue' ? 3.0 : 4.2;
@@ -3079,7 +3111,7 @@
           <div class="limit-detail-amount ${colorCls}">${formatLimit(finalLimit)}</div>
           <div class="limit-breakdown">
             <div class="limit-breakdown-item">
-              <span class="breakdown-label">LTV 70% 적용</span>
+              <span class="breakdown-label">LTV ${Math.round(ltvLimit/price*100)}% 적용</span>
               <span class="breakdown-val${appliedCls}">${formatLimit(ltvLimit)}</span>
             </div>
             <div class="limit-breakdown-item">
@@ -3088,7 +3120,7 @@
             </div>
           </div>
           <div class="limit-applied-note">${reasonText}</div>
-          <div class="limit-reason">※ LTV·실제 한도는 DTI, 소득 증빙, 신용도, 규제지역 등에 따라 달라질 수 있습니다.</div>
+          <div class="limit-reason">LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 개인별 신용 및 소득에 따라 달라질 수 있습니다. 보다 자세한 산정내역은 한국주택금융공사에서 꼭 확인이 필요합니다.</div>
 
           <div class="monthly-calc">
             <div class="monthly-calc-tabs">
@@ -3128,7 +3160,7 @@
       '표시 금리는 전월 취급 평균금리 기준이며, 실제 금리는 신용도·소득·담보 심사 후 결정됩니다.',
       '월납입 추정액은 원리금균등상환 방식 참고용 수치로 실제 납입액과 다를 수 있습니다.',
       '혼합금리(일정 기간 고정 후 변동)는 고정금리로 분류됩니다.',
-      '규제지역 외 지역은 LTV 70% 기준으로 계산되며, 실제 규제 적용과 다를 수 있습니다.',
+      '규제지역 여부 및 생애최초 여부에 따라 LTV가 달라질 수 있으며, 실제 규제 적용과 다를 수 있습니다.',
       'DSR 시뮬레이션은 무대출 상황 기준의 참고용 결과입니다. 최종 대출 가능 여부 및 한도는 금융사 심사로 결정되며, 기존 대출이 있을 경우 실제 한도는 더 낮거나 심사가 불가할 수 있습니다.',
       'DSR 시뮬레이션은 모든 대출이 없는 무대출 상황을 가정합니다. 기존 주담대·신용대출·2금융권 대출이 있다면 실제 대출 가능 금액은 더 적거나 심사가 불가할 수 있으며, 반드시 수탁 은행 상담이 필요합니다.',
       '고정금리는 혼합형(5년 고정, 약 1.2%)·주기형(5년 이상 고정, 약 0.6%) 유형에 따라 스트레스 금리 가산 범위가 다르며, 실제 금융사 심사 조건과 다를 수 있습니다. 참고용으로만 사용해 주세요.',
@@ -3151,7 +3183,8 @@
 
   // ── LOGIC ──
   function newbornLimitCardHtml(ltvLimit, maxLimit, finalLimit, price, house, rate30) {
-    const ltvLabel = '70%'; // 신생아 특례: 기본 LTV 70%
+    const ltvPct   = Math.round(ltvLimit / price * 100);
+    const ltvLabel = ltvPct + '%';
     const ltvApplied = ltvLimit <= maxLimit;
     const appliedCls = ltvApplied ? ' applied' : '';
     const maxAppliedCls = !ltvApplied ? ' applied' : '';
@@ -3177,7 +3210,7 @@
       + '</div>'
       + '</div>'
       + '<div class="limit-applied-note">' + reasonText + '</div>'
-      + '<div class="limit-reason">※ 생애최초는 LTV 80%(단, 수도권·규제지역은 70%) / DTI 60% 적용</div>'
+      + '<div class="limit-reason">LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 개인별 신용 및 소득에 따라 달라질 수 있습니다. 보다 자세한 산정내역은 한국주택금융공사에서 꼭 확인이 필요합니다.</div>'
       + '<div class="monthly-calc">'
       + '<div class="monthly-calc-tabs">'
       + '<button class="mc-tab active-nb" id="nb-annuity-' + uid + '" '
@@ -3484,10 +3517,29 @@
     return '2.85~4.15%';
   }
 
-  function renderResult(income, price, asset) {
-    const { household, house, children } = answers;
+  // ── LTV 계산 헬퍼 ──
+  // region: '규제지역' | '수도권' | '지방'
+  // house: '생애최초' | 기타
+  function getFundLtvRate(region, house, product) {
+    const isFirstBuyer = house === '생애최초';
+    const safeRegion   = region || '지방'; // null 방어
+    const isMetroOrReg = safeRegion === '규제지역' || safeRegion === '수도권';
 
-    // 신생아 여부 (자녀수 슬라이드에서 "신생아" 선택)
+    if (product === 'bogeumjari') {
+      if (isFirstBuyer) return 0.70;
+      return safeRegion === '규제지역' ? 0.60 : 0.70;
+    }
+    if (product === 'didimdol' || product === 'newborn') {
+      if (isFirstBuyer) return isMetroOrReg ? 0.70 : 0.80;
+      return 0.70;
+    }
+    return 0.70;
+  }
+
+  function renderResult(income, price, asset) {
+    const { household, house, children, region } = answers;
+
+    // 신생아 여부
     const isNewborn = children === '신생아';
 
     // 신생아 특례 자격
@@ -3498,7 +3550,7 @@
     const newbornOk  = isNewborn && nbHouseOk && nbIncomeOk && nbAssetOk && nbPriceOk;
 
     // 신생아 특례 한도
-    const nbLtvRate    = 0.7; // 신생아 특례: LTV 70% 기준 (생애최초 포함)
+    const nbLtvRate    = getFundLtvRate(region, house, 'newborn');
     const nbLtvLimit   = price * nbLtvRate;
     const nbMaxLimit   = 4.0;
     const nbFinalLimit = Math.min(nbLtvLimit, nbMaxLimit);
@@ -3520,7 +3572,8 @@
     let dMaxLimit = 2.0;
     if (household === '신혼' || children === '2명이상' || isNewborn) dMaxLimit = 3.2;
     else if (house === '생애최초') dMaxLimit = 2.4;
-    const dLtvLimit   = price * 0.7;
+    const dLtvRate    = getFundLtvRate(region, house, 'didimdol');
+    const dLtvLimit   = price * dLtvRate;
     const dFinalLimit = Math.min(dLtvLimit, dMaxLimit);
 
     // 보금자리론 자격
@@ -3537,7 +3590,8 @@
     let bMaxLimit = 3.6;
     if (house === '생애최초') bMaxLimit = 4.2;
     else if (children === '2명이상' || isNewborn) bMaxLimit = 4.0;
-    const bLtvLimit   = price * 0.7;
+    const bLtvRate    = getFundLtvRate(region, house, 'bogeumjari');
+    const bLtvLimit   = price * bLtvRate;
     const bFinalLimit = Math.min(bLtvLimit, bMaxLimit);
 
     let html = '';
@@ -3914,7 +3968,7 @@
     const faqs = [
       {
         q: '최대 얼마까지 빌릴 수 있나요?',
-        a: '최대 4억 원 이내입니다. (단, 2025년 6월 27일 이전 계약 건은 기존처럼 5억 원까지 가능합니다.)<br><br>LTV(주택담보대출비율)는 70%가 기준이며, 생애최초 주택구입자는 <strong>80%</strong>까지 가능합니다.<br><br><strong>주의:</strong> 수도권 및 규제지역 소재 주택은 생애최초라도 <strong>70%</strong>까지만 적용됩니다.'
+        a: '최대 4억 원 이내입니다. (단, 2025년 6월 27일 이전 계약 건은 기존처럼 5억 원까지 가능합니다.)<br><br>LTV(주택담보대출비율)는 기본 70%이며, 생애최초 주택구입자도 70%가 적용됩니다. 규제지역은 일반 60%, 생애최초 70%가 적용됩니다.<br><br>LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 보다 자세한 사항은 한국주택금융공사에서 확인이 필요합니다.'
       },
       {
         q: '소득과 자산 기준은 어떻게 되나요?',
@@ -4053,6 +4107,7 @@
     answers.household = null;
     answers.house = null;
     answers.children = null;
+    answers.region = null;
     document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
     ['income','price','asset'].forEach(id => {
       const el = document.getElementById(id);
@@ -4075,7 +4130,7 @@
     if (hint) hint.classList.remove('visible');
 
     // 결과 슬라이드 초기화
-    const resultSlide = document.querySelector('[data-slide="6"]');
+    const resultSlide = document.querySelector('[data-slide="7"]');
     if (resultSlide) resultSlide.innerHTML = '<div id="resultContent"></div>';
 
     const allSlides = document.querySelectorAll('.slide');
