@@ -1202,28 +1202,97 @@
     justify-content: center;
     padding: 40px 32px;
   }
-  .pw-logo { font-size: 48px; margin-bottom: 16px; }
-  .pw-title {
-    font-size: 22px; font-weight: 700; color: var(--label1);
-    letter-spacing: -0.5px; margin-bottom: 6px; text-align: center;
+
+  /* 커피 아이콘 bounce */
+  @keyframes pw-bounce {
+    0%, 100% { transform: translateY(0); }
+    40%       { transform: translateY(-10px); }
+    60%       { transform: translateY(-5px); }
   }
+  .pw-logo {
+    font-size: 48px; margin-bottom: 20px;
+    animation: pw-bounce 2s ease-in-out infinite;
+    display: inline-block;
+  }
+
+  /* 카피 순차 페이드업 */
+  @keyframes pw-fadeup {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .pw-copy-line {
+    font-size: 24px; font-weight: 700; color: var(--label1);
+    letter-spacing: -0.6px; line-height: 1.45; text-align: center;
+    opacity: 0;
+    animation: pw-fadeup 0.5s cubic-bezier(0.4,0,0.2,1) forwards;
+  }
+  .pw-copy-line:nth-child(1) { animation-delay: 0.1s; }
+  .pw-copy-line:nth-child(2) { animation-delay: 0.3s; }
+  .pw-copy-line:nth-child(3) { animation-delay: 0.5s; }
+
+  /* 3초 만에 shimmer */
+  .pw-shimmer {
+    background: linear-gradient(90deg, var(--accent) 0%, #5ac8fa 40%, var(--accent) 80%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 1.8s linear infinite;
+  }
+
+  /* 서브 멘트 */
   .pw-sub {
-    font-size: 13px; color: var(--label3); margin-bottom: 32px;
-    text-align: center; line-height: 1.6;
+    font-size: 13px; color: var(--label3); margin-bottom: 28px;
+    text-align: center; line-height: 1.7;
+    opacity: 0;
+    animation: pw-fadeup 0.5s cubic-bezier(0.4,0,0.2,1) 0.7s forwards;
   }
+
+  /* 인풋 + 버튼 */
   .pw-input-wrap {
     width: 100%; background: var(--bg3); border: 1.5px solid var(--separator);
     border-radius: 14px; padding: 0 6px 0 18px; height: 56px;
     display: flex; align-items: center; transition: border-color 0.18s; margin-bottom: 8px;
+    opacity: 0;
+    animation: pw-fadeup 0.5s cubic-bezier(0.4,0,0.2,1) 0.85s forwards;
   }
   .pw-input-wrap:focus-within { border-color: var(--accent); }
-  .pw-input {
-    flex: 1; background: transparent; border: none; outline: none;
+
+  /* 결제 버튼 pulse */
+  @keyframes pw-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(10,132,255,0.4); }
+    50%       { box-shadow: 0 0 0 8px rgba(10,132,255,0); }
+  }
+  .btn-pw-pay {
+    width: 100%; height: 52px; background: var(--accent); border: none;
+    border-radius: 14px; color: #fff; font-family: 'Noto Sans KR', sans-serif;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin-bottom: 10px; text-decoration: none; transition: opacity 0.18s;
+    opacity: 0;
+    animation: pw-fadeup 0.5s cubic-bezier(0.4,0,0.2,1) 1.0s forwards,
+               pw-pulse 2s ease-in-out 1.5s infinite;
+  }
+  .btn-pw-pay:active { opacity: 0.85; }
+  .btn-pw-guest {
+    background: transparent; border: none; color: var(--label3);
+    font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 400;
+    cursor: pointer; padding: 8px 0; text-decoration: underline;
+    text-underline-offset: 3px;
+    opacity: 0;
+    animation: pw-fadeup 0.5s cubic-bezier(0.4,0,0.2,1) 1.1s forwards;
+  }
+  .pw-input { flex: 1; background: transparent; border: none; outline: none;
     font-family: 'Noto Sans KR', sans-serif; font-size: 18px; font-weight: 500;
     color: var(--label1); min-width: 0; letter-spacing: 2px;
   }
   .pw-input::placeholder { color: var(--label3); font-size: 14px; letter-spacing: 0; font-weight: 300; }
-  .pw-err { font-size: 12px; color: var(--red); min-height: 18px; margin-bottom: 12px; width: 100%; padding: 0 4px; }
+  .pw-err {
+    font-size: 12px; color: var(--red); min-height: 18px; margin-bottom: 12px;
+    width: 100%; padding: 0 4px;
+    opacity: 0;
+    animation: pw-fadeup 0.5s cubic-bezier(0.4,0,0.2,1) 0.9s forwards;
+  }
   .btn-pw-submit {
     flex-shrink: 0; height: 44px; padding: 0 16px;
     background: var(--bg4); border: none;
@@ -1249,15 +1318,6 @@
     cursor: pointer; padding: 8px 0; text-decoration: underline;
     text-underline-offset: 3px;
   }
-  .btn-pw-pay {
-    width: 100%; height: 52px; background: var(--accent); border: none;
-    border-radius: 14px; color: #fff; font-family: 'Noto Sans KR', sans-serif;
-    font-size: 16px; font-weight: 700; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 8px;
-    margin-bottom: 10px; text-decoration: none; transition: opacity 0.18s;
-  }
-  .btn-pw-pay:active { opacity: 0.85; }
-
   /* 반짝이는 그라데이션 텍스트 */
   @keyframes shimmer {
     0%   { background-position: -200% center; }
@@ -1569,9 +1629,13 @@
   <!-- 비밀번호 진입 화면 -->
   <div class="pw-screen" id="pwScreen">
     <div style="width:100%;max-width:390px;display:flex;flex-direction:column;align-items:center">
-    <div class="pw-logo">🏠</div>
-    <div class="pw-title">시중 주택담보대출 계산기</div>
-    <div class="pw-sub">비밀번호를 입력하거나<br>둘러보기로 먼저 체험해보세요</div>
+    <div class="pw-logo">☕</div>
+    <div style="margin-bottom:12px;text-align:center">
+      <div class="pw-copy-line">커피 한 잔 값으로</div>
+      <div class="pw-copy-line">나한테 맞는 대출 상품</div>
+      <div class="pw-copy-line"><span class="pw-shimmer">3초 만에</span> 찾아보세요</div>
+    </div>
+    <div class="pw-sub">지금 바로 구매하지 않아도 괜찮아요.<br>먼저 둘러보고 결정하셔도 돼요 😊</div>
     <div class="pw-input-wrap">
       <input class="pw-input" id="pwInput" type="password" placeholder="비밀번호 입력"
         oninput="document.getElementById('btnPwSubmit').disabled = this.value.length === 0"
