@@ -495,6 +495,19 @@
   }
   .limit-reason em { color: var(--label2); font-style: normal; }
 
+  .ltv80-notice {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    background: rgba(255,214,10,0.08);
+    border: 1px solid rgba(255,214,10,0.25);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 10px;
+  }
+  .ltv80-notice-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .ltv80-notice-text { font-size: 11px; color: var(--label2); line-height: 1.6; }
+
   /* ── 탭 UI ── */
   .result-tabs {
     display: grid;
@@ -3087,7 +3100,7 @@
   }
 
   // ── 공통: 한도 상세 카드 HTML ──
-  function limitCardHtml(colorCls, ltvLimit, maxLimit, finalLimit, price, household, house, children) {
+  function limitCardHtml(colorCls, ltvLimit, maxLimit, finalLimit, price, household, house, children, region) {
     const ltvApplied    = ltvLimit <= maxLimit;
     const appliedCls    = ltvApplied    ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
     const maxAppliedCls = !ltvApplied   ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
@@ -3121,6 +3134,11 @@
           </div>
           <div class="limit-applied-note">${reasonText}</div>
           <div class="limit-reason">LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 개인별 신용 및 소득에 따라 달라질 수 있습니다. 보다 자세한 산정내역은 한국주택금융공사에서 꼭 확인이 필요합니다.</div>
+          ${colorCls === 'green' && house === '생애최초' && region !== '규제지역' && region !== '수도권' ? `
+          <div class="ltv80-notice">
+            <div class="ltv80-notice-icon">⚠️</div>
+            <div class="ltv80-notice-text"><strong>LTV 80% 적용 안내</strong><br>특례구입자금 보증 가입 및 아파트인 경우 LTV 80%까지 가능합니다. 정확한 적용 기준은 심사를 통해 결정되며, 이 수치는 참고용 예측치입니다.</div>
+          </div>` : ''}
 
           <div class="monthly-calc">
             <div class="monthly-calc-tabs">
@@ -3364,7 +3382,7 @@
   function buildNewbornHtml(o) {
     var newbornOk = o.newbornOk, didimdolOk = o.didimdolOk, bogeumjariOk = o.bogeumjariOk;
     var income = o.income, price = o.price, asset = o.asset;
-    var household = o.household, house = o.house, children = o.children;
+    var household = o.household, house = o.house, children = o.children, region = o.region;
     var nbRate = o.nbRate, nbLtvLimit = o.nbLtvLimit, nbMaxLimit = o.nbMaxLimit, nbFinalLimit = o.nbFinalLimit;
     var nbHouseOk = o.nbHouseOk, nbIncomeOk = o.nbIncomeOk, nbAssetOk = o.nbAssetOk, nbPriceOk = o.nbPriceOk;
     var dLtvLimit = o.dLtvLimit, dMaxLimit = o.dMaxLimit, dFinalLimit = o.dFinalLimit;
@@ -3443,7 +3461,7 @@
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue">' + formatLimit(dFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
-        + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children)
+        + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -3470,7 +3488,7 @@
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val green">' + formatLimit(bFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
-        + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children)
+        + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -3526,8 +3544,8 @@
     const isMetroOrReg = safeRegion === '규제지역' || safeRegion === '수도권';
 
     if (product === 'bogeumjari') {
-      if (isFirstBuyer) return 0.70;
-      return safeRegion === '규제지역' ? 0.60 : 0.70;
+      if (isFirstBuyer) return isMetroOrReg ? 0.70 : 0.80; // 생애최초: 비수도권·비규제 80%, 수도권·규제 70%
+      return safeRegion === '규제지역' ? 0.60 : 0.70;       // 일반: 규제지역 60%, 그외 70%
     }
     if (product === 'didimdol' || product === 'newborn') {
       if (isFirstBuyer) return isMetroOrReg ? 0.70 : 0.80;
@@ -3601,7 +3619,7 @@
       if (newbornOk || didimdolOk || bogeumjariOk) {
         html = buildNewbornHtml({
           newbornOk, didimdolOk, bogeumjariOk,
-          income, price, asset, household, house, children,
+          income, price, asset, household, house, children, region,
           nbRate, nbLtvLimit, nbMaxLimit, nbFinalLimit,
           nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk,
           dLtvLimit, dMaxLimit, dFinalLimit, dIncomeLimit, dPriceLimit,
@@ -3659,7 +3677,7 @@
             </div>
           </div>
           <div class="result-spacer-sm"></div>
-          ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children)}
+          ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region)}
           <div class="result-spacer"></div>
           <div class="group-label">충족 조건</div>
           <div class="result-group">
@@ -3695,7 +3713,7 @@
             </div>
           </div>
           <div class="result-spacer-sm"></div>
-          ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children)}
+          ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region)}
           <div class="result-spacer"></div>
           <div class="group-label">충족 조건</div>
           <div class="result-group">
@@ -3748,7 +3766,7 @@
           </div>
         </div>
         <div class="result-spacer-sm"></div>
-        ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children)}
+        ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region)}
         <div class="result-spacer"></div>
         <div class="group-label">충족 조건</div>
         <div class="result-group">
@@ -3803,7 +3821,7 @@
           </div>
         </div>
         <div class="result-spacer-sm"></div>
-        ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children)}
+        ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region)}
         <div class="result-spacer"></div>
         <div class="group-label">자격 검토</div>
         <div class="result-group">
