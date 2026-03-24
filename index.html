@@ -3301,18 +3301,19 @@
   // 보금자리론 기한별 기본금리
   const BOGEUM_RATES = { 10:3.85, 15:3.95, 20:4.00, 30:4.05, 40:4.10, 50:4.15 };
 
-  // 디딤돌 소득·기한별 기본금리 (일반/생애최초)
+  // 디딤돌 소득·기한별 기본금리 — 일반/생애최초 (신혼 아님)
   const DIDIMDOL_RATES_GENERAL = [
-    { maxIncome: 2000,  rates: { 10:2.65, 15:2.75, 20:2.80, 30:2.85 } },
-    { maxIncome: 4000,  rates: { 10:2.90, 15:3.00, 20:3.05, 30:3.10 } },
-    { maxIncome: 6000,  rates: { 10:3.15, 15:3.25, 20:3.30, 30:3.35 } },
-    { maxIncome: 7000,  rates: { 10:3.35, 15:3.45, 20:3.50, 30:3.55 } },
+    { maxIncome: 2000,  rates: { 10:2.85, 15:2.95, 20:3.05, 30:3.10 } },
+    { maxIncome: 4000,  rates: { 10:3.20, 15:3.30, 20:3.40, 30:3.45 } },
+    { maxIncome: 7000,  rates: { 10:3.55, 15:3.65, 20:3.75, 30:3.80 } },
+    { maxIncome: 8500,  rates: { 10:3.90, 15:4.00, 20:4.10, 30:4.15 } },
   ];
-  // 디딤돌 신혼가구
+  // 디딤돌 소득·기한별 기본금리 — 신혼가구
   const DIDIMDOL_RATES_NEWLYWED = [
-    { maxIncome: 2000,  rates: { 10:2.15, 15:2.25, 20:2.30, 30:2.35 } },
-    { maxIncome: 4000,  rates: { 10:2.40, 15:2.50, 20:2.55, 30:2.60 } },
-    { maxIncome: 8500,  rates: { 10:2.75, 15:2.85, 20:2.90, 30:2.95 } },
+    { maxIncome: 2000,  rates: { 10:2.55, 15:2.65, 20:2.75, 30:2.80 } },
+    { maxIncome: 4000,  rates: { 10:2.90, 15:3.00, 20:3.10, 30:3.15 } },
+    { maxIncome: 7000,  rates: { 10:3.25, 15:3.35, 20:3.45, 30:3.50 } },
+    { maxIncome: 8500,  rates: { 10:3.60, 15:3.70, 20:3.80, 30:3.85 } },
   ];
 
   // 신생아 특례 소득별 금리 범위 (기존 getNewbornRate 활용 — min 사용)
@@ -3385,9 +3386,11 @@
         + '<div class="rate-pref-group-label">중복가능</div>'
         + '<div class="rate-pref-list" id="pref-' + uid + '">'
         + selectHtml(uid)
+        + prefCardHtml(uid,'0.1','전자계약 체결 (국토부, ~26.12.31)','-0.1%p',false,c,false,'')
+        + prefCardHtml(uid,'0.2','지방 소재 주택','-0.2%p',isLocal,c,false,'')
         + prefCardHtml(uid,'0.1','대출 30% 이하 신청','-0.1%p',false,c,false,'')
         + prefCardHtml(uid,'0.2','중도상환 40% 이상','-0.2%p',false,c,false,'')
-        + prefCardHtml(uid,'0.2','지방 미분양 주택','-0.2%p',isLocal,c,false,'')
+        + prefCardHtml(uid,'0.2','지방 미분양 주택','-0.2%p',false,c,false,'')
         + '</div>'
         + '<div class="rate-pref-group-label">상한 0.5%p (다자녀 0.7%p) · 최저금리 1.2%</div>';
     }
@@ -3399,7 +3402,8 @@
         + prefCardHtml(uid,'0.1','미성년 자녀 (출생 2년 초과) 1명당','-0.1%p',false,c,false,'')
         + prefCardHtml(uid,'0.1','대출 30% 이하 신청','-0.1%p',false,c,false,'')
         + prefCardHtml(uid,'0.2','중도상환 40% 이상','-0.2%p',false,c,false,'')
-        + prefCardHtml(uid,'0.2','지방 미분양 주택','-0.2%p',isLocal,c,false,'')
+        + prefCardHtml(uid,'0.2','지방 소재 주택','-0.2%p',isLocal,c,false,'')
+        + prefCardHtml(uid,'0.2','지방 미분양 주택','-0.2%p',false,c,false,'')
         + '</div>'
         + '<div class="rate-pref-group-label">최종금리 연 1.2% 이상 · 우대금리 적용은 수탁은행 심사 후 결정</div>';
     }
@@ -3453,7 +3457,7 @@
     const chevronSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
 
     return `
-      <div class="rate-calc-section" data-color="${colorCls}">
+      <div class="rate-calc-section" data-color="${colorCls}" data-uid="${uid}">
         <div class="rate-dropdown-box" id="yr-box-${uid}">
           <span class="rate-dropdown-label">대출기한</span>
           <div class="rate-dropdown-right">
@@ -4330,6 +4334,13 @@
     }
 
     document.getElementById('resultContent').innerHTML = html;
+
+    // 초기 우대금리 반영 (선택된 카드 기반 rate-summary 초기화)
+    setTimeout(function() {
+      document.querySelectorAll('.rate-calc-section[data-uid]').forEach(function(sec) {
+        recalcRate(sec.dataset.uid);
+      });
+    }, 0);
 
     // 결과 카드 순차 페이드인
     requestAnimationFrame(() => {
