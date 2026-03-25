@@ -629,6 +629,43 @@
     letter-spacing: 0.5px; margin: 8px 0 4px;
   }
 
+  /* 가산금리 선택 */
+  .rate-surcharge-wrap {
+    margin-bottom: 10px;
+  }
+  .rate-surcharge-opts {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .rate-surcharge-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    border: 1.5px solid var(--separator);
+    background: var(--bg3);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .rate-surcharge-card.selected-blue { background: var(--accent-dim); border-color: var(--accent); }
+  .rate-surcharge-card-check {
+    width: 18px; height: 18px; flex-shrink: 0;
+    border-radius: 50%; border: 1.5px solid var(--separator);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .rate-surcharge-card.selected-blue .rate-surcharge-card-check { background: var(--accent); border-color: var(--accent); }
+  .rate-surcharge-card-check svg { display: none; }
+  .rate-surcharge-card.selected-blue .rate-surcharge-card-check svg { display: block; }
+  .rate-surcharge-card-label { font-size: 13px; color: var(--label2); flex: 1; line-height: 1.4; }
+  .rate-surcharge-card.selected-blue .rate-surcharge-card-label { color: var(--label1); font-weight: 500; }
+  .rate-surcharge-card-val { font-size: 12px; font-weight: 700; color: var(--label3); white-space: nowrap; }
+  .rate-surcharge-card.selected-blue .rate-surcharge-card-val { color: var(--accent); }
+
   /* 금리 요약 박스 */
   .rate-summary {
     background: var(--bg4);
@@ -3424,6 +3461,40 @@
     recalcRate(uid);
   }
 
+  // ── 디딤돌 가산금리 선택 HTML ──
+  function surchargeHtml(uid) {
+    const checkSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    const opts = [
+      { val: '0',   label: '해당 없음 (변동금리)' },
+      { val: '0.1', label: '5년 단위 변동금리' },
+      { val: '0.2', label: '고정금리 10년 적용 (10년 초과 대출)' },
+      { val: '0.3', label: '순수 고정금리 / 10년 고정 후 변동 + 대출기간 10년' },
+    ];
+    const cards = opts.map((o, i) =>
+      '<div class="rate-surcharge-card' + (i === 0 ? ' selected-blue' : '') + '" '
+      + 'data-surcharge="' + o.val + '" '
+      + 'onclick="selectSurcharge(this,\'' + uid + '\')">'
+      + '<div class="rate-surcharge-card-check">' + checkSvg + '</div>'
+      + '<span class="rate-surcharge-card-label">' + o.label + '</span>'
+      + '<span class="rate-surcharge-card-val">' + (o.val === '0' ? '—' : '+' + o.val + '%p') + '</span>'
+      + '</div>'
+    ).join('');
+    return '<div class="rate-surcharge-wrap" id="surcharge-' + uid + '">'
+      + '<div class="rate-pref-group-label">금리 방식 (가산금리)</div>'
+      + '<div class="rate-surcharge-opts">' + cards + '</div>'
+      + '</div>';
+  }
+
+  function selectSurcharge(card, uid) {
+    const wrap = document.getElementById('surcharge-' + uid);
+    if (!wrap) return;
+    wrap.querySelectorAll('.rate-surcharge-card').forEach(c =>
+      c.classList.remove('selected-blue')
+    );
+    card.classList.add('selected-blue');
+    recalcRate(uid);
+  }
+
   // ── 계산기 HTML 생성 ──
   function rateCalcHtml(uid, product, income, principal, household, house, region, colorCls) {
     const isBogeumjari = product === 'bogeumjari';
@@ -3469,6 +3540,7 @@
           </select>
         </div>
         ${prefListHtml(uid, product, household, house, region)}
+        ${isDidimdol ? surchargeHtml(uid) : ''}
         <div class="rate-summary" id="rs-${uid}">
           <div class="rate-summary-row">
             <span class="rs-label">기본금리</span>
@@ -3478,6 +3550,7 @@
             <span class="rs-label">우대금리</span>
             <span class="rs-val" id="rs-pref-${uid}">0.00%p</span>
           </div>
+          ${isDidimdol ? `<div class="rate-summary-row"><span class="rs-label">가산금리</span><span class="rs-val" id="rs-surcharge-${uid}">+0.00%p</span></div>` : ''}
           <div class="rate-summary-row rs-final">
             <span class="rs-label">적용금리</span>
             <span class="rs-val" id="rs-final-${uid}" style="color:${accentColor}">${baseRate.toFixed(2)}%</span>
@@ -3534,12 +3607,23 @@
 
     prefTotal = Math.round(prefTotal * 100) / 100;
 
-    // 최종금리 계산
-    let finalRate = Math.max(curBase - prefTotal, 1.2);
+    // 가산금리 (디딤돌 전용)
+    const surchargeWrap = document.getElementById('surcharge-' + uid);
+    let surcharge = 0;
+    if (surchargeWrap) {
+      const selSurcharge = surchargeWrap.querySelector('.rate-surcharge-card.selected-blue');
+      if (selSurcharge) surcharge = parseFloat(selSurcharge.dataset.surcharge || 0);
+    }
+    surcharge = Math.round(surcharge * 100) / 100;
+
+    // 최종금리 계산: 기본금리 - 우대금리 + 가산금리, 최저 1.2%
+    let finalRate = Math.max(curBase - prefTotal + surcharge, 1.2);
     finalRate = Math.round(finalRate * 100) / 100;
 
     // 요약 갱신
-    document.getElementById('rs-pref-' + uid).textContent  = '-' + prefTotal.toFixed(2) + '%p';
+    document.getElementById('rs-pref-' + uid).textContent = '-' + prefTotal.toFixed(2) + '%p';
+    const surchargeEl = document.getElementById('rs-surcharge-' + uid);
+    if (surchargeEl) surchargeEl.textContent = '+' + surcharge.toFixed(2) + '%p';
     document.getElementById('rs-final-' + uid).textContent = finalRate.toFixed(2) + '%';
 
     // 현재 선택된 상환방식 찾기
@@ -4427,6 +4511,7 @@
         <div class="repay-tenure">
           <span class="repay-tenure-label">대출 만기</span>
           <span class="repay-tenure-val">${tenure}</span>
+          ${!isBogeumjari ? `<div style="color:var(--label3);font-size:11px;margin-top:4px;line-height:1.6">· 체증식: 채무자가 접수일 현재 <strong style="color:var(--label2)">만 40세 미만 근로자</strong>이고 <strong style="color:var(--label2)">고정금리</strong>를 선택한 경우에만 허용</div>` : ''}
         </div>
       </div>`;
   }
