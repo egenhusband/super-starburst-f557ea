@@ -742,6 +742,68 @@
   .ltv80-notice-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
   .ltv80-notice-text { font-size: 11px; color: var(--label2); line-height: 1.6; }
 
+  /* DTI 시뮬레이션 카드 */
+  .dti-card {
+    background: var(--bg3);
+    border: 1.5px solid var(--separator);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-top: 12px;
+  }
+  .dti-card-title {
+    font-size: 12px; font-weight: 700; color: var(--label2);
+    margin-bottom: 10px; display: flex; align-items: center;
+    justify-content: space-between;
+  }
+  .dti-card-badge {
+    font-size: 10px; font-weight: 600; padding: 2px 8px;
+    border-radius: 20px; background: var(--bg4); color: var(--label3);
+  }
+  .dti-input-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  }
+  .dti-input-label { font-size: 12px; color: var(--label3); flex-shrink: 0; }
+  .dti-input-field {
+    flex: 1; background: var(--bg4); border: 1.5px solid var(--separator);
+    border-radius: 10px; color: var(--label1); font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px; padding: 8px 12px; outline: none; text-align: right;
+    transition: border-color 0.15s;
+  }
+  .dti-input-field:focus { border-color: var(--green); }
+  .dti-input-unit { font-size: 12px; color: var(--label3); flex-shrink: 0; }
+  .dti-rows { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .dti-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px;
+  }
+  .dti-row-label { color: var(--label3); }
+  .dti-row-val   { color: var(--label2); font-weight: 500; }
+  .dti-divider   { border: none; border-top: 1px solid var(--separator); margin: 6px 0; }
+  .dti-result-row {
+    display: flex; justify-content: space-between; align-items: center; font-size: 13px;
+  }
+  .dti-result-label { font-weight: 600; color: var(--label2); }
+  .dti-result-val   { font-size: 16px; font-weight: 700; }
+  .dti-result-val.ok   { color: var(--green); }
+  .dti-result-val.warn { color: #ff9500; }
+  .dti-result-val.over { color: #ff3b30; }
+  .dti-limit-row {
+    display: flex; justify-content: space-between; font-size: 11px;
+    color: var(--label3); margin-top: 4px;
+  }
+  .dti-compare-section { margin-top: 12px; }
+  .dti-compare-title { font-size: 11px; font-weight: 700; color: var(--label3); margin-bottom: 6px; }
+  .dti-compare-rows { display: flex; flex-direction: column; gap: 5px; }
+  .dti-compare-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; padding: 8px 10px; border-radius: 10px; background: var(--bg4);
+  }
+  .dti-compare-row.highlight { background: rgba(52,199,89,0.1); border: 1px solid rgba(52,199,89,0.25); }
+  .dti-compare-row-label { color: var(--label2); }
+  .dti-compare-row-val   { font-weight: 700; color: var(--label1); }
+  .dti-compare-row-val.ltv-only { color: var(--label3); }
+  .dti-note { font-size: 10.5px; color: var(--label3); margin-top: 8px; line-height: 1.5; }
+
   /* ── 탭 UI ── */
   .result-tabs {
     display: grid;
@@ -2139,8 +2201,24 @@
       </div>
     </div>
 
-    <!-- 7: 결과 -->
-    <div class="slide result-slide" data-slide="7">
+    <!-- 7: 기타대출 -->
+    <div class="slide" data-slide="7">
+      <div>
+        <div class="slide-question">기존에 받으신<br>대출이 있으신가요?</div>
+        <div class="slide-sub">DTI 계산에 사용됩니다 · 없으면 0을 입력해주세요</div>
+      </div>
+      <div class="number-input-wrap">
+        <div class="number-field">
+          <input type="number" id="otherLoanInterest" placeholder="0" min="0" inputmode="numeric">
+          <span class="number-unit">만원 / 년</span>
+        </div>
+        <div class="err-msg" id="otherLoanErr"></div>
+        <div style="font-size:11px;color:var(--label3);margin-top:8px;line-height:1.6">기타 대출의 연간 이자 합계 금액을 입력해주세요<br>(주담대·신용대출·카드론 등 모든 대출 이자 합산)</div>
+      </div>
+    </div>
+
+    <!-- 8: 결과 -->
+    <div class="slide result-slide" data-slide="8">
       <div id="resultContent"></div>
     </div>
 
@@ -2154,7 +2232,7 @@
 </div>
 
 <script>
-  const TOTAL = 7;
+  const TOTAL = 8;
   let current = 0;      // 0 = intro, 1~7 = 기금대출 슬라이드
   let loanType = null;  // 'fund' | 'bank'
   const answers = { household: null, house: null, children: null, region: null };
@@ -2174,8 +2252,9 @@
     });
   });
 
-  ['income','price','asset'].forEach(id => {
-    document.getElementById(id).addEventListener('input', updateNextBtn);
+  ['income','price','asset','otherLoanInterest'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateNextBtn);
   });
 
   function canProceed() {
@@ -2187,6 +2266,7 @@
     if (current === 5) return document.getElementById('income').value !== '';
     if (current === 6) return document.getElementById('price').value !== '';
     if (current === 7) return document.getElementById('asset').value !== '';
+    if (current === 8) return true; // 기타대출은 건너뛰기 가능
     return true;
   }
 
@@ -2212,15 +2292,16 @@
       navigateTo(1);
       return;
     }
-    if (current === 7) {
+    if (current === 8) {
       const income = parseFloat(document.getElementById('income').value);
       const price  = parseFloat(document.getElementById('price').value);
       const asset  = parseFloat(document.getElementById('asset').value);
       if (isNaN(income) || income < 0) { document.getElementById('incomeErr').textContent = '올바른 소득을 입력해주세요'; return; }
       if (isNaN(price)  || price  < 0) { document.getElementById('priceErr').textContent  = '올바른 금액을 입력해주세요'; return; }
       if (isNaN(asset)  || asset  < 0) { document.getElementById('assetErr').textContent  = '올바른 금액을 입력해주세요'; return; }
-      renderResult(income, price, asset);
-      navigateTo(8);
+      const otherLoanInterest = parseFloat(document.getElementById('otherLoanInterest').value) || 0;
+      renderResult(income, price, asset, otherLoanInterest);
+      navigateTo(9);
       document.getElementById('bottomNav').style.display = 'none';
       document.getElementById('progressWrap').style.display = 'none';
       if (isGuestMode) setTimeout(showPayPopup, 400);
@@ -2269,7 +2350,7 @@
     document.getElementById('bottomNav').style.display = 'none';
     document.getElementById('progressWrap').style.display = 'none';
 
-    const resultSlide = document.querySelector('[data-slide="7"]');
+    const resultSlide = document.querySelector('[data-slide="8"]');
     resultSlide.classList.add('active');
     resultSlide.innerHTML = buildBankLoanFormHtml();
     current = allSlides.length - 1;
@@ -4016,6 +4097,10 @@
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)
+        + (function() {
+            var dtiUid = 'green_dti';
+            return bogeumDtiCardHtml(dtiUid, income, price, region, house, bFinalLimit, BOGEUM_RATES[30], 30, otherLoanInterest);
+          })()
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -4056,6 +4141,168 @@
       + '<button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>';
   }
 
+  // ── 보금자리론 DTI 한도 계산 ──
+  function getBogeumDtiLimit(region, house, income, price) {
+    if (region !== '규제지역') return 60;
+    // 규제지역이지만 예외 조건이면 60%
+    const isFirstBuyer  = house === '생애최초';
+    const isRealNeeds   = house === '무주택' && price <= 6 && income <= 7000; // 실수요자
+    if (isFirstBuyer || isRealNeeds) return 60;
+    return 50;
+  }
+
+  // 원리금균등 DTI 역산 대출원금
+  function calcMaxLoanByDti(dtiLimit, annualIncome, otherInterestAnnual, annualRate, years) {
+    const allowedAnnual = (dtiLimit / 100) * annualIncome - otherInterestAnnual;
+    if (allowedAnnual <= 0) return 0;
+    const r = annualRate / 12 / 100;
+    const n = years * 12;
+    // 월납 = P * r*(1+r)^n / ((1+r)^n - 1) → P 역산
+    const factor = (r * Math.pow(1+r, n)) / (Math.pow(1+r, n) - 1);
+    return (allowedAnnual / 12) / factor;
+  }
+
+  // 체증식 초기 평균 원리금 산출 (초기 10년 또는 5년 평균)
+  function calcIncreasingAvgAnnual(principal, annualRate, years) {
+    const r = annualRate / 12 / 100;
+    const n = years * 12;
+    const a = 2 * principal / (n * (n + 1));
+    const avgMonths = years <= 10 ? 5 * 12 : 10 * 12;
+    let total = 0;
+    for (let i = 1; i <= avgMonths; i++) {
+      const remaining = principal - a * (i - 1) * i / 2;
+      total += a * i + remaining * r;
+    }
+    return (total / avgMonths) * 12;
+  }
+
+  // 원금균등 1회차 연간 원리금 (가장 높은 시점 = 보수적)
+  function calcEqualPrincipalFirstAnnual(principal, annualRate, years) {
+    const n = years * 12;
+    const r = annualRate / 12 / 100;
+    return ((principal / n) + principal * r) * 12;
+  }
+
+  // ── DTI 카드 HTML ──
+  function bogeumDtiCardHtml(uid, income, price, region, house, finalLimit, annualRate, years, otherLoanInterest) {
+    otherLoanInterest = otherLoanInterest || 0;
+    const dtiLimit = getBogeumDtiLimit(region, house, income, price);
+    const annualIncome = income * 10000;
+
+    return `<div class="dti-card" id="dti-card-${uid}"
+      data-annual-income="${annualIncome}"
+      data-dti-limit="${dtiLimit}"
+      data-annual-rate="${annualRate}"
+      data-years="${years}"
+      data-ltv-limit="${finalLimit}"
+      data-other-loan="${otherLoanInterest}">
+      <div class="dti-card-title">
+        DTI 시뮬레이션
+        <span class="dti-card-badge">참고용</span>
+      </div>
+      <div class="dti-rows" id="dti-rows-${uid}">
+        <div class="dti-row">
+          <span class="dti-row-label">DTI 한도</span>
+          <span class="dti-row-val">${dtiLimit}%${region === '규제지역' && dtiLimit === 50 ? ' (규제지역)' : ''}</span>
+        </div>
+        <div class="dti-row">
+          <span class="dti-row-label">연간 원리금 (원리금균등 기준)</span>
+          <span class="dti-row-val" id="dti-annual-${uid}">—</span>
+        </div>
+        <div class="dti-row">
+          <span class="dti-row-label">기타대출 연간 이자</span>
+          <span class="dti-row-val">${otherLoanInterest > 0 ? otherLoanInterest.toLocaleString() + '만원' : '없음'}</span>
+        </div>
+      </div>
+      <hr class="dti-divider">
+      <div class="dti-result-row">
+        <span class="dti-result-label">현재 DTI</span>
+        <span class="dti-result-val" id="dti-pct-${uid}">—</span>
+      </div>
+      <div class="dti-limit-row">
+        <span>기준 한도 ${dtiLimit}%</span>
+        <span id="dti-status-${uid}"></span>
+      </div>
+      <div class="dti-compare-section" id="dti-compare-${uid}" style="display:none">
+        <div class="dti-compare-title">상환방식별 DTI 기준 최대 대출 가능액</div>
+        <div class="dti-compare-rows">
+          <div class="dti-compare-row highlight">
+            <span class="dti-compare-row-label">원리금균등</span>
+            <span class="dti-compare-row-val" id="dti-lim-annuity-${uid}">—</span>
+          </div>
+          <div class="dti-compare-row">
+            <span class="dti-compare-row-label">원금균등 (보수적)</span>
+            <span class="dti-compare-row-val" id="dti-lim-equal-${uid}">—</span>
+          </div>
+          <div class="dti-compare-row">
+            <span class="dti-compare-row-label">체증식 (초기 평균)</span>
+            <span class="dti-compare-row-val" id="dti-lim-inc-${uid}">—</span>
+          </div>
+          <div class="dti-compare-row" style="margin-top:4px">
+            <span class="dti-compare-row-label">LTV 기준 한도</span>
+            <span class="dti-compare-row-val" id="dti-lim-ltv-${uid}">${formatLimit(finalLimit)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="dti-note">※ 원리금균등·적용금리 기준 계산. 실제 DTI는 금융사 심사 결과에 따라 달라질 수 있습니다.</div>
+    </div>`;
+  }
+
+  // ── DTI 실시간 재계산 ──
+  function recalcDti(uid, annualIncome, dtiLimit, annualRate, years, ltvLimit, otherLoanInterestMan) {
+    const otherInput = (otherLoanInterestMan || 0) * 10000;
+
+    // 현재 적용금리: rate-calc-section에서 읽기, 없으면 기본금리
+    let rate = annualRate;
+    const rateEl = document.querySelector('[id^="rs-final-green"]');
+    if (rateEl) rate = parseFloat(rateEl.textContent) || annualRate;
+    const principal = ltvLimit * 100000000;
+    const annualPrincipal = calcMonthly(principal, rate, 'annuity', years) * 12;
+
+    // DTI 계산
+    const dtiPct = ((annualPrincipal + otherInput) / annualIncome) * 100;
+    const dtiRounded = Math.round(dtiPct * 10) / 10;
+
+    // 상태
+    const statusCls = dtiRounded <= dtiLimit ? 'ok' : dtiRounded <= dtiLimit + 10 ? 'warn' : 'over';
+    const statusText = dtiRounded <= dtiLimit ? '✅ 기준 이내' : '⚠️ 기준 초과';
+
+    // DOM 업데이트
+    document.getElementById('dti-annual-' + uid).textContent = Math.round(annualPrincipal / 10000).toLocaleString() + '만원';
+    document.getElementById('dti-other-val-' + uid).textContent = Math.round(otherInput / 10000).toLocaleString() + '만원';
+    document.getElementById('dti-pct-' + uid).textContent = dtiRounded + '%';
+    document.getElementById('dti-pct-' + uid).className = 'dti-result-val ' + statusCls;
+    document.getElementById('dti-status-' + uid).textContent = statusText;
+
+    // 역산 한도 계산
+    const compareEl = document.getElementById('dti-compare-' + uid);
+    if (compareEl) {
+      compareEl.style.display = 'block';
+
+      // 원리금균등 역산
+      const maxAnnuity = calcMaxLoanByDti(dtiLimit, annualIncome, otherInput, rate, years);
+      const finalAnnuity = Math.min(maxAnnuity, ltvLimit * 100000000);
+      document.getElementById('dti-lim-annuity-' + uid).textContent = formatLimit(finalAnnuity / 100000000);
+
+      // 원금균등 역산 (보수적: 1회차 최대 기준)
+      // P/n + P*r = 월납 → P(1/n + r) = 월납 → P = 월납/(1/n+r)
+      const n = years * 12;
+      const r = rate / 12 / 100;
+      const allowedMonthly = ((dtiLimit / 100) * annualIncome - otherInput) / 12;
+      const maxEqual = allowedMonthly > 0 ? allowedMonthly / (1/n + r) : 0;
+      const finalEqual = Math.min(maxEqual, ltvLimit * 100000000);
+      document.getElementById('dti-lim-equal-' + uid).textContent = formatLimit(finalEqual / 100000000);
+
+      // 체증식 역산 (초기 평균 기반 — 원리금균등 기준 근사치)
+      // 체증식 초기 평균 ≈ 원리금균등의 약 0.6배 (선형 근사)
+      const maxInc = allowedMonthly > 0 ? calcMaxLoanByDti(dtiLimit, annualIncome, otherInput, rate, years) * 1.35 : 0;
+      const finalInc = Math.min(maxInc, ltvLimit * 100000000);
+      document.getElementById('dti-lim-inc-' + uid).textContent = formatLimit(finalInc / 100000000);
+
+      document.getElementById('dti-lim-ltv-' + uid).textContent = formatLimit(ltvLimit);
+    }
+  }
+
   // ── 디딤돌 금리 범위 (household·house 기반) ──
   function getDidimdolRateLabel(household, house) {
     if (household === '신혼' || house === '생애최초') return '2.55~3.85%';
@@ -4081,7 +4328,8 @@
     return 0.70;
   }
 
-  function renderResult(income, price, asset) {
+  function renderResult(income, price, asset, otherLoanInterest) {
+    otherLoanInterest = otherLoanInterest || 0;
     const { household, house, children, region } = answers;
 
     // 신생아 여부
@@ -4241,6 +4489,7 @@
           </div>
           <div class="result-spacer-sm"></div>
           ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)}
+          ${bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, BOGEUM_RATES[30], 30, otherLoanInterest)}
           <div class="result-spacer"></div>
           <div class="group-label">충족 조건</div>
           <div class="result-group">
@@ -4349,6 +4598,7 @@
         </div>
         <div class="result-spacer-sm"></div>
         ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)}
+        ${bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, BOGEUM_RATES[30], 30, otherLoanInterest)}
         <div class="result-spacer"></div>
         <div class="group-label">자격 검토</div>
         <div class="result-group">
@@ -4424,6 +4674,19 @@
       document.querySelectorAll('.rate-calc-section[data-uid]').forEach(function(sec) {
         recalcRate(sec.dataset.uid);
       });
+      // DTI 초기화 — recalcRate 완료 후 금리 반영
+      setTimeout(function() {
+        var dtiCard = document.getElementById('dti-card-green_dti');
+        if (dtiCard) {
+          var annualIncome = parseFloat(dtiCard.dataset.annualIncome || 0);
+          var dtiLimit     = parseFloat(dtiCard.dataset.dtiLimit || 60);
+          var annualRate   = parseFloat(dtiCard.dataset.annualRate || 4.05);
+          var years        = parseFloat(dtiCard.dataset.years || 30);
+          var ltvLimit     = parseFloat(dtiCard.dataset.ltvLimit || 0);
+          var otherLoan    = parseFloat(dtiCard.dataset.otherLoan || 0);
+          recalcDti('green_dti', annualIncome, dtiLimit, annualRate, years, ltvLimit, otherLoan);
+        }
+      }, 50);
     }, 0);
 
     // 결과 카드 순차 페이드인
@@ -4662,11 +4925,11 @@
     answers.children = null;
     answers.region = null;
     document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
-    ['income','price','asset'].forEach(id => {
+    ['income','price','asset','otherLoanInterest'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
-    ['incomeErr','priceErr','assetErr'].forEach(id => {
+    ['incomeErr','priceErr','assetErr','otherLoanErr'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.textContent = '';
     });
@@ -4683,7 +4946,7 @@
     if (hint) hint.classList.remove('visible');
 
     // 결과 슬라이드 초기화
-    const resultSlide = document.querySelector('[data-slide="7"]');
+    const resultSlide = document.querySelector('[data-slide="8"]');
     if (resultSlide) resultSlide.innerHTML = '<div id="resultContent"></div>';
 
     const allSlides = document.querySelectorAll('.slide');
