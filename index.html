@@ -1868,6 +1868,35 @@
     25%      { transform: translateX(-4px); }
     75%      { transform: translateX(4px); }
   }
+
+  /* ── 우대금리 상한 토스트 ── */
+  .pref-toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    background: #2c2c2e;
+    border: 1px solid var(--separator);
+    color: var(--label1);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 12px 18px;
+    border-radius: 20px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    z-index: 9999;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .pref-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .pref-toast-icon {
+    margin-right: 6px;
+  }
 </style>
 </head>
 <body>
@@ -3447,6 +3476,16 @@
     return '';
   }
 
+  // ── 우대금리 상한 토스트 ──
+  let _prefToastTimer = null;
+  function showPrefToast() {
+    const toast = document.getElementById('prefToast');
+    if (!toast) return;
+    if (_prefToastTimer) clearTimeout(_prefToastTimer);
+    toast.classList.add('show');
+    _prefToastTimer = setTimeout(function() { toast.classList.remove('show'); }, 2200);
+  }
+
   // ── 카드 클릭 핸들러 ──
   function togglePrefCard(card, uid, colorCls, isExcl) {
     if (isExcl) {
@@ -3456,6 +3495,42 @@
       });
       card.classList.add('selected-' + colorCls);
     } else {
+      // 디딤돌 전용 상한 체크 (surcharge 요소 존재 여부로 판별)
+      const isDidimdol = !!document.getElementById('surcharge-' + uid);
+      if (isDidimdol) {
+        const isCurrentlySelected = card.classList.contains('selected-' + colorCls);
+        if (!isCurrentlySelected) {
+          // 선택 추가 시도 — 상한 초과 여부 미리 계산
+          const exclList = document.getElementById('pref-excl-' + uid);
+          let prefCap = 0.5;
+          if (exclList) {
+            const selExcl = exclList.querySelector('.rate-pref-card.selected-blue,.rate-pref-card.selected-green,.rate-pref-card.selected-nb');
+            if (selExcl && parseFloat(selExcl.dataset.pref || 0) >= 0.7) prefCap = 0.7;
+          }
+
+          // 현재 중복가능 카드 합산
+          let prefTotal = 0;
+          const prefList = document.getElementById('pref-' + uid);
+          if (prefList) {
+            prefList.querySelectorAll('.rate-pref-card.selected-blue,.rate-pref-card.selected-green,.rate-pref-card.selected-nb').forEach(function(c) {
+              prefTotal += parseFloat(c.dataset.pref || 0);
+            });
+            const selectEl = prefList.querySelector('[data-pref-select]');
+            if (selectEl) prefTotal += parseFloat(selectEl.value || 0);
+          }
+          // exclList 합산
+          if (exclList) {
+            const selExcl = exclList.querySelector('.rate-pref-card.selected-blue,.rate-pref-card.selected-green,.rate-pref-card.selected-nb');
+            if (selExcl) prefTotal += parseFloat(selExcl.dataset.pref || 0);
+          }
+
+          const addVal = parseFloat(card.dataset.pref || 0);
+          if (Math.round((prefTotal + addVal) * 100) / 100 > prefCap) {
+            showPrefToast();
+            return; // 선택 차단
+          }
+        }
+      }
       card.classList.toggle('selected-' + colorCls);
     }
     recalcRate(uid);
@@ -3606,6 +3681,18 @@
     const curBase  = parseFloat(baseEl?.textContent) || 3.0;
 
     prefTotal = Math.round(prefTotal * 100) / 100;
+
+    // 디딤돌 우대금리 상한 적용 (일반 0.5%p, 다자녀 0.7%p)
+    if (document.getElementById('surcharge-' + uid)) {
+      const exclListForCap = document.getElementById('pref-excl-' + uid);
+      let prefCap = 0.5;
+      if (exclListForCap) {
+        const selExcl = exclListForCap.querySelector('.rate-pref-card.selected-blue,.rate-pref-card.selected-green,.rate-pref-card.selected-nb');
+        if (selExcl && parseFloat(selExcl.dataset.pref || 0) >= 0.7) prefCap = 0.7;
+      }
+      prefTotal = Math.min(prefTotal, prefCap);
+      prefTotal = Math.round(prefTotal * 100) / 100;
+    }
 
     // 가산금리 (디딤돌 전용)
     const surchargeWrap = document.getElementById('surcharge-' + uid);
@@ -4765,5 +4852,11 @@
 
   setProgress(0);
 </script>
+
+<!-- 우대금리 상한 토스트 -->
+<div class="pref-toast" id="prefToast">
+  <span class="pref-toast-icon">🚫</span>우대금리 상한을 초과할 수 없어요
+</div>
+
 </body>
 </html>
