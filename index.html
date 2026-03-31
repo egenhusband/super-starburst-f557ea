@@ -4263,7 +4263,7 @@
           <span class="dti-row-val">${dtiLimit}%${region === '규제지역' && dtiLimit === 50 ? ' (규제지역)' : ''}</span>
         </div>
         <div class="dti-row">
-          <span class="dti-row-label">연간 원리금 (원리금균등 기준)</span>
+          <span class="dti-row-label" id="dti-annual-label-${uid}">연간 원리금 (원리금균등 기준)</span>
           <span class="dti-row-val" id="dti-annual-${uid}">—</span>
         </div>
         <div class="dti-row">
@@ -4323,17 +4323,31 @@
     const yrSelect = document.querySelector('.rate-calc-section[data-color="green"] .rate-dropdown-select');
     if (yrSelect) years = parseInt(yrSelect.value) || years;
 
-    // 원리금균등 기준 연간 원리금 (DTI% 표시용)
-    const annualPrincipal = calcMonthly(ltvLimitWon, rate, 'annuity', years) * 12;
+    // 상환방식별 연간 원리금 계산
+    let annualPrincipal;
+    let annualLabel;
+    if (method === 'equal-principal') {
+      annualPrincipal = calcEqualPrincipalFirstAnnual(ltvLimitWon, rate, years);
+      annualLabel = '연간 원리금 (원금균등 1회차 기준)';
+    } else if (method === 'increasing') {
+      annualPrincipal = calcIncreasingAvgAnnual(ltvLimitWon, rate, years);
+      annualLabel = '연간 원리금 (체증식 초기 평균 기준)';
+    } else {
+      annualPrincipal = calcMonthly(ltvLimitWon, rate, 'annuity', years) * 12;
+      annualLabel = '연간 원리금 (원리금균등 기준)';
+    }
+
     const dtiPct     = ((annualPrincipal + otherInput) / annualIncome) * 100;
     const dtiRounded = Math.round(dtiPct * 10) / 10;
     const statusCls  = dtiRounded <= dtiLimit ? 'ok' : dtiRounded <= dtiLimit + 10 ? 'warn' : 'over';
     const statusText = dtiRounded <= dtiLimit ? '✅ 기준 이내' : '⚠️ 기준 초과';
 
     const annualEl = document.getElementById('dti-annual-' + uid);
+    const annualLabelEl = document.getElementById('dti-annual-label-' + uid);
     const pctEl    = document.getElementById('dti-pct-' + uid);
     const statusEl = document.getElementById('dti-status-' + uid);
     if (annualEl) annualEl.textContent = Math.round(annualPrincipal / 10000).toLocaleString() + '만원';
+    if (annualLabelEl) annualLabelEl.textContent = annualLabel;
     if (pctEl)    { pctEl.textContent = dtiRounded + '%'; pctEl.className = 'dti-result-val ' + statusCls; }
     if (statusEl) statusEl.textContent = statusText;
 
