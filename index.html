@@ -3740,24 +3740,29 @@
       }
     }
 
-    // 월납입 재계산
-    const amtEl = document.getElementById('mc-amt-' + uid);
-    if (amtEl) {
-      const principal = parseFloat(amtEl.dataset.principal || 0);
-      if (principal > 0) {
-        const amt = calcMonthly(principal, finalRate, method, years);
-        amtEl.textContent = formatWon(amt);
+    // 보금자리론: 우대금리 변경 시 DTI 재계산 연동 (월납입도 recalcDti가 처리)
+    const calcSection = document.getElementById('tabs-' + uid)?.closest('[data-color]');
+    const isBogeumjariSection = calcSection && calcSection.dataset.color === 'green';
+
+    // 월납입 재계산 — 보금자리론은 recalcDti가 처리하므로 건너뜀
+    if (!isBogeumjariSection) {
+      const amtEl = document.getElementById('mc-amt-' + uid);
+      if (amtEl) {
+        const principal = parseFloat(amtEl.dataset.principal || 0);
+        if (principal > 0) {
+          const amt = calcMonthly(principal, finalRate, method, years);
+          amtEl.textContent = formatWon(amt);
+        }
+      }
+      if (noteEl) {
+        const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
+        noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
       }
     }
-    if (noteEl) {
-      const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
-      noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
-    }
 
-    // 보금자리론: 우대금리 변경 시 DTI 재계산 연동
-    const calcSection = document.getElementById('tabs-' + uid)?.closest('[data-color]');
-    if (calcSection && calcSection.dataset.color === 'green') {
-      const currentFinalRate = finalRate; // 클로저 캡처
+    // 보금자리론: recalcDti가 월납입까지 일괄 처리
+    if (isBogeumjariSection) {
+      const currentFinalRate = finalRate;
       setTimeout(function() {
         var dtiCard = document.getElementById('dti-card-green_dti');
         if (dtiCard) {
@@ -3771,7 +3776,7 @@
             method
           );
         }
-      }, 10);
+      }, 0);
     }
   }
 
@@ -3791,38 +3796,7 @@
     }
     newBase = Math.round(newBase * 100) / 100;
     baseEl.textContent = newBase.toFixed(2) + '%';
-    recalcRate(uid);
-
-    // 보금자리론 기한 변경 시 DTI도 재계산
-    if (product === 'bogeumjari') {
-      setTimeout(function() {
-        var dtiCard = document.getElementById('dti-card-green_dti');
-        if (dtiCard) {
-          // 현재 선택된 상환방식 읽기
-          var currentMethod = 'annuity';
-          var tabs = document.querySelector('.rate-calc-section[data-color="green"] .repay-method-tabs');
-          if (tabs) {
-            var activeTab = tabs.querySelector('.repay-method-tab.active-green');
-            if (activeTab) {
-              if (activeTab.id.includes('equal-principal')) currentMethod = 'equal-principal';
-              else if (activeTab.id.includes('increasing'))  currentMethod = 'increasing';
-            }
-          }
-          // 적용금리 읽기
-          var rateEl = document.querySelector('[id^="rs-final-green"]');
-          var finalRate = rateEl ? parseFloat(rateEl.textContent) : parseFloat(dtiCard.dataset.annualRate || 4.05);
-          recalcDti('green_dti',
-            parseFloat(dtiCard.dataset.annualIncome || 0),
-            parseFloat(dtiCard.dataset.dtiLimit || 60),
-            finalRate,
-            years,
-            parseFloat(dtiCard.dataset.ltvLimit || 0),
-            parseFloat(dtiCard.dataset.otherLoan || 0),
-            currentMethod
-          );
-        }
-      }, 20);
-    }
+    recalcRate(uid); // recalcRate 내부에서 보금자리론이면 recalcDti까지 처리
   }
 
   // 상환방식 탭 전환
