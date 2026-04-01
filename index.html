@@ -3655,7 +3655,7 @@
     if (!el) return;
 
     const baseRate = parseFloat(el.textContent);
-    const years    = (parseInt((document.getElementById('yr-val-' + uid)?.textContent || '').replace(/[^0-9]/g,'')) || parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
+    const years    = (parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
 
     // 카드형 우대금리 합산
     let prefTotal = 0;
@@ -3763,7 +3763,7 @@
 
   // 기한 변경 시 기본금리도 갱신 (디딤돌/신생아 기한별 금리 반영)
   function recalcRateWithYear(uid, product, income, household) {
-    const years   = (parseInt((document.getElementById('yr-val-' + uid)?.textContent || '').replace(/[^0-9]/g,'')) || parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
+    const years   = (parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
     const baseEl  = document.getElementById('rs-base-' + uid);
     if (!baseEl) return;
 
@@ -3782,7 +3782,7 @@
 
   // 상환방식 탭 전환
   function selectRepayTab(uid, method, product, colorCls, principal) {
-    const years    = (parseInt((document.getElementById('yr-val-' + uid)?.textContent || '').replace(/[^0-9]/g,'')) || parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
+    const years    = (parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
     if (method === 'increasing' && years === 50) return;
     const finalRate = parseFloat(document.getElementById('rs-final-' + uid)?.textContent || 3.0);
     const tabs = document.getElementById('tabs-' + uid);
