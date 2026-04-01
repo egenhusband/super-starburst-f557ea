@@ -1930,6 +1930,35 @@
     25%      { transform: translateX(-4px); }
     75%      { transform: translateX(4px); }
   }
+
+  /* ── 우대금리 상한 토스트 ── */
+  .pref-toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(12px);
+    background: #2c2c2e;
+    border: 1px solid var(--separator);
+    color: var(--label1);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 12px 18px;
+    border-radius: 20px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    z-index: 9999;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .pref-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .pref-toast-icon {
+    margin-right: 6px;
+  }
 </style>
 </head>
 <body>
@@ -2265,7 +2294,7 @@
     if (current === 5) return document.getElementById('income').value !== '';
     if (current === 6) return document.getElementById('price').value !== '';
     if (current === 7) return document.getElementById('asset').value !== '';
-    if (current === 8) return true; // 기타대출은 건너뛰기 가능
+    if (current === 8) return true;
     return true;
   }
 
@@ -3394,7 +3423,7 @@
   function calcMonthly(principal, annualRate, method, years) {
     const P = principal;
     const r = annualRate / 12 / 100;
-    const n = ((!years || isNaN(years)) ? 30 : years) * 12;
+    const n = (years || 40) * 12;
     if (method === 'equal-principal') {
       // 체감식(원금균등): 1회차 = 원금/n + 잔액이자 → 매월 감소
       return (P / n) + (P * r);
@@ -3416,7 +3445,7 @@
   // ══ 기금대출 금리 테이블 ══
 
   // 보금자리론 기한별 기본금리
-  const BOGEUM_RATES = { 10:3.85, 15:3.95, 20:4.00, 30:4.05, 40:4.10, 50:4.15 };
+  const BOGEUM_RATES = { 10:4.45, 15:4.55, 20:4.60, 30:4.65, 40:4.70, 50:4.75 };
 
   // 디딤돌 소득·기한별 기본금리 — 일반/생애최초 (신혼 아님)
   const DIDIMDOL_RATES_GENERAL = [
@@ -3527,6 +3556,16 @@
     return '';
   }
 
+  // ── 우대금리 상한 토스트 ──
+  let _prefToastTimer = null;
+  function showPrefToast() {
+    const toast = document.getElementById('prefToast');
+    if (!toast) return;
+    if (_prefToastTimer) clearTimeout(_prefToastTimer);
+    toast.classList.add('show');
+    _prefToastTimer = setTimeout(function() { toast.classList.remove('show'); }, 2200);
+  }
+
   // ── 카드 클릭 핸들러 ──
   function togglePrefCard(card, uid, colorCls, isExcl) {
     if (isExcl) {
@@ -3536,6 +3575,42 @@
       });
       card.classList.add('selected-' + colorCls);
     } else {
+      // 디딤돌 전용 상한 체크 (surcharge 요소 존재 여부로 판별)
+      const isDidimdol = !!document.getElementById('surcharge-' + uid);
+      if (isDidimdol) {
+        const isCurrentlySelected = card.classList.contains('selected-' + colorCls);
+        if (!isCurrentlySelected) {
+          // 선택 추가 시도 — 상한 초과 여부 미리 계산
+          const exclList = document.getElementById('pref-excl-' + uid);
+          let prefCap = 0.5;
+          if (exclList) {
+            const selExcl = exclList.querySelector('.rate-pref-card.selected-blue,.rate-pref-card.selected-green,.rate-pref-card.selected-nb');
+            if (selExcl && parseFloat(selExcl.dataset.pref || 0) >= 0.7) prefCap = 0.7;
+          }
+
+          // 현재 중복가능 카드 합산
+          let prefTotal = 0;
+          const prefList = document.getElementById('pref-' + uid);
+          if (prefList) {
+            prefList.querySelectorAll('.rate-pref-card.selected-blue,.rate-pref-card.selected-green,.rate-pref-card.selected-nb').forEach(function(c) {
+              prefTotal += parseFloat(c.dataset.pref || 0);
+            });
+            const selectEl = prefList.querySelector('[data-pref-select]');
+            if (selectEl) prefTotal += parseFloat(selectEl.value || 0);
+          }
+          // exclList 합산
+          if (exclList) {
+            const selExcl = exclList.querySelector('.rate-pref-card.selected-blue,.rate-pref-card.selected-green,.rate-pref-card.selected-nb');
+            if (selExcl) prefTotal += parseFloat(selExcl.dataset.pref || 0);
+          }
+
+          const addVal = parseFloat(card.dataset.pref || 0);
+          if (Math.round((prefTotal + addVal) * 100) / 100 > prefCap) {
+            showPrefToast();
+            return; // 선택 차단
+          }
+        }
+      }
       card.classList.toggle('selected-' + colorCls);
     }
     recalcRate(uid);
@@ -3687,6 +3762,18 @@
 
     prefTotal = Math.round(prefTotal * 100) / 100;
 
+    // 디딤돌 우대금리 상한 적용 (일반 0.5%p, 다자녀 0.7%p)
+    if (document.getElementById('surcharge-' + uid)) {
+      const exclListForCap = document.getElementById('pref-excl-' + uid);
+      let prefCap = 0.5;
+      if (exclListForCap) {
+        const selExcl = exclListForCap.querySelector('.rate-pref-card.selected-blue,.rate-pref-card.selected-green,.rate-pref-card.selected-nb');
+        if (selExcl && parseFloat(selExcl.dataset.pref || 0) >= 0.7) prefCap = 0.7;
+      }
+      prefTotal = Math.min(prefTotal, prefCap);
+      prefTotal = Math.round(prefTotal * 100) / 100;
+    }
+
     // 가산금리 (디딤돌 전용)
     const surchargeWrap = document.getElementById('surcharge-' + uid);
     let surcharge = 0;
@@ -3740,7 +3827,7 @@
       }
     }
 
-    // 월납입 재계산 — 모든 상품 동일하게 LTV 기준
+    // 월납입 재계산
     const amtEl = document.getElementById('mc-amt-' + uid);
     if (amtEl) {
       const principal = parseFloat(amtEl.dataset.principal || 0);
@@ -3754,10 +3841,13 @@
       noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
     }
 
-    // 보금자리론: DTI 재계산 (mc-amt 업데이트 직후 호출)
+    // DTI 재계산 (상품별)
     const calcSection = document.getElementById('tabs-' + uid)?.closest('[data-color]');
-    if (calcSection && calcSection.dataset.color === 'green') {
-      recalcDti('green_dti');
+    if (calcSection) {
+      const color = calcSection.dataset.color;
+      if (color === 'green') recalcDti('green_dti');
+      else if (color === 'blue') recalcDti('blue_dti');
+      else if (color === 'nb') recalcDti('nb_dti');
     }
   }
 
@@ -3773,17 +3863,18 @@
     } else if (product === 'didimdol') {
       newBase = getDidimdolBaseRate(income, household, years);
     } else {
+      // 신생아: 기한별 금리 적용
       newBase = getNewbornRate(income, years).rate;
     }
     newBase = Math.round(newBase * 100) / 100;
     baseEl.textContent = newBase.toFixed(2) + '%';
-    recalcRate(uid); // recalcRate 내부에서 보금자리론이면 recalcDti까지 처리
+    recalcRate(uid);
   }
 
   // 상환방식 탭 전환
   function selectRepayTab(uid, method, product, colorCls, principal) {
     const years    = (parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
-    if (method === 'increasing' && years === 50) return;
+    if (method === 'increasing' && years === 50) return; // 체증식 50년 불가
     const finalRate = parseFloat(document.getElementById('rs-final-' + uid)?.textContent || 3.0);
     const tabs = document.getElementById('tabs-' + uid);
     if (tabs) {
@@ -3792,8 +3883,6 @@
       });
       document.getElementById(`tab-${method}-${uid}`)?.classList.add(`active-${colorCls}`);
     }
-
-    // 월납입 — 모든 상품 LTV 기준
     const amt   = calcMonthly(principal, finalRate, method, years);
     const amtEl = document.getElementById('mc-amt-' + uid);
     if (amtEl) amtEl.textContent = formatWon(amt);
@@ -3802,15 +3891,9 @@
       const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
       noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
     }
-
-    // 보금자리론: DTI 재계산 (월납입은 건드리지 않음)
-    if (colorCls === 'green') {
-      var dtiCard = document.getElementById('dti-card-green_dti');
-      if (dtiCard) {
-        recalcDti('green_dti');
-      }
-    }
   }
+
+  // ── 공통: 한도 상세 카드 HTML ──
   function limitCardHtml(colorCls, ltvLimit, maxLimit, finalLimit, price, household, house, children, region, income) {
     const ltvApplied    = ltvLimit <= maxLimit;
     const appliedCls    = ltvApplied    ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
@@ -3830,7 +3913,7 @@
     return `
         <div class="limit-detail-card ${colorCls}-top">
           <div class="limit-detail-label">예상 대출 한도</div>
-          <div class="limit-detail-amount ${colorCls}" id="final-limit-amt-${uid}">${formatLimit(finalLimit)}</div>
+          <div class="limit-detail-amount ${colorCls}">${formatLimit(finalLimit)}</div>
           <div class="limit-breakdown">
             <div class="limit-breakdown-item">
               <span class="breakdown-label">LTV ${Math.round(ltvLimit/price*100)}% 적용</span>
@@ -3840,11 +3923,6 @@
               <span class="breakdown-label">상품 최대 한도</span>
               <span class="breakdown-val${maxAppliedCls}">${formatLimit(maxLimit)}</span>
             </div>
-            ${colorCls === 'green' ? `
-            <div class="limit-breakdown-item" id="dti-limit-row-${uid}" style="display:none">
-              <span class="breakdown-label">DTI 기준 한도</span>
-              <span class="breakdown-val" id="dti-limit-val-${uid}" style="color:var(--green)">—</span>
-            </div>` : ''}
           </div>
           <div class="limit-applied-note">${reasonText}</div>
           <div class="limit-reason">LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 개인별 신용 및 소득에 따라 달라질 수 있습니다. 보다 자세한 산정내역은 한국주택금융공사에서 꼭 확인이 필요합니다.</div>
@@ -4007,7 +4085,7 @@
   function buildNewbornHtml(o) {
     var newbornOk = o.newbornOk, didimdolOk = o.didimdolOk, bogeumjariOk = o.bogeumjariOk;
     var income = o.income, price = o.price, asset = o.asset;
-    var household = o.household, house = o.house, children = o.children, region = o.region;
+    var household = o.household, house = o.house, children = o.children, region = o.region, otherLoanInterest = o.otherLoanInterest || 0;
     var nbRate = o.nbRate, nbLtvLimit = o.nbLtvLimit, nbMaxLimit = o.nbMaxLimit, nbFinalLimit = o.nbFinalLimit;
     var nbHouseOk = o.nbHouseOk, nbIncomeOk = o.nbIncomeOk, nbAssetOk = o.nbAssetOk, nbPriceOk = o.nbPriceOk;
     var dLtvLimit = o.dLtvLimit, dMaxLimit = o.dMaxLimit, dFinalLimit = o.dFinalLimit;
@@ -4054,6 +4132,7 @@
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30, income, household, region)
+        + bogeumDtiCardHtml('nb_dti', income, price, region, house, nbFinalLimit, getNewbornRate(income, 30).rate, 30, otherLoanInterest, 60)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -4087,6 +4166,7 @@
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income)
+        + bogeumDtiCardHtml('blue_dti', income, price, region, house, dFinalLimit, getDidimdolBaseRate(income, household, 30), 30, otherLoanInterest, 60)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -4114,10 +4194,7 @@
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)
-        + (function() {
-            var dtiUid = 'green_dti';
-            return bogeumDtiCardHtml(dtiUid, income, price, region, house, bFinalLimit, BOGEUM_RATES[30], 30, otherLoanInterest);
-          })()
+        + bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, BOGEUM_RATES[30], 30, otherLoanInterest)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -4201,9 +4278,9 @@
   }
 
   // ── DTI 카드 HTML ──
-  function bogeumDtiCardHtml(uid, income, price, region, house, finalLimit, annualRate, years, otherLoanInterest) {
+  function bogeumDtiCardHtml(uid, income, price, region, house, finalLimit, annualRate, years, otherLoanInterest, fixedDtiLimit) {
     otherLoanInterest = otherLoanInterest || 0;
-    const dtiLimit = getBogeumDtiLimit(region, house, income, price);
+    const dtiLimit = fixedDtiLimit !== undefined ? fixedDtiLimit : getBogeumDtiLimit(region, house, income, price);
     const annualIncome = income * 10000;
 
     return `<div class="dti-card" id="dti-card-${uid}"
@@ -4279,6 +4356,7 @@
     if (pctEl)     { pctEl.textContent = dtiRounded + '%'; pctEl.className = 'dti-result-val ' + statusCls; }
     if (statusEl)  statusEl.textContent = statusText;
   }
+
 
   // ── 디딤돌 금리 범위 (household·house 기반) ──
   function getDidimdolRateLabel(household, house) {
@@ -4371,7 +4449,7 @@
       if (newbornOk || didimdolOk || bogeumjariOk) {
         html = buildNewbornHtml({
           newbornOk, didimdolOk, bogeumjariOk,
-          income, price, asset, household, house, children, region,
+          income, price, asset, household, house, children, region, otherLoanInterest,
           nbRate, nbLtvLimit, nbMaxLimit, nbFinalLimit,
           nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk,
           dLtvLimit, dMaxLimit, dFinalLimit, dIncomeLimit, dPriceLimit,
@@ -4430,6 +4508,7 @@
           </div>
           <div class="result-spacer-sm"></div>
           ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income)}
+          ${bogeumDtiCardHtml('blue_dti', income, price, region, house, dFinalLimit, getDidimdolBaseRate(income, household, 30), 30, otherLoanInterest, 60)}
           <div class="result-spacer"></div>
           <div class="group-label">충족 조건</div>
           <div class="result-group">
@@ -4520,6 +4599,7 @@
         </div>
         <div class="result-spacer-sm"></div>
         ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income)}
+        ${bogeumDtiCardHtml('blue_dti', income, price, region, house, dFinalLimit, getDidimdolBaseRate(income, household, 30), 30, otherLoanInterest, 60)}
         <div class="result-spacer"></div>
         <div class="group-label">충족 조건</div>
         <div class="result-group">
@@ -4651,21 +4731,7 @@
       document.querySelectorAll('.rate-calc-section[data-uid]').forEach(function(sec) {
         recalcRate(sec.dataset.uid);
       });
-      // DTI 초기화 — recalcRate 완료 후 금리 반영
-      setTimeout(function() {
-        var dtiCard = document.getElementById('dti-card-green_dti');
-        if (dtiCard) {
-          var annualIncome = parseFloat(dtiCard.dataset.annualIncome || 0);
-          var dtiLimit     = parseFloat(dtiCard.dataset.dtiLimit || 60);
-          var annualRate   = parseFloat(dtiCard.dataset.annualRate || 4.05);
-          var ltvLimit     = parseFloat(dtiCard.dataset.ltvLimit || 0);
-          var otherLoan    = parseFloat(dtiCard.dataset.otherLoan || 0);
-          // 우대금리 계산기에서 선택한 기한 읽기
-          var yrSelect = document.querySelector('.rate-calc-section[data-color="green"] .rate-dropdown-select');
-          var years = yrSelect ? parseInt(yrSelect.value || 30) : 30;
-          recalcDti('green_dti');
-        }
-      }, 50);
+      setTimeout(function() { ['green_dti','blue_dti','nb_dti'].forEach(function(id){ if(document.getElementById('dti-card-'+id)) recalcDti(id); }); }, 50);
     }, 0);
 
     // 결과 카드 순차 페이드인
@@ -5007,5 +5073,11 @@
 
   setProgress(0);
 </script>
+
+<!-- 우대금리 상한 토스트 -->
+<div class="pref-toast" id="prefToast">
+  <span class="pref-toast-icon">🚫</span>우대금리 상한을 초과할 수 없어요
+</div>
+
 </body>
 </html>
