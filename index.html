@@ -4326,22 +4326,22 @@
     const dtiCard = document.getElementById('dti-card-' + uid);
     if (!dtiCard) return;
 
-    const annualIncome       = parseFloat(dtiCard.dataset.annualIncome || 0);
-    const dtiLimit           = parseFloat(dtiCard.dataset.dtiLimit || 60);
-    const otherLoanInterest  = parseFloat(dtiCard.dataset.otherLoan || 0) * 10000; // 만원→원
+    const annualIncome      = parseFloat(dtiCard.dataset.annualIncome || 0);
+    const dtiLimit          = parseFloat(dtiCard.dataset.dtiLimit || 60);
+    const otherLoanInterest = parseFloat(dtiCard.dataset.otherLoan || 0) * 10000;
 
     if (annualIncome <= 0) return;
 
-    // mc-amt에서 현재 월납입액 읽기 (recalcRate/selectRepayTab이 이미 계산해둠)
-    const rateSection = document.querySelector('.rate-calc-section[data-color="green"]');
+    // uid에서 color 추출 → 해당 상품 카드의 mc-amt 읽기
+    const color = uid.split('_')[0]; // 'green_dti' → 'green'
+    const rateSection = document.querySelector('.rate-calc-section[data-color="' + color + '"]');
     if (!rateSection) return;
     const card = rateSection.closest('.limit-detail-card');
     if (!card) return;
     const amtEl = card.querySelector('[id^="mc-amt-"]');
     if (!amtEl) return;
 
-    // 월납입 텍스트에서 숫자 추출 (예: "960,605원" → 960605)
-    const monthlyWon = parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0;
+    const monthlyWon      = parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0;
     const annualPrincipal = monthlyWon * 12;
 
     const dtiPct     = ((annualPrincipal + otherLoanInterest) / annualIncome) * 100;
@@ -4349,12 +4349,12 @@
     const statusCls  = dtiRounded <= dtiLimit ? 'ok' : dtiRounded <= dtiLimit + 10 ? 'warn' : 'over';
     const statusText = dtiRounded <= dtiLimit ? '✅ 기준 이내' : '⚠️ 기준 초과';
 
-    const annualEl  = document.getElementById('dti-annual-' + uid);
-    const pctEl     = document.getElementById('dti-pct-' + uid);
-    const statusEl  = document.getElementById('dti-status-' + uid);
-    if (annualEl)  annualEl.textContent  = Math.round(annualPrincipal / 10000).toLocaleString() + '만원';
-    if (pctEl)     { pctEl.textContent = dtiRounded + '%'; pctEl.className = 'dti-result-val ' + statusCls; }
-    if (statusEl)  statusEl.textContent = statusText;
+    const annualEl = document.getElementById('dti-annual-' + uid);
+    const pctEl    = document.getElementById('dti-pct-' + uid);
+    const statusEl = document.getElementById('dti-status-' + uid);
+    if (annualEl) annualEl.textContent = Math.round(annualPrincipal / 10000).toLocaleString() + '만원';
+    if (pctEl)    { pctEl.textContent = dtiRounded + '%'; pctEl.className = 'dti-result-val ' + statusCls; }
+    if (statusEl) statusEl.textContent = statusText;
   }
 
 
