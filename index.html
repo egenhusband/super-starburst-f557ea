@@ -3394,7 +3394,7 @@
   function calcMonthly(principal, annualRate, method, years) {
     const P = principal;
     const r = annualRate / 12 / 100;
-    const n = (years || 40) * 12;
+    const n = ((!years || isNaN(years)) ? 30 : years) * 12;
     if (method === 'equal-principal') {
       // 체감식(원금균등): 1회차 = 원금/n + 잔액이자 → 매월 감소
       return (P / n) + (P * r);
@@ -3655,7 +3655,7 @@
     if (!el) return;
 
     const baseRate = parseFloat(el.textContent);
-    const years    = parseInt(document.getElementById('yr-' + uid)?.value || 30);
+    const years    = (parseInt((document.getElementById('yr-val-' + uid)?.textContent || '').replace(/[^0-9]/g,'')) || parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
 
     // 카드형 우대금리 합산
     let prefTotal = 0;
@@ -3740,49 +3740,30 @@
       }
     }
 
-    // 보금자리론: 우대금리 변경 시 DTI 재계산 연동 (월납입도 recalcDti가 처리)
-    const calcSection = document.getElementById('tabs-' + uid)?.closest('[data-color]');
-    const isBogeumjariSection = calcSection && calcSection.dataset.color === 'green';
-
-    // 월납입 재계산 — 보금자리론은 recalcDti가 처리하므로 건너뜀
-    if (!isBogeumjariSection) {
-      const amtEl = document.getElementById('mc-amt-' + uid);
-      if (amtEl) {
-        const principal = parseFloat(amtEl.dataset.principal || 0);
-        if (principal > 0) {
-          const amt = calcMonthly(principal, finalRate, method, years);
-          amtEl.textContent = formatWon(amt);
-        }
-      }
-      if (noteEl) {
-        const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
-        noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
+    // 월납입 재계산 — 모든 상품 동일하게 LTV 기준
+    const amtEl = document.getElementById('mc-amt-' + uid);
+    if (amtEl) {
+      const principal = parseFloat(amtEl.dataset.principal || 0);
+      if (principal > 0) {
+        const amt = calcMonthly(principal, finalRate, method, years);
+        amtEl.textContent = formatWon(amt);
       }
     }
+    if (noteEl) {
+      const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
+      noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
+    }
 
-    // 보금자리론: recalcDti가 월납입까지 일괄 처리
-    if (isBogeumjariSection) {
-      const currentFinalRate = finalRate;
-      setTimeout(function() {
-        var dtiCard = document.getElementById('dti-card-green_dti');
-        if (dtiCard) {
-          recalcDti('green_dti',
-            parseFloat(dtiCard.dataset.annualIncome || 0),
-            parseFloat(dtiCard.dataset.dtiLimit || 60),
-            currentFinalRate,
-            years,
-            parseFloat(dtiCard.dataset.ltvLimit || 0),
-            parseFloat(dtiCard.dataset.otherLoan || 0),
-            method
-          );
-        }
-      }, 0);
+    // 보금자리론: DTI 재계산 (mc-amt 업데이트 직후 호출)
+    const calcSection = document.getElementById('tabs-' + uid)?.closest('[data-color]');
+    if (calcSection && calcSection.dataset.color === 'green') {
+      recalcDti('green_dti');
     }
   }
 
   // 기한 변경 시 기본금리도 갱신 (디딤돌/신생아 기한별 금리 반영)
   function recalcRateWithYear(uid, product, income, household) {
-    const years   = parseInt(document.getElementById('yr-' + uid)?.value || 30);
+    const years   = (parseInt((document.getElementById('yr-val-' + uid)?.textContent || '').replace(/[^0-9]/g,'')) || parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
     const baseEl  = document.getElementById('rs-base-' + uid);
     if (!baseEl) return;
 
@@ -3801,8 +3782,8 @@
 
   // 상환방식 탭 전환
   function selectRepayTab(uid, method, product, colorCls, principal) {
-    const years    = parseInt(document.getElementById('yr-' + uid)?.value || 30);
-    if (method === 'increasing' && years === 50) return; // 체증식 50년 불가
+    const years    = (parseInt((document.getElementById('yr-val-' + uid)?.textContent || '').replace(/[^0-9]/g,'')) || parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
+    if (method === 'increasing' && years === 50) return;
     const finalRate = parseFloat(document.getElementById('rs-final-' + uid)?.textContent || 3.0);
     const tabs = document.getElementById('tabs-' + uid);
     if (tabs) {
@@ -3812,24 +3793,7 @@
       document.getElementById(`tab-${method}-${uid}`)?.classList.add(`active-${colorCls}`);
     }
 
-    // 보금자리론: recalcDti가 월납입·한도 모두 처리 (LTV 기준 계산 생략)
-    if (colorCls === 'green') {
-      var dtiCard = document.getElementById('dti-card-green_dti');
-      if (dtiCard) {
-        recalcDti('green_dti',
-          parseFloat(dtiCard.dataset.annualIncome || 0),
-          parseFloat(dtiCard.dataset.dtiLimit || 60),
-          finalRate,
-          years,
-          parseFloat(dtiCard.dataset.ltvLimit || 0),
-          parseFloat(dtiCard.dataset.otherLoan || 0),
-          method
-        );
-        return;
-      }
-    }
-
-    // 보금자리론 아닌 경우 기존 방식
+    // 월납입 — 모든 상품 LTV 기준
     const amt   = calcMonthly(principal, finalRate, method, years);
     const amtEl = document.getElementById('mc-amt-' + uid);
     if (amtEl) amtEl.textContent = formatWon(amt);
@@ -3837,6 +3801,14 @@
     if (noteEl) {
       const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
       noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
+    }
+
+    // 보금자리론: DTI 재계산 (월납입은 건드리지 않음)
+    if (colorCls === 'green') {
+      var dtiCard = document.getElementById('dti-card-green_dti');
+      if (dtiCard) {
+        recalcDti('green_dti');
+      }
     }
   }
   function limitCardHtml(colorCls, ltvLimit, maxLimit, finalLimit, price, household, house, children, region, income) {
@@ -4272,119 +4244,40 @@
     </div>`;
   }
 
-  // ── DTI 실시간 재계산 ──
-  function recalcDti(uid, annualIncome, dtiLimit, annualRate, years, ltvLimitEok, otherLoanInterestMan, method) {
-    const otherInput  = (otherLoanInterestMan || 0) * 10000;
-    const ltvLimitWon = ltvLimitEok * 100000000;
-    method = method || 'annuity';
+  // ── DTI 재계산 — mc-amt 월납입 × 12 + 기타대출 이자 / 연소득 ──
+  function recalcDti(uid) {
+    const dtiCard = document.getElementById('dti-card-' + uid);
+    if (!dtiCard) return;
 
-    // 적용금리: 항상 DOM에서 최신값 읽기 (우대금리 반영)
-    let rate = annualRate;
-    const rateEl = document.querySelector('[id^="rs-final-green"]');
-    if (rateEl) {
-      const domRate = parseFloat(rateEl.textContent);
-      if (!isNaN(domRate) && domRate > 0) rate = domRate;
-    }
+    const annualIncome       = parseFloat(dtiCard.dataset.annualIncome || 0);
+    const dtiLimit           = parseFloat(dtiCard.dataset.dtiLimit || 60);
+    const otherLoanInterest  = parseFloat(dtiCard.dataset.otherLoan || 0) * 10000; // 만원→원
 
-    // 현재 기한 읽기 (드롭다운)
-    const yrSelect = document.querySelector('.rate-calc-section[data-color="green"] .rate-dropdown-select');
-    if (yrSelect) years = parseInt(yrSelect.value) || years;
+    if (annualIncome <= 0) return;
 
-    // 상환방식별 연간 원리금 계산
-    let annualPrincipal;
-    let annualLabel;
-    if (method === 'equal-principal') {
-      annualPrincipal = calcEqualPrincipalFirstAnnual(ltvLimitWon, rate, years);
-      annualLabel = '연간 원리금 (원금균등 1회차 기준)';
-    } else if (method === 'increasing') {
-      annualPrincipal = calcIncreasingAvgAnnual(ltvLimitWon, rate, years);
-      annualLabel = '연간 원리금 (체증식 초기 평균 기준)';
-    } else {
-      annualPrincipal = calcMonthly(ltvLimitWon, rate, 'annuity', years) * 12;
-      annualLabel = '연간 원리금 (원리금균등 기준)';
-    }
+    // mc-amt에서 현재 월납입액 읽기 (recalcRate/selectRepayTab이 이미 계산해둠)
+    const rateSection = document.querySelector('.rate-calc-section[data-color="green"]');
+    if (!rateSection) return;
+    const card = rateSection.closest('.limit-detail-card');
+    if (!card) return;
+    const amtEl = card.querySelector('[id^="mc-amt-"]');
+    if (!amtEl) return;
 
-    const dtiPct     = ((annualPrincipal + otherInput) / annualIncome) * 100;
+    // 월납입 텍스트에서 숫자 추출 (예: "960,605원" → 960605)
+    const monthlyWon = parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0;
+    const annualPrincipal = monthlyWon * 12;
+
+    const dtiPct     = ((annualPrincipal + otherLoanInterest) / annualIncome) * 100;
     const dtiRounded = Math.round(dtiPct * 10) / 10;
     const statusCls  = dtiRounded <= dtiLimit ? 'ok' : dtiRounded <= dtiLimit + 10 ? 'warn' : 'over';
     const statusText = dtiRounded <= dtiLimit ? '✅ 기준 이내' : '⚠️ 기준 초과';
 
-    const annualEl = document.getElementById('dti-annual-' + uid);
-    const annualLabelEl = document.getElementById('dti-annual-label-' + uid);
-    const pctEl    = document.getElementById('dti-pct-' + uid);
-    const statusEl = document.getElementById('dti-status-' + uid);
-    if (annualEl) annualEl.textContent = Math.round(annualPrincipal / 10000).toLocaleString() + '만원';
-    if (annualLabelEl) annualLabelEl.textContent = annualLabel;
-    if (pctEl)    { pctEl.textContent = dtiRounded + '%'; pctEl.className = 'dti-result-val ' + statusCls; }
-    if (statusEl) statusEl.textContent = statusText;
-
-    // 상환방식별 DTI 역산 최종 한도
-    const n = years * 12;
-    const r = rate / 12 / 100;
-    const allowedMonthly = ((dtiLimit / 100) * annualIncome - otherInput) / 12;
-
-    // 원리금균등 역산
-    const maxAnnuity   = calcMaxLoanByDti(dtiLimit, annualIncome, otherInput, rate, years);
-    const limAnnuity   = allowedMonthly > 0 ? Math.min(maxAnnuity, ltvLimitWon) : ltvLimitWon;
-
-    // 원금균등 역산 (1회차 최대 기준)
-    const maxEqual     = allowedMonthly > 0 ? allowedMonthly / (1/n + r) : 0;
-    const limEqual     = allowedMonthly > 0 ? Math.min(maxEqual, ltvLimitWon) : ltvLimitWon;
-
-    // 체증식 역산 (원리금균등 × 1.35 근사)
-    const maxInc       = allowedMonthly > 0 ? maxAnnuity * 1.35 : 0;
-    const limInc       = allowedMonthly > 0 ? Math.min(maxInc, ltvLimitWon) : ltvLimitWon;
-
-    // 상환방식별 최종 한도 (억원)
-    const finalAnnuity = limAnnuity / 100000000;
-    const finalEqual   = limEqual   / 100000000;
-    const finalInc     = limInc     / 100000000;
-
-    // 현재 상환방식에 맞는 최종 한도로 월납입 + 한도 카드 업데이트
-    const limitByMethod = method === 'equal-principal' ? limEqual
-                        : method === 'increasing'      ? limInc
-                        : limAnnuity;
-    const dtiLimitEok = limitByMethod / 100000000;
-
-    // 한도 카드 DTI 행 업데이트 — rate-calc-section의 부모 limit-detail-card 찾기
-    const rateSection = document.querySelector('.rate-calc-section[data-color="green"]');
-    if (rateSection) {
-      const card = rateSection.closest('.limit-detail-card');
-      if (card) {
-        // DTI 한도가 LTV보다 타이트한 경우만 표시
-        const dtiRow = card.querySelector('[id^="dti-limit-row-"]');
-        const dtiVal = card.querySelector('[id^="dti-limit-val-"]');
-        const finalAmtEl = card.querySelector('[id^="final-limit-amt-"]');
-        if (dtiRow && dtiVal) {
-          if (allowedMonthly > 0 && limitByMethod < ltvLimitWon) {
-            dtiRow.style.display = '';
-            dtiVal.textContent = formatLimit(dtiLimitEok);
-            if (finalAmtEl) {
-              finalAmtEl.textContent = formatLimit(dtiLimitEok);
-              finalAmtEl.title = 'DTI 기준 한도';
-            }
-          } else {
-            dtiRow.style.display = 'none';
-            if (finalAmtEl) {
-              finalAmtEl.textContent = formatLimit(ltvLimitEok);
-              finalAmtEl.title = 'LTV 기준 한도';
-            }
-          }
-        }
-        // 월납입 업데이트
-        const amtEl = card.querySelector('[id^="mc-amt-"]');
-        if (amtEl) {
-          const monthly = calcMonthly(limitByMethod, rate, method, years);
-          amtEl.textContent = formatWon(monthly);
-        }
-        // 노트 업데이트
-        const noteEl = card.querySelector('[id^="mc-note-"]');
-        if (noteEl) {
-          const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
-          noteEl.textContent = `적용금리 ${rate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · DTI·LTV 반영`;
-        }
-      }
-    }
+    const annualEl  = document.getElementById('dti-annual-' + uid);
+    const pctEl     = document.getElementById('dti-pct-' + uid);
+    const statusEl  = document.getElementById('dti-status-' + uid);
+    if (annualEl)  annualEl.textContent  = Math.round(annualPrincipal / 10000).toLocaleString() + '만원';
+    if (pctEl)     { pctEl.textContent = dtiRounded + '%'; pctEl.className = 'dti-result-val ' + statusCls; }
+    if (statusEl)  statusEl.textContent = statusText;
   }
 
   // ── 디딤돌 금리 범위 (household·house 기반) ──
@@ -4770,7 +4663,7 @@
           // 우대금리 계산기에서 선택한 기한 읽기
           var yrSelect = document.querySelector('.rate-calc-section[data-color="green"] .rate-dropdown-select');
           var years = yrSelect ? parseInt(yrSelect.value || 30) : 30;
-          recalcDti('green_dti', annualIncome, dtiLimit, annualRate, years, ltvLimit, otherLoan);
+          recalcDti('green_dti');
         }
       }, 50);
     }, 0);
