@@ -3798,13 +3798,27 @@
       setTimeout(function() {
         var dtiCard = document.getElementById('dti-card-green_dti');
         if (dtiCard) {
+          // 현재 선택된 상환방식 읽기
+          var currentMethod = 'annuity';
+          var tabs = document.querySelector('.rate-calc-section[data-color="green"] .repay-method-tabs');
+          if (tabs) {
+            var activeTab = tabs.querySelector('.repay-method-tab.active-green');
+            if (activeTab) {
+              if (activeTab.id.includes('equal-principal')) currentMethod = 'equal-principal';
+              else if (activeTab.id.includes('increasing'))  currentMethod = 'increasing';
+            }
+          }
+          // 적용금리 읽기
+          var rateEl = document.querySelector('[id^="rs-final-green"]');
+          var finalRate = rateEl ? parseFloat(rateEl.textContent) : parseFloat(dtiCard.dataset.annualRate || 4.05);
           recalcDti('green_dti',
             parseFloat(dtiCard.dataset.annualIncome || 0),
             parseFloat(dtiCard.dataset.dtiLimit || 60),
-            parseFloat(dtiCard.dataset.annualRate || 4.05),
+            finalRate,
             years,
             parseFloat(dtiCard.dataset.ltvLimit || 0),
-            parseFloat(dtiCard.dataset.otherLoan || 0)
+            parseFloat(dtiCard.dataset.otherLoan || 0),
+            currentMethod
           );
         }
       }, 20);
@@ -4280,28 +4294,7 @@
         <span>기준 한도 ${dtiLimit}%</span>
         <span id="dti-status-${uid}"></span>
       </div>
-      <div class="dti-compare-section" id="dti-compare-${uid}" style="display:none">
-        <div class="dti-compare-title">상환방식별 DTI 기준 최대 대출 가능액</div>
-        <div class="dti-compare-rows">
-          <div class="dti-compare-row highlight">
-            <span class="dti-compare-row-label">원리금균등</span>
-            <span class="dti-compare-row-val" id="dti-lim-annuity-${uid}">—</span>
-          </div>
-          <div class="dti-compare-row">
-            <span class="dti-compare-row-label">원금균등 (보수적)</span>
-            <span class="dti-compare-row-val" id="dti-lim-equal-${uid}">—</span>
-          </div>
-          <div class="dti-compare-row">
-            <span class="dti-compare-row-label">체증식 (초기 평균)</span>
-            <span class="dti-compare-row-val" id="dti-lim-inc-${uid}">—</span>
-          </div>
-          <div class="dti-compare-row" style="margin-top:4px">
-            <span class="dti-compare-row-label">LTV 기준 한도</span>
-            <span class="dti-compare-row-val" id="dti-lim-ltv-${uid}">${formatLimit(finalLimit)}</span>
-          </div>
-        </div>
-      </div>
-      <div class="dti-note">※ 원리금균등·적용금리 기준 계산. 실제 DTI는 금융사 심사 결과에 따라 달라질 수 있습니다.</div>
+      <div class="dti-note">※ 상환방식·적용금리 기준 계산. 실제 DTI는 금융사 심사 결과에 따라 달라질 수 있습니다.</div>
     </div>`;
   }
 
@@ -4372,20 +4365,6 @@
     const finalAnnuity = limAnnuity / 100000000;
     const finalEqual   = limEqual   / 100000000;
     const finalInc     = limInc     / 100000000;
-
-    // 역산 비교 섹션 업데이트
-    const compareEl = document.getElementById('dti-compare-' + uid);
-    if (compareEl) {
-      compareEl.style.display = 'block';
-      const annuityEl = document.getElementById('dti-lim-annuity-' + uid);
-      const equalEl   = document.getElementById('dti-lim-equal-' + uid);
-      const incEl     = document.getElementById('dti-lim-inc-' + uid);
-      const ltvEl     = document.getElementById('dti-lim-ltv-' + uid);
-      if (annuityEl) annuityEl.textContent = formatLimit(finalAnnuity);
-      if (equalEl)   equalEl.textContent   = formatLimit(finalEqual);
-      if (incEl)     incEl.textContent     = formatLimit(finalInc);
-      if (ltvEl)     ltvEl.textContent     = formatLimit(ltvLimitEok);
-    }
 
     // 현재 상환방식에 맞는 최종 한도로 월납입 + 한도 카드 업데이트
     const limitByMethod = method === 'equal-principal' ? limEqual
