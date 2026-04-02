@@ -3891,9 +3891,11 @@
       const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
       noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
     }
-  }
 
-  // ── 공통: 한도 상세 카드 HTML ──
+    // DTI 재계산 (상품별)
+    var dtiUid = colorCls === 'green' ? 'green_dti' : colorCls === 'blue' ? 'blue_dti' : colorCls === 'nb' ? 'nb_dti' : null;
+    if (dtiUid && document.getElementById('dti-card-' + dtiUid)) recalcDti(dtiUid);
+  }
   function limitCardHtml(colorCls, ltvLimit, maxLimit, finalLimit, price, household, house, children, region, income) {
     const ltvApplied    = ltvLimit <= maxLimit;
     const appliedCls    = ltvApplied    ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
