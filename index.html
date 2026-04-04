@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>주택 기금대출 추천</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
   :root {
     --bg: #000000;
@@ -30,7 +30,7 @@
   html, body {
     height: 100%;
     background: var(--bg);
-    font-family: 'Noto Sans KR', -apple-system, sans-serif;
+    font-family: 'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif;
     color: var(--label1);
     overflow: hidden;
   }
@@ -192,7 +192,7 @@
     background: transparent;
     border: none;
     outline: none;
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 22px;
     font-weight: 500;
     color: var(--label1);
@@ -236,7 +236,7 @@
     border: none;
     border-radius: 14px;
     color: white;
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -450,7 +450,7 @@
     border-radius: 8px;
     border: 1px solid var(--separator);
     background: transparent;
-    font-family: "Noto Sans KR", sans-serif;
+    font-family: "Pretendard Variable", sans-serif;
     font-size: 11px;
     font-weight: 500;
     color: var(--label3);
@@ -554,7 +554,7 @@
     border: 1.5px solid var(--separator);
     border-radius: 14px;
     color: var(--label1);
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 14px;
     font-weight: 400;
     padding: 14px 44px 14px 16px;
@@ -697,7 +697,7 @@
   .repay-method-tab {
     flex: 1; padding: 6px 4px;
     border-radius: 8px; border: 1px solid var(--separator);
-    background: transparent; font-family: 'Noto Sans KR', sans-serif;
+    background: transparent; font-family: 'Pretendard Variable', sans-serif;
     font-size: 11px; font-weight: 500; color: var(--label3);
     cursor: pointer; transition: all 0.15s;
   }
@@ -742,6 +742,68 @@
   .ltv80-notice-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
   .ltv80-notice-text { font-size: 11px; color: var(--label2); line-height: 1.6; }
 
+  /* DTI 시뮬레이션 카드 */
+  .dti-card {
+    background: var(--bg3);
+    border: 1.5px solid var(--separator);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-top: 12px;
+  }
+  .dti-card-title {
+    font-size: 12px; font-weight: 700; color: var(--label2);
+    margin-bottom: 10px; display: flex; align-items: center;
+    justify-content: space-between;
+  }
+  .dti-card-badge {
+    font-size: 10px; font-weight: 600; padding: 2px 8px;
+    border-radius: 20px; background: var(--bg4); color: var(--label3);
+  }
+  .dti-input-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  }
+  .dti-input-label { font-size: 12px; color: var(--label3); flex-shrink: 0; }
+  .dti-input-field {
+    flex: 1; background: var(--bg4); border: 1.5px solid var(--separator);
+    border-radius: 10px; color: var(--label1); font-family: 'Pretendard Variable', sans-serif;
+    font-size: 13px; padding: 8px 12px; outline: none; text-align: right;
+    transition: border-color 0.15s;
+  }
+  .dti-input-field:focus { border-color: var(--green); }
+  .dti-input-unit { font-size: 12px; color: var(--label3); flex-shrink: 0; }
+  .dti-rows { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .dti-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px;
+  }
+  .dti-row-label { color: var(--label3); }
+  .dti-row-val   { color: var(--label2); font-weight: 500; }
+  .dti-divider   { border: none; border-top: 1px solid var(--separator); margin: 6px 0; }
+  .dti-result-row {
+    display: flex; justify-content: space-between; align-items: center; font-size: 13px;
+  }
+  .dti-result-label { font-weight: 600; color: var(--label2); }
+  .dti-result-val   { font-size: 16px; font-weight: 700; }
+  .dti-result-val.ok   { color: var(--green); }
+  .dti-result-val.warn { color: #ff9500; }
+  .dti-result-val.over { color: #ff3b30; }
+  .dti-limit-row {
+    display: flex; justify-content: space-between; font-size: 11px;
+    color: var(--label3); margin-top: 4px;
+  }
+  .dti-compare-section { margin-top: 12px; }
+  .dti-compare-title { font-size: 11px; font-weight: 700; color: var(--label3); margin-bottom: 6px; }
+  .dti-compare-rows { display: flex; flex-direction: column; gap: 5px; }
+  .dti-compare-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; padding: 8px 10px; border-radius: 10px; background: var(--bg4);
+  }
+  .dti-compare-row.highlight { background: rgba(52,199,89,0.1); border: 1px solid rgba(52,199,89,0.25); }
+  .dti-compare-row-label { color: var(--label2); }
+  .dti-compare-row-val   { font-weight: 700; color: var(--label1); }
+  .dti-compare-row-val.ltv-only { color: var(--label3); }
+  .dti-note { font-size: 10.5px; color: var(--label3); margin-top: 8px; line-height: 1.5; }
+
   /* ── 탭 UI ── */
   .result-tabs {
     display: grid;
@@ -780,7 +842,7 @@
   .result-tab.active-blue  .result-tab-badge.blue  { background: var(--accent); color: #fff; }
   .result-tab.active-green .result-tab-badge.green { background: var(--green);  color: #000; }
   .result-tab-name {
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 13px;
     font-weight: 600;
     color: var(--label2);
@@ -894,7 +956,7 @@
     text-align: left;
   }
   .faq-q-text {
-    font-family: "Noto Sans KR", sans-serif;
+    font-family: "Pretendard Variable", sans-serif;
     font-size: 13px;
     font-weight: 500;
     color: var(--label1);
@@ -1015,7 +1077,7 @@
     background: transparent;
     border: none;
     outline: none;
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 18px;
     font-weight: 500;
     color: var(--label1);
@@ -1042,7 +1104,7 @@
     border: 1.5px solid var(--separator);
     background: var(--bg2);
     color: var(--label2);
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
@@ -1064,7 +1126,7 @@
     border: 1.5px solid var(--separator);
     border-radius: 14px;
     color: var(--label3);
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 14px;
     cursor: pointer;
     transition: border-color 0.18s, color 0.18s;
@@ -1105,7 +1167,7 @@
     border: none;
     border-radius: 12px;
     color: #191919;
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
@@ -1138,7 +1200,7 @@
     border: 1.5px solid var(--separator);
     background: var(--bg3);
     color: var(--label2);
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
@@ -1385,7 +1447,7 @@
     border: none;
     border-radius: 14px;
     color: #fff;
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -1402,7 +1464,7 @@
     border-radius: 12px;
     padding: 0 14px;
     height: 52px;
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 15px;
     font-weight: 500;
     color: var(--label1);
@@ -1512,7 +1574,7 @@
   }
   .btn-pw-pay {
     width: 100%; height: 52px; background: var(--accent); border: none;
-    border-radius: 14px; color: #fff; font-family: 'Noto Sans KR', sans-serif;
+    border-radius: 14px; color: #fff; font-family: 'Pretendard Variable', sans-serif;
     font-size: 16px; font-weight: 700; cursor: pointer;
     display: flex; align-items: center; justify-content: center; gap: 8px;
     margin-bottom: 10px; text-decoration: none; transition: opacity 0.18s;
@@ -1523,14 +1585,14 @@
   .btn-pw-pay:active { opacity: 0.85; }
   .btn-pw-guest {
     background: transparent; border: none; color: var(--label3);
-    font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 400;
+    font-family: 'Pretendard Variable', sans-serif; font-size: 13px; font-weight: 400;
     cursor: pointer; padding: 8px 0; text-decoration: underline;
     text-underline-offset: 3px;
     opacity: 0;
     animation: pw-fadeup 0.5s cubic-bezier(0.4,0,0.2,1) 1.1s forwards;
   }
   .pw-input { flex: 1; background: transparent; border: none; outline: none;
-    font-family: 'Noto Sans KR', sans-serif; font-size: 18px; font-weight: 500;
+    font-family: 'Pretendard Variable', sans-serif; font-size: 18px; font-weight: 500;
     color: var(--label1); min-width: 0; letter-spacing: 2px;
   }
   .pw-input::placeholder { color: var(--label3); font-size: 14px; letter-spacing: 0; font-weight: 300; }
@@ -1543,7 +1605,7 @@
   .btn-pw-submit {
     flex-shrink: 0; height: 44px; padding: 0 16px;
     background: var(--bg4); border: none;
-    border-radius: 10px; color: var(--label3); font-family: 'Noto Sans KR', sans-serif;
+    border-radius: 10px; color: var(--label3); font-family: 'Pretendard Variable', sans-serif;
     font-size: 14px; font-weight: 600; cursor: default;
     display: flex; align-items: center; justify-content: center;
     transition: background 0.2s, color 0.2s;
@@ -1561,7 +1623,7 @@
   }
   .btn-pw-guest {
     background: transparent; border: none; color: var(--label3);
-    font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 400;
+    font-family: 'Pretendard Variable', sans-serif; font-size: 13px; font-weight: 400;
     cursor: pointer; padding: 8px 0; text-decoration: underline;
     text-underline-offset: 3px;
   }
@@ -1609,7 +1671,7 @@
   .pay-desc { font-size: 13px; color: var(--label2); line-height: 1.7; font-weight: 300; margin-bottom: 24px; }
   .btn-pay-go {
     width: 100%; height: 52px; background: var(--accent); border: none;
-    border-radius: 14px; color: #fff; font-family: 'Noto Sans KR', sans-serif;
+    border-radius: 14px; color: #fff; font-family: 'Pretendard Variable', sans-serif;
     font-size: 16px; font-weight: 700; cursor: pointer;
     display: flex; align-items: center; justify-content: center; gap: 8px;
     margin-bottom: 10px; text-decoration: none; transition: opacity 0.18s;
@@ -1618,7 +1680,7 @@
   .btn-pay-pw {
     width: 100%; height: 52px; background: var(--bg3);
     border: 1.5px solid var(--separator); border-radius: 14px; color: var(--label2);
-    font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500;
+    font-family: 'Pretendard Variable', sans-serif; font-size: 15px; font-weight: 500;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
   }
 
@@ -1855,12 +1917,12 @@
   .btn-restart-cancel {
     flex: 1; height: 52px; background: var(--bg4); border: none;
     border-radius: 14px; color: var(--label2);
-    font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer;
+    font-family: 'Pretendard Variable', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer;
   }
   .btn-restart-confirm {
     flex: 1; height: 52px; background: var(--red); border: none;
     border-radius: 14px; color: #fff;
-    font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer;
+    font-family: 'Pretendard Variable', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer;
   }
 
   @keyframes shake {
@@ -1878,7 +1940,7 @@
     background: #2c2c2e;
     border: 1px solid var(--separator);
     color: var(--label1);
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Pretendard Variable', sans-serif;
     font-size: 13px;
     font-weight: 500;
     padding: 12px 18px;
@@ -2168,8 +2230,38 @@
       </div>
     </div>
 
-    <!-- 7: 결과 -->
-    <div class="slide result-slide" data-slide="7">
+    <!-- 7: 기타대출 -->
+    <div class="slide" data-slide="7">
+      <div>
+        <div class="slide-question">다른 대출도<br>보유하고 계신가요?</div>
+        <div class="slide-sub">원금과 금리를 입력해주시면 DTI에 자동으로 산정돼요</div>
+      </div>
+      <div class="number-input-wrap" id="otherLoanInputWrap">
+        <div class="number-field">
+          <input type="number" id="otherLoanPrincipal" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="updateNextBtn()">
+          <span class="number-unit">억원 (대출금액)</span>
+        </div>
+        <div class="number-field" style="margin-top:10px">
+          <input type="number" id="otherLoanRate" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="updateNextBtn()">
+          <span class="number-unit">% (금리)</span>
+        </div>
+        <div class="number-field" style="margin-top:10px">
+          <input type="number" id="otherLoanYears" placeholder="0" step="1" min="1" inputmode="numeric" oninput="updateNextBtn()">
+          <span class="number-unit">년 (기간)</span>
+        </div>
+        <div class="err-msg" id="otherLoanErr"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:12px;margin-top:18px;cursor:pointer;padding:14px 16px;background:var(--bg3);border:1.5px solid var(--separator);border-radius:14px;transition:border-color 0.18s" id="otherLoanNoneLabel">
+        <span style="position:relative;width:24px;height:24px;flex-shrink:0">
+          <input type="checkbox" id="otherLoanNone" onchange="toggleOtherLoanNone()" style="position:absolute;opacity:0;width:24px;height:24px;margin:0;cursor:pointer;z-index:1">
+          <span id="otherLoanNoneBox" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:8px;border:1.5px solid var(--separator);background:var(--bg2);transition:background 0.18s,border-color 0.18s;font-size:14px"></span>
+        </span>
+        <span style="font-size:14px;color:var(--label2);font-family:'Pretendard Variable',sans-serif">보유하고 있는 다른 대출이 없어요</span>
+      </label>
+    </div>
+
+    <!-- 8: 결과 -->
+    <div class="slide result-slide" data-slide="8">
       <div id="resultContent"></div>
     </div>
 
@@ -2183,7 +2275,7 @@
 </div>
 
 <script>
-  const TOTAL = 7;
+  const TOTAL = 8;
   let current = 0;      // 0 = intro, 1~7 = 기금대출 슬라이드
   let loanType = null;  // 'fund' | 'bank'
   const answers = { household: null, house: null, children: null, region: null };
@@ -2203,12 +2295,13 @@
     });
   });
 
-  ['income','price','asset'].forEach(id => {
-    document.getElementById(id).addEventListener('input', updateNextBtn);
+  ['income','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateNextBtn);
   });
 
   function canProceed() {
-    if (current === 0) return !!loanType;   // intro
+    if (current === 0) return !!loanType;
     if (current === 1) return !!answers.household;
     if (current === 2) return !!answers.house;
     if (current === 3) return !!answers.children;
@@ -2216,6 +2309,13 @@
     if (current === 5) return document.getElementById('income').value !== '';
     if (current === 6) return document.getElementById('price').value !== '';
     if (current === 7) return document.getElementById('asset').value !== '';
+    if (current === 8) {
+      const noneChecked = document.getElementById('otherLoanNone')?.checked;
+      const principal   = document.getElementById('otherLoanPrincipal')?.value;
+      const rate        = document.getElementById('otherLoanRate')?.value;
+      const years       = document.getElementById('otherLoanYears')?.value;
+      return noneChecked || (principal !== '' && rate !== '' && years !== '');
+    }
     return true;
   }
 
@@ -2241,21 +2341,63 @@
       navigateTo(1);
       return;
     }
-    if (current === 7) {
+    if (current === 8) {
       const income = parseFloat(document.getElementById('income').value);
       const price  = parseFloat(document.getElementById('price').value);
       const asset  = parseFloat(document.getElementById('asset').value);
       if (isNaN(income) || income < 0) { document.getElementById('incomeErr').textContent = '올바른 소득을 입력해주세요'; return; }
       if (isNaN(price)  || price  < 0) { document.getElementById('priceErr').textContent  = '올바른 금액을 입력해주세요'; return; }
       if (isNaN(asset)  || asset  < 0) { document.getElementById('assetErr').textContent  = '올바른 금액을 입력해주세요'; return; }
-      renderResult(income, price, asset);
-      navigateTo(8);
+      const noneChecked = document.getElementById('otherLoanNone')?.checked;
+      let otherLoanInterest = 0;
+      if (!noneChecked) {
+        const principal = parseFloat(document.getElementById('otherLoanPrincipal').value) || 0;
+        const rate      = parseFloat(document.getElementById('otherLoanRate').value) || 0;
+        const yrs       = parseFloat(document.getElementById('otherLoanYears').value) || 0;
+        if (principal > 0 && rate > 0 && yrs > 0) {
+          // 원리금균등 월납입 계산 후 연간 이자 추출
+          const P = principal * 100000000;
+          const r = rate / 12 / 100;
+          const n = yrs * 12;
+          const monthly = (P * r * Math.pow(1+r,n)) / (Math.pow(1+r,n) - 1);
+          // 연간 원리금 - 연간 원금상환 = 연간 이자
+          const annualPayment     = monthly * 12;
+          const annualPrincipalRep = P / n * 12; // 원금균등 근사
+          // 원리금균등 기준 연간 이자 = 총납입 - 원금 (1년치 근사)
+          const annualInterestWon = annualPayment - (P / n * 12);
+          otherLoanInterest = Math.round(annualInterestWon / 10000); // 만원 단위
+        }
+      }
+      renderResult(income, price, asset, otherLoanInterest);
+      navigateTo(9);
       document.getElementById('bottomNav').style.display = 'none';
       document.getElementById('progressWrap').style.display = 'none';
       if (isGuestMode) setTimeout(showPayPopup, 400);
       return;
     }
     navigateTo(current + 1);
+  }
+
+  function toggleOtherLoanNone() {
+    const checked = document.getElementById('otherLoanNone')?.checked;
+    const wrap    = document.getElementById('otherLoanInputWrap');
+    const box     = document.getElementById('otherLoanNoneBox');
+    const label   = document.getElementById('otherLoanNoneLabel');
+    if (wrap)  wrap.style.opacity  = checked ? '0.4' : '1';
+    if (box)   {
+      box.style.background    = checked ? 'var(--accent)' : 'var(--bg2)';
+      box.style.borderColor   = checked ? 'var(--accent)' : 'var(--separator)';
+      box.textContent         = checked ? '✓' : '';
+      box.style.color         = checked ? '#fff' : '';
+      box.style.fontWeight    = checked ? '700' : '';
+    }
+    if (label) label.style.borderColor = checked ? 'var(--accent)' : 'var(--separator)';
+    if (checked) {
+      document.getElementById('otherLoanPrincipal').value = '';
+      document.getElementById('otherLoanRate').value = '';
+      document.getElementById('otherLoanYears').value = '';
+    }
+    updateNextBtn();
   }
 
   function goBack() {
@@ -2298,7 +2440,7 @@
     document.getElementById('bottomNav').style.display = 'none';
     document.getElementById('progressWrap').style.display = 'none';
 
-    const resultSlide = document.querySelector('[data-slide="7"]');
+    const resultSlide = document.querySelector('[data-slide="8"]');
     resultSlide.classList.add('active');
     resultSlide.innerHTML = buildBankLoanFormHtml();
     current = allSlides.length - 1;
@@ -3650,7 +3792,7 @@
     if (!el) return;
 
     const baseRate = parseFloat(el.textContent);
-    const years    = parseInt(document.getElementById('yr-' + uid)?.value || 30);
+    const years    = (parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
 
     // 카드형 우대금리 합산
     let prefTotal = 0;
@@ -3760,11 +3902,20 @@
       const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
       noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
     }
+
+    // DTI 재계산 (상품별)
+    const calcSection = document.getElementById('tabs-' + uid)?.closest('[data-color]');
+    if (calcSection) {
+      const color = calcSection.dataset.color;
+      if (color === 'green') recalcDti('green_dti');
+      else if (color === 'blue') recalcDti('blue_dti');
+      else if (color === 'nb') recalcDti('nb_dti');
+    }
   }
 
   // 기한 변경 시 기본금리도 갱신 (디딤돌/신생아 기한별 금리 반영)
   function recalcRateWithYear(uid, product, income, household) {
-    const years   = parseInt(document.getElementById('yr-' + uid)?.value || 30);
+    const years   = (parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
     const baseEl  = document.getElementById('rs-base-' + uid);
     if (!baseEl) return;
 
@@ -3784,7 +3935,7 @@
 
   // 상환방식 탭 전환
   function selectRepayTab(uid, method, product, colorCls, principal) {
-    const years    = parseInt(document.getElementById('yr-' + uid)?.value || 30);
+    const years    = (parseInt(document.getElementById('yr-' + uid)?.value || 30) || 30);
     if (method === 'increasing' && years === 50) return; // 체증식 50년 불가
     const finalRate = parseFloat(document.getElementById('rs-final-' + uid)?.textContent || 3.0);
     const tabs = document.getElementById('tabs-' + uid);
@@ -3802,9 +3953,11 @@
       const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
       noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
     }
-  }
 
-  // ── 공통: 한도 상세 카드 HTML ──
+    // DTI 재계산 (상품별)
+    var dtiUid = colorCls === 'green' ? 'green_dti' : colorCls === 'blue' ? 'blue_dti' : colorCls === 'nb' ? 'nb_dti' : null;
+    if (dtiUid && document.getElementById('dti-card-' + dtiUid)) recalcDti(dtiUid);
+  }
   function limitCardHtml(colorCls, ltvLimit, maxLimit, finalLimit, price, household, house, children, region, income) {
     const ltvApplied    = ltvLimit <= maxLimit;
     const appliedCls    = ltvApplied    ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
@@ -3996,7 +4149,7 @@
   function buildNewbornHtml(o) {
     var newbornOk = o.newbornOk, didimdolOk = o.didimdolOk, bogeumjariOk = o.bogeumjariOk;
     var income = o.income, price = o.price, asset = o.asset;
-    var household = o.household, house = o.house, children = o.children, region = o.region;
+    var household = o.household, house = o.house, children = o.children, region = o.region, otherLoanInterest = o.otherLoanInterest || 0;
     var nbRate = o.nbRate, nbLtvLimit = o.nbLtvLimit, nbMaxLimit = o.nbMaxLimit, nbFinalLimit = o.nbFinalLimit;
     var nbHouseOk = o.nbHouseOk, nbIncomeOk = o.nbIncomeOk, nbAssetOk = o.nbAssetOk, nbPriceOk = o.nbPriceOk;
     var dLtvLimit = o.dLtvLimit, dMaxLimit = o.dMaxLimit, dFinalLimit = o.dFinalLimit;
@@ -4037,12 +4190,13 @@
         + '<div class="newborn-hero"><div class="newborn-hero-badge">👶 신생아 특례 핵심 혜택</div><div class="newborn-hero-text">최저 1.8% 특례금리</div><div class="newborn-hero-sub">기본 5년 적용 · 추가 출산 시 1명당 5년 연장 (최장 15년)<br>시중 어디서도 볼 수 없는 파격적인 금리예요.</div></div>'
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
-        + '<div class="result-group"><div class="rate-limit-row">'
+        + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
         + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val" style="color:#ff6b9d">' + rateInfo.min + '~' + rateInfo.max + '%</span></div>'
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val" style="color:#ff6b9d">' + formatLimit(nbFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30, income, household, region)
+        + bogeumDtiCardHtml('nb_dti', income, price, region, house, nbFinalLimit, getNewbornRate(income, 30).rate, 30, otherLoanInterest, 60)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -4070,12 +4224,13 @@
         + '<div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div></div>'
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
-        + '<div class="result-group"><div class="rate-limit-row">'
+        + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
         + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val blue">' + getDidimdolRateLabel(household, house) + '</span></div>'
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue">' + formatLimit(dFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income)
+        + bogeumDtiCardHtml('blue_dti', income, price, region, house, dFinalLimit, getDidimdolBaseRate(income, household, 30), 30, otherLoanInterest, 60)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -4097,12 +4252,13 @@
         + '<div class="bogeumjari-hero"><div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div><div class="bogeumjari-hero-text">DSR을 보지 않아요</div><div class="bogeumjari-hero-sub">소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.<br>총부채원리금상환비율(DSR) 규제 적용 제외 상품이에요.</div></div>'
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
-        + '<div class="result-group"><div class="rate-limit-row">'
+        + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
         + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val green">4.05~4.45%</span></div>'
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val green">' + formatLimit(bFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)
+        + bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, BOGEUM_RATES[30], 30, otherLoanInterest)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -4143,6 +4299,174 @@
       + '<button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>';
   }
 
+  // ── 보금자리론 DTI 한도 계산 ──
+  function getBogeumDtiLimit(region, house, income, price) {
+    if (region !== '규제지역') return 60;
+    // 규제지역이지만 예외 조건이면 60%
+    const isFirstBuyer  = house === '생애최초';
+    const isRealNeeds   = house === '무주택' && price <= 6 && income <= 7000; // 실수요자
+    if (isFirstBuyer || isRealNeeds) return 60;
+    return 50;
+  }
+
+  // 원리금균등 DTI 역산 대출원금
+  function calcMaxLoanByDti(dtiLimit, annualIncome, otherInterestAnnual, annualRate, years) {
+    const allowedAnnual = (dtiLimit / 100) * annualIncome - otherInterestAnnual;
+    if (allowedAnnual <= 0) return 0;
+    const r = annualRate / 12 / 100;
+    const n = years * 12;
+    // 월납 = P * r*(1+r)^n / ((1+r)^n - 1) → P 역산
+    const factor = (r * Math.pow(1+r, n)) / (Math.pow(1+r, n) - 1);
+    return (allowedAnnual / 12) / factor;
+  }
+
+  // 체증식 초기 평균 원리금 산출 (초기 10년 또는 5년 평균)
+  function calcIncreasingAvgAnnual(principal, annualRate, years) {
+    const r = annualRate / 12 / 100;
+    const n = years * 12;
+    const a = 2 * principal / (n * (n + 1));
+    const avgMonths = years <= 10 ? 5 * 12 : 10 * 12;
+    let total = 0;
+    for (let i = 1; i <= avgMonths; i++) {
+      const remaining = principal - a * (i - 1) * i / 2;
+      total += a * i + remaining * r;
+    }
+    return (total / avgMonths) * 12;
+  }
+
+  // 원금균등 1회차 연간 원리금 (가장 높은 시점 = 보수적)
+  function calcEqualPrincipalFirstAnnual(principal, annualRate, years) {
+    const n = years * 12;
+    const r = annualRate / 12 / 100;
+    return ((principal / n) + principal * r) * 12;
+  }
+
+  // ── DTI 카드 HTML ──
+  function bogeumDtiCardHtml(uid, income, price, region, house, finalLimit, annualRate, years, otherLoanInterest, fixedDtiLimit) {
+    otherLoanInterest = otherLoanInterest || 0;
+    const dtiLimit = fixedDtiLimit !== undefined ? fixedDtiLimit : getBogeumDtiLimit(region, house, income, price);
+    const annualIncome = income * 10000;
+
+    return `<div class="dti-card" id="dti-card-${uid}"
+      data-annual-income="${annualIncome}"
+      data-dti-limit="${dtiLimit}"
+      data-annual-rate="${annualRate}"
+      data-years="${years}"
+      data-ltv-limit="${finalLimit}"
+      data-other-loan="${otherLoanInterest}">
+      <div class="dti-card-title">
+        DTI 시뮬레이션
+        <span class="dti-card-badge">참고용</span>
+      </div>
+      <div class="dti-rows" id="dti-rows-${uid}">
+        <div class="dti-row">
+          <span class="dti-row-label">DTI 한도</span>
+          <span class="dti-row-val">${dtiLimit}%${region === '규제지역' && dtiLimit === 50 ? ' (규제지역)' : ''}</span>
+        </div>
+        <div class="dti-row">
+          <span class="dti-row-label" id="dti-annual-label-${uid}">연간 원리금 (원리금균등 기준)</span>
+          <span class="dti-row-val" id="dti-annual-${uid}">—</span>
+        </div>
+        <div class="dti-row">
+          <span class="dti-row-label">기타대출 연간 이자</span>
+          <span class="dti-row-val">${otherLoanInterest > 0 ? otherLoanInterest.toLocaleString() + '만원' : '없음'}</span>
+        </div>
+      </div>
+      <hr class="dti-divider">
+      <div class="dti-result-row">
+        <span class="dti-result-label">현재 DTI</span>
+        <span class="dti-result-val" id="dti-pct-${uid}">—</span>
+      </div>
+      <div class="dti-limit-row">
+        <span>기준 한도 ${dtiLimit}%</span>
+        <span id="dti-status-${uid}"></span>
+      </div>
+      <div class="dti-note">※ 상환방식·적용금리 기준 계산. 실제 DTI는 금융사 심사 결과에 따라 달라질 수 있습니다.</div>
+    </div>`;
+  }
+
+  // ── DTI 재계산 — mc-amt 월납입 × 12 + 기타대출 이자 / 연소득 ──
+  // 체증식은 초기 10년(만기 10년 이하면 5년) 평균 연간 원리금 사용
+  function recalcDti(uid) {
+    const dtiCard = document.getElementById('dti-card-' + uid);
+    if (!dtiCard) return;
+
+    const annualIncome      = parseFloat(dtiCard.dataset.annualIncome || 0);
+    const dtiLimit          = parseFloat(dtiCard.dataset.dtiLimit || 60);
+    const otherLoanInterest = parseFloat(dtiCard.dataset.otherLoan || 0) * 10000;
+
+    if (annualIncome <= 0) return;
+
+    const color = uid.split('_')[0];
+    const rateSection = document.querySelector('.rate-calc-section[data-color="' + color + '"]');
+    if (!rateSection) return;
+    const card = rateSection.closest('.limit-detail-card');
+    if (!card) return;
+    const amtEl = card.querySelector('[id^="mc-amt-"]');
+    if (!amtEl) return;
+
+    // 현재 상환방식 확인
+    const tabs = rateSection.querySelector('.repay-method-tabs');
+    const activeTab = tabs ? tabs.querySelector('[class*="active-"]') : null;
+    const isIncreasing   = activeTab && activeTab.id.includes('increasing');
+    const isEqualPrinc   = activeTab && activeTab.id.includes('equal-principal');
+
+    // 연간 원리금 라벨 가변
+    const annualLabelEl = document.getElementById('dti-annual-label-' + uid);
+    if (annualLabelEl) {
+      annualLabelEl.textContent = isIncreasing ? '연간 원리금 (체증식 기준)'
+                                : isEqualPrinc ? '연간 원리금 (원금균등 기준)'
+                                : '연간 원리금 (원리금균등 기준)';
+    }
+
+    let annualPrincipal;
+    if (isIncreasing) {
+      // 체증식: 초기 10년(만기 10년 이하면 5년) 평균
+      const principal = parseFloat(amtEl.dataset.principal || 0);
+      const rateEl    = rateSection.querySelector('[id^="rs-final-"]');
+      const rate      = parseFloat(rateEl?.textContent || 0);
+      const yrSelect  = rateSection.querySelector('[id^="yr-"]');
+      const years     = parseInt(yrSelect?.value || 30) || 30;
+      if (principal > 0 && rate > 0) {
+        annualPrincipal = calcIncreasingAvgAnnual(principal, rate, years);
+      } else {
+        annualPrincipal = (parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0) * 12;
+      }
+    } else if (isEqualPrinc) {
+      // 원금균등: 전체 기간 연평균 = (원금 + 총이자) / 기간
+      // 총이자 = 원금 × 월금리 × (n+1)/2
+      const principal = parseFloat(amtEl.dataset.principal || 0);
+      const rateEl    = rateSection.querySelector('[id^="rs-final-"]');
+      const rate      = parseFloat(rateEl?.textContent || 0);
+      const yrSelect  = rateSection.querySelector('[id^="yr-"]');
+      const years     = parseInt(yrSelect?.value || 30) || 30;
+      if (principal > 0 && rate > 0) {
+        const n          = years * 12;
+        const r          = rate / 12 / 100;
+        const totalInt   = principal * r * (n + 1) / 2;
+        annualPrincipal  = (principal + totalInt) / years;
+      } else {
+        annualPrincipal = (parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0) * 12;
+      }
+    } else {
+      // 원리금균등: 매달 동일 → mc-amt × 12 = 연평균
+      annualPrincipal = (parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0) * 12;
+    }
+
+    const dtiPct     = ((annualPrincipal + otherLoanInterest) / annualIncome) * 100;
+    const dtiRounded = Math.round(dtiPct * 10) / 10;
+    const statusCls  = dtiRounded <= dtiLimit ? 'ok' : dtiRounded <= dtiLimit + 10 ? 'warn' : 'over';
+    const statusText = dtiRounded <= dtiLimit ? '✅ 기준 이내' : '⚠️ 기준 초과';
+
+    const annualEl = document.getElementById('dti-annual-' + uid);
+    const pctEl    = document.getElementById('dti-pct-' + uid);
+    const statusEl = document.getElementById('dti-status-' + uid);
+    if (annualEl) annualEl.textContent = Math.round(annualPrincipal / 10000).toLocaleString() + '만원';
+    if (pctEl)    { pctEl.textContent = dtiRounded + '%'; pctEl.className = 'dti-result-val ' + statusCls; }
+    if (statusEl) statusEl.textContent = statusText;
+  }
+
+
   // ── 디딤돌 금리 범위 (household·house 기반) ──
   function getDidimdolRateLabel(household, house) {
     if (household === '신혼' || house === '생애최초') return '2.55~3.85%';
@@ -4168,7 +4492,8 @@
     return 0.70;
   }
 
-  function renderResult(income, price, asset) {
+  function renderResult(income, price, asset, otherLoanInterest) {
+    otherLoanInterest = otherLoanInterest || 0;
     const { household, house, children, region } = answers;
 
     // 신생아 여부
@@ -4233,7 +4558,7 @@
       if (newbornOk || didimdolOk || bogeumjariOk) {
         html = buildNewbornHtml({
           newbornOk, didimdolOk, bogeumjariOk,
-          income, price, asset, household, house, children, region,
+          income, price, asset, household, house, children, region, otherLoanInterest,
           nbRate, nbLtvLimit, nbMaxLimit, nbFinalLimit,
           nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk,
           dLtvLimit, dMaxLimit, dFinalLimit, dIncomeLimit, dPriceLimit,
@@ -4292,6 +4617,7 @@
           </div>
           <div class="result-spacer-sm"></div>
           ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income)}
+          ${bogeumDtiCardHtml('blue_dti', income, price, region, house, dFinalLimit, getDidimdolBaseRate(income, household, 30), 30, otherLoanInterest, 60)}
           <div class="result-spacer"></div>
           <div class="group-label">충족 조건</div>
           <div class="result-group">
@@ -4328,6 +4654,7 @@
           </div>
           <div class="result-spacer-sm"></div>
           ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)}
+          ${bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, BOGEUM_RATES[30], 30, otherLoanInterest)}
           <div class="result-spacer"></div>
           <div class="group-label">충족 조건</div>
           <div class="result-group">
@@ -4381,6 +4708,7 @@
         </div>
         <div class="result-spacer-sm"></div>
         ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income)}
+        ${bogeumDtiCardHtml('blue_dti', income, price, region, house, dFinalLimit, getDidimdolBaseRate(income, household, 30), 30, otherLoanInterest, 60)}
         <div class="result-spacer"></div>
         <div class="group-label">충족 조건</div>
         <div class="result-group">
@@ -4436,6 +4764,7 @@
         </div>
         <div class="result-spacer-sm"></div>
         ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)}
+        ${bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, BOGEUM_RATES[30], 30, otherLoanInterest)}
         <div class="result-spacer"></div>
         <div class="group-label">자격 검토</div>
         <div class="result-group">
@@ -4511,6 +4840,7 @@
       document.querySelectorAll('.rate-calc-section[data-uid]').forEach(function(sec) {
         recalcRate(sec.dataset.uid);
       });
+      setTimeout(function() { ['green_dti','blue_dti','nb_dti'].forEach(function(id){ if(document.getElementById('dti-card-'+id)) recalcDti(id); }); }, 50);
     }, 0);
 
     // 결과 카드 순차 페이드인
@@ -4577,7 +4907,9 @@
         + '<div style="color:var(--label3);font-size:11px;margin-top:4px;line-height:1.6">'
         + '· 만기 <strong style="color:var(--label2)">40년</strong>: 만 40세 미만 또는 만 50세 미만 신혼가구<br>'
         + '· 만기 <strong style="color:var(--label2)">50년</strong>: 만 35세 미만 또는 만 40세 미만 신혼가구</div>'
-      : '10년, 15년, 20년, 30년';
+      : '10년, 15년, 20년, 30년'
+        + '<div style="color:var(--label3);font-size:11px;margin-top:4px;line-height:1.6">'
+        + '· 체증식: 채무자가 접수일 현재 <strong style="color:var(--label2)">만 40세 미만 근로자</strong>이고 <strong style="color:var(--label2)">고정금리</strong>를 선택한 경우에만 허용</div>';
     const teungjeungNote = isBogeumjari
       ? '체증식은 만 40세 미만 채무자 및 공사가 사전심사한 경우에만 허용되며, 대출만기 50년 적용 불가'
       : '채무자가 접수일 현재 만 40세 미만 근로자이고 고정금리를 선택한 경우에만 허용';
@@ -4598,7 +4930,6 @@
         <div class="repay-tenure">
           <span class="repay-tenure-label">대출 만기</span>
           <span class="repay-tenure-val">${tenure}</span>
-          ${!isBogeumjari ? `<div style="color:var(--label3);font-size:11px;margin-top:4px;line-height:1.6">· 체증식: 채무자가 접수일 현재 <strong style="color:var(--label2)">만 40세 미만 근로자</strong>이고 <strong style="color:var(--label2)">고정금리</strong>를 선택한 경우에만 허용</div>` : ''}
         </div>
       </div>`;
   }
@@ -4749,11 +5080,21 @@
     answers.children = null;
     answers.region = null;
     document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
-    ['income','price','asset'].forEach(id => {
+    ['income','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
-    ['incomeErr','priceErr','assetErr'].forEach(id => {
+    var noneChk = document.getElementById('otherLoanNone');
+    if (noneChk) { noneChk.checked = false; }
+    var noneBox = document.getElementById('otherLoanNoneBox');
+    if (noneBox) { noneBox.textContent = ''; noneBox.style.background = 'var(--bg2)'; noneBox.style.borderColor = 'var(--separator)'; }
+    var noneLabel = document.getElementById('otherLoanNoneLabel');
+    if (noneLabel) noneLabel.style.borderColor = 'var(--separator)';
+    var wrap = document.getElementById('otherLoanInputWrap');
+    if (wrap) wrap.style.opacity = '';
+    var calc = document.getElementById('otherLoanCalcResult');
+    if (calc) calc.style.display = 'none';
+    ['incomeErr','priceErr','assetErr','otherLoanErr'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.textContent = '';
     });
@@ -4770,7 +5111,7 @@
     if (hint) hint.classList.remove('visible');
 
     // 결과 슬라이드 초기화
-    const resultSlide = document.querySelector('[data-slide="7"]');
+    const resultSlide = document.querySelector('[data-slide="8"]');
     if (resultSlide) resultSlide.innerHTML = '<div id="resultContent"></div>';
 
     const allSlides = document.querySelectorAll('.slide');
@@ -4838,8 +5179,8 @@
 
   // 기금대출 결과 진입 시 팝업 — goNext()에서 renderResult 호출 후 훅
   const _origRenderResult = renderResult;
-  renderResult = function(income, price, asset) {
-    _origRenderResult(income, price, asset);
+  renderResult = function(income, price, asset, otherLoanInterest) {
+    _origRenderResult(income, price, asset, otherLoanInterest);
     if (isGuestMode) setTimeout(showPayPopup, 400);
   };
 
