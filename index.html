@@ -2238,16 +2238,16 @@
       </div>
       <div class="number-input-wrap" id="otherLoanInputWrap">
         <div class="number-field">
-          <input type="number" id="otherLoanPrincipal" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="calcOtherLoanInterest()">
-          <span class="number-unit">억원 (원금)</span>
+          <input type="number" id="otherLoanPrincipal" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="updateNextBtn()">
+          <span class="number-unit">억원 (대출금액)</span>
         </div>
         <div class="number-field" style="margin-top:10px">
-          <input type="number" id="otherLoanRate" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="calcOtherLoanInterest()">
+          <input type="number" id="otherLoanRate" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="updateNextBtn()">
           <span class="number-unit">% (금리)</span>
         </div>
-        <div id="otherLoanCalcResult" style="display:none;margin-top:12px;padding:10px 14px;background:var(--bg3);border-radius:10px;font-size:13px;color:var(--label2);line-height:1.6">
-          <span style="color:var(--label3);font-size:11px">원리금균등상환 기준 약식 계산</span><br>
-          연간 이자: <strong id="otherLoanCalcVal" style="color:var(--label1)">—</strong>
+        <div class="number-field" style="margin-top:10px">
+          <input type="number" id="otherLoanYears" placeholder="0" step="1" min="1" inputmode="numeric" oninput="updateNextBtn()">
+          <span class="number-unit">년 (기간)</span>
         </div>
         <div class="err-msg" id="otherLoanErr"></div>
       </div>
@@ -2295,7 +2295,7 @@
     });
   });
 
-  ['income','price','asset','otherLoanPrincipal','otherLoanRate'].forEach(id => {
+  ['income','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', updateNextBtn);
   });
@@ -2310,11 +2310,11 @@
     if (current === 6) return document.getElementById('price').value !== '';
     if (current === 7) return document.getElementById('asset').value !== '';
     if (current === 8) {
-      // 체크박스 선택 OR 원금+금리 모두 입력
       const noneChecked = document.getElementById('otherLoanNone')?.checked;
       const principal   = document.getElementById('otherLoanPrincipal')?.value;
       const rate        = document.getElementById('otherLoanRate')?.value;
-      return noneChecked || (principal !== '' && rate !== '');
+      const years       = document.getElementById('otherLoanYears')?.value;
+      return noneChecked || (principal !== '' && rate !== '' && years !== '');
     }
     return true;
   }
@@ -2353,8 +2353,20 @@
       if (!noneChecked) {
         const principal = parseFloat(document.getElementById('otherLoanPrincipal').value) || 0;
         const rate      = parseFloat(document.getElementById('otherLoanRate').value) || 0;
-        // 연간 이자 = 원금(억) × 10000 × 금리% / 100 (만원 단위)
-        otherLoanInterest = principal * 10000 * rate / 100;
+        const yrs       = parseFloat(document.getElementById('otherLoanYears').value) || 0;
+        if (principal > 0 && rate > 0 && yrs > 0) {
+          // 원리금균등 월납입 계산 후 연간 이자 추출
+          const P = principal * 100000000;
+          const r = rate / 12 / 100;
+          const n = yrs * 12;
+          const monthly = (P * r * Math.pow(1+r,n)) / (Math.pow(1+r,n) - 1);
+          // 연간 원리금 - 연간 원금상환 = 연간 이자
+          const annualPayment     = monthly * 12;
+          const annualPrincipalRep = P / n * 12; // 원금균등 근사
+          // 원리금균등 기준 연간 이자 = 총납입 - 원금 (1년치 근사)
+          const annualInterestWon = annualPayment - (P / n * 12);
+          otherLoanInterest = Math.round(annualInterestWon / 10000); // 만원 단위
+        }
       }
       renderResult(income, price, asset, otherLoanInterest);
       navigateTo(9);
@@ -2364,21 +2376,6 @@
       return;
     }
     navigateTo(current + 1);
-  }
-
-  function calcOtherLoanInterest() {
-    const principal = parseFloat(document.getElementById('otherLoanPrincipal')?.value || 0);
-    const rate      = parseFloat(document.getElementById('otherLoanRate')?.value || 0);
-    const calcEl    = document.getElementById('otherLoanCalcResult');
-    const valEl     = document.getElementById('otherLoanCalcVal');
-    if (principal > 0 && rate > 0) {
-      const annualInterest = Math.round(principal * 10000 * rate / 100);
-      if (valEl) valEl.textContent = annualInterest.toLocaleString() + '만원/년';
-      if (calcEl) calcEl.style.display = 'block';
-    } else {
-      if (calcEl) calcEl.style.display = 'none';
-    }
-    updateNextBtn();
   }
 
   function toggleOtherLoanNone() {
@@ -2398,7 +2395,7 @@
     if (checked) {
       document.getElementById('otherLoanPrincipal').value = '';
       document.getElementById('otherLoanRate').value = '';
-      document.getElementById('otherLoanCalcResult').style.display = 'none';
+      document.getElementById('otherLoanYears').value = '';
     }
     updateNextBtn();
   }
@@ -5083,7 +5080,7 @@
     answers.children = null;
     answers.region = null;
     document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
-    ['income','price','asset','otherLoanPrincipal','otherLoanRate'].forEach(id => {
+    ['income','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
