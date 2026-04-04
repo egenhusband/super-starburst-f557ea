@@ -2233,16 +2233,31 @@
     <!-- 7: 기타대출 -->
     <div class="slide" data-slide="7">
       <div>
-        <div class="slide-question">기존 대출의<br>연간 이자가 얼마예요?</div>
-        <div class="slide-sub">주담대·신용대출·카드론 등 모든 대출 이자 합계<br>없으면 0을 입력해주세요</div>
+        <div class="slide-question">다른 대출도<br>보유하고 계신가요?</div>
+        <div class="slide-sub">원금과 금리를 입력해주시면 DTI에 자동으로 산정돼요</div>
       </div>
-      <div class="number-input-wrap">
+      <div class="number-input-wrap" id="otherLoanInputWrap">
         <div class="number-field">
-          <input type="number" id="otherLoanInterest" placeholder="0" min="0" inputmode="numeric">
-          <span class="number-unit">만원 / 년</span>
+          <input type="number" id="otherLoanPrincipal" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="calcOtherLoanInterest()">
+          <span class="number-unit">억원 (원금)</span>
+        </div>
+        <div class="number-field" style="margin-top:10px">
+          <input type="number" id="otherLoanRate" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="calcOtherLoanInterest()">
+          <span class="number-unit">% (금리)</span>
+        </div>
+        <div id="otherLoanCalcResult" style="display:none;margin-top:12px;padding:10px 14px;background:var(--bg3);border-radius:10px;font-size:13px;color:var(--label2);line-height:1.6">
+          <span style="color:var(--label3);font-size:11px">원리금균등상환 기준 약식 계산</span><br>
+          연간 이자: <strong id="otherLoanCalcVal" style="color:var(--label1)">—</strong>
         </div>
         <div class="err-msg" id="otherLoanErr"></div>
       </div>
+      <label style="display:flex;align-items:center;gap:12px;margin-top:18px;cursor:pointer;padding:14px 16px;background:var(--bg3);border:1.5px solid var(--separator);border-radius:14px;transition:border-color 0.18s" id="otherLoanNoneLabel">
+        <span style="position:relative;width:24px;height:24px;flex-shrink:0">
+          <input type="checkbox" id="otherLoanNone" onchange="toggleOtherLoanNone()" style="position:absolute;opacity:0;width:24px;height:24px;margin:0;cursor:pointer;z-index:1">
+          <span id="otherLoanNoneBox" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:8px;border:1.5px solid var(--separator);background:var(--bg2);transition:background 0.18s,border-color 0.18s;font-size:14px"></span>
+        </span>
+        <span style="font-size:14px;color:var(--label2);font-family:'Pretendard Variable',sans-serif">보유하고 있는 다른 대출이 없어요</span>
+      </label>
     </div>
 
     <!-- 8: 결과 -->
@@ -2280,13 +2295,13 @@
     });
   });
 
-  ['income','price','asset','otherLoanInterest'].forEach(id => {
+  ['income','price','asset','otherLoanPrincipal','otherLoanRate'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', updateNextBtn);
   });
 
   function canProceed() {
-    if (current === 0) return !!loanType;   // intro
+    if (current === 0) return !!loanType;
     if (current === 1) return !!answers.household;
     if (current === 2) return !!answers.house;
     if (current === 3) return !!answers.children;
@@ -2294,7 +2309,13 @@
     if (current === 5) return document.getElementById('income').value !== '';
     if (current === 6) return document.getElementById('price').value !== '';
     if (current === 7) return document.getElementById('asset').value !== '';
-    if (current === 8) return true;
+    if (current === 8) {
+      // 체크박스 선택 OR 원금+금리 모두 입력
+      const noneChecked = document.getElementById('otherLoanNone')?.checked;
+      const principal   = document.getElementById('otherLoanPrincipal')?.value;
+      const rate        = document.getElementById('otherLoanRate')?.value;
+      return noneChecked || (principal !== '' && rate !== '');
+    }
     return true;
   }
 
@@ -2327,7 +2348,14 @@
       if (isNaN(income) || income < 0) { document.getElementById('incomeErr').textContent = '올바른 소득을 입력해주세요'; return; }
       if (isNaN(price)  || price  < 0) { document.getElementById('priceErr').textContent  = '올바른 금액을 입력해주세요'; return; }
       if (isNaN(asset)  || asset  < 0) { document.getElementById('assetErr').textContent  = '올바른 금액을 입력해주세요'; return; }
-      const otherLoanInterest = parseFloat(document.getElementById('otherLoanInterest').value) || 0;
+      const noneChecked = document.getElementById('otherLoanNone')?.checked;
+      let otherLoanInterest = 0;
+      if (!noneChecked) {
+        const principal = parseFloat(document.getElementById('otherLoanPrincipal').value) || 0;
+        const rate      = parseFloat(document.getElementById('otherLoanRate').value) || 0;
+        // 연간 이자 = 원금(억) × 10000 × 금리% / 100 (만원 단위)
+        otherLoanInterest = principal * 10000 * rate / 100;
+      }
       renderResult(income, price, asset, otherLoanInterest);
       navigateTo(9);
       document.getElementById('bottomNav').style.display = 'none';
@@ -2336,6 +2364,43 @@
       return;
     }
     navigateTo(current + 1);
+  }
+
+  function calcOtherLoanInterest() {
+    const principal = parseFloat(document.getElementById('otherLoanPrincipal')?.value || 0);
+    const rate      = parseFloat(document.getElementById('otherLoanRate')?.value || 0);
+    const calcEl    = document.getElementById('otherLoanCalcResult');
+    const valEl     = document.getElementById('otherLoanCalcVal');
+    if (principal > 0 && rate > 0) {
+      const annualInterest = Math.round(principal * 10000 * rate / 100);
+      if (valEl) valEl.textContent = annualInterest.toLocaleString() + '만원/년';
+      if (calcEl) calcEl.style.display = 'block';
+    } else {
+      if (calcEl) calcEl.style.display = 'none';
+    }
+    updateNextBtn();
+  }
+
+  function toggleOtherLoanNone() {
+    const checked = document.getElementById('otherLoanNone')?.checked;
+    const wrap    = document.getElementById('otherLoanInputWrap');
+    const box     = document.getElementById('otherLoanNoneBox');
+    const label   = document.getElementById('otherLoanNoneLabel');
+    if (wrap)  wrap.style.opacity  = checked ? '0.4' : '1';
+    if (box)   {
+      box.style.background    = checked ? 'var(--accent)' : 'var(--bg2)';
+      box.style.borderColor   = checked ? 'var(--accent)' : 'var(--separator)';
+      box.textContent         = checked ? '✓' : '';
+      box.style.color         = checked ? '#fff' : '';
+      box.style.fontWeight    = checked ? '700' : '';
+    }
+    if (label) label.style.borderColor = checked ? 'var(--accent)' : 'var(--separator)';
+    if (checked) {
+      document.getElementById('otherLoanPrincipal').value = '';
+      document.getElementById('otherLoanRate').value = '';
+      document.getElementById('otherLoanCalcResult').style.display = 'none';
+    }
+    updateNextBtn();
   }
 
   function goBack() {
@@ -4128,7 +4193,7 @@
         + '<div class="newborn-hero"><div class="newborn-hero-badge">👶 신생아 특례 핵심 혜택</div><div class="newborn-hero-text">최저 1.8% 특례금리</div><div class="newborn-hero-sub">기본 5년 적용 · 추가 출산 시 1명당 5년 연장 (최장 15년)<br>시중 어디서도 볼 수 없는 파격적인 금리예요.</div></div>'
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
-        + '<div class="result-group"><div class="rate-limit-row">'
+        + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
         + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val" style="color:#ff6b9d">' + rateInfo.min + '~' + rateInfo.max + '%</span></div>'
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val" style="color:#ff6b9d">' + formatLimit(nbFinalLimit) + '</span></div>'
         + '</div></div>'
@@ -4162,7 +4227,7 @@
         + '<div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div></div>'
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
-        + '<div class="result-group"><div class="rate-limit-row">'
+        + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
         + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val blue">' + getDidimdolRateLabel(household, house) + '</span></div>'
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue">' + formatLimit(dFinalLimit) + '</span></div>'
         + '</div></div>'
@@ -4190,7 +4255,7 @@
         + '<div class="bogeumjari-hero"><div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div><div class="bogeumjari-hero-text">DSR을 보지 않아요</div><div class="bogeumjari-hero-sub">소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.<br>총부채원리금상환비율(DSR) 규제 적용 제외 상품이에요.</div></div>'
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
-        + '<div class="result-group"><div class="rate-limit-row">'
+        + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
         + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val green">4.05~4.45%</span></div>'
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val green">' + formatLimit(bFinalLimit) + '</span></div>'
         + '</div></div>'
@@ -4324,6 +4389,7 @@
   }
 
   // ── DTI 재계산 — mc-amt 월납입 × 12 + 기타대출 이자 / 연소득 ──
+  // 체증식은 초기 10년(만기 10년 이하면 5년) 평균 연간 원리금 사용
   function recalcDti(uid) {
     const dtiCard = document.getElementById('dti-card-' + uid);
     if (!dtiCard) return;
@@ -4334,8 +4400,7 @@
 
     if (annualIncome <= 0) return;
 
-    // uid에서 color 추출 → 해당 상품 카드의 mc-amt 읽기
-    const color = uid.split('_')[0]; // 'green_dti' → 'green'
+    const color = uid.split('_')[0];
     const rateSection = document.querySelector('.rate-calc-section[data-color="' + color + '"]');
     if (!rateSection) return;
     const card = rateSection.closest('.limit-detail-card');
@@ -4343,8 +4408,53 @@
     const amtEl = card.querySelector('[id^="mc-amt-"]');
     if (!amtEl) return;
 
-    const monthlyWon      = parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0;
-    const annualPrincipal = monthlyWon * 12;
+    // 현재 상환방식 확인
+    const tabs = rateSection.querySelector('.repay-method-tabs');
+    const activeTab = tabs ? tabs.querySelector('[class*="active-"]') : null;
+    const isIncreasing   = activeTab && activeTab.id.includes('increasing');
+    const isEqualPrinc   = activeTab && activeTab.id.includes('equal-principal');
+
+    // 연간 원리금 라벨 가변
+    const annualLabelEl = document.getElementById('dti-annual-label-' + uid);
+    if (annualLabelEl) {
+      annualLabelEl.textContent = isIncreasing ? '연간 원리금 (체증식 기준)'
+                                : isEqualPrinc ? '연간 원리금 (원금균등 기준)'
+                                : '연간 원리금 (원리금균등 기준)';
+    }
+
+    let annualPrincipal;
+    if (isIncreasing) {
+      // 체증식: 초기 10년(만기 10년 이하면 5년) 평균
+      const principal = parseFloat(amtEl.dataset.principal || 0);
+      const rateEl    = rateSection.querySelector('[id^="rs-final-"]');
+      const rate      = parseFloat(rateEl?.textContent || 0);
+      const yrSelect  = rateSection.querySelector('[id^="yr-"]');
+      const years     = parseInt(yrSelect?.value || 30) || 30;
+      if (principal > 0 && rate > 0) {
+        annualPrincipal = calcIncreasingAvgAnnual(principal, rate, years);
+      } else {
+        annualPrincipal = (parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0) * 12;
+      }
+    } else if (isEqualPrinc) {
+      // 원금균등: 전체 기간 연평균 = (원금 + 총이자) / 기간
+      // 총이자 = 원금 × 월금리 × (n+1)/2
+      const principal = parseFloat(amtEl.dataset.principal || 0);
+      const rateEl    = rateSection.querySelector('[id^="rs-final-"]');
+      const rate      = parseFloat(rateEl?.textContent || 0);
+      const yrSelect  = rateSection.querySelector('[id^="yr-"]');
+      const years     = parseInt(yrSelect?.value || 30) || 30;
+      if (principal > 0 && rate > 0) {
+        const n          = years * 12;
+        const r          = rate / 12 / 100;
+        const totalInt   = principal * r * (n + 1) / 2;
+        annualPrincipal  = (principal + totalInt) / years;
+      } else {
+        annualPrincipal = (parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0) * 12;
+      }
+    } else {
+      // 원리금균등: 매달 동일 → mc-amt × 12 = 연평균
+      annualPrincipal = (parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0) * 12;
+    }
 
     const dtiPct     = ((annualPrincipal + otherLoanInterest) / annualIncome) * 100;
     const dtiRounded = Math.round(dtiPct * 10) / 10;
@@ -4800,7 +4910,9 @@
         + '<div style="color:var(--label3);font-size:11px;margin-top:4px;line-height:1.6">'
         + '· 만기 <strong style="color:var(--label2)">40년</strong>: 만 40세 미만 또는 만 50세 미만 신혼가구<br>'
         + '· 만기 <strong style="color:var(--label2)">50년</strong>: 만 35세 미만 또는 만 40세 미만 신혼가구</div>'
-      : '10년, 15년, 20년, 30년';
+      : '10년, 15년, 20년, 30년'
+        + '<div style="color:var(--label3);font-size:11px;margin-top:4px;line-height:1.6">'
+        + '· 체증식: 채무자가 접수일 현재 <strong style="color:var(--label2)">만 40세 미만 근로자</strong>이고 <strong style="color:var(--label2)">고정금리</strong>를 선택한 경우에만 허용</div>';
     const teungjeungNote = isBogeumjari
       ? '체증식은 만 40세 미만 채무자 및 공사가 사전심사한 경우에만 허용되며, 대출만기 50년 적용 불가'
       : '채무자가 접수일 현재 만 40세 미만 근로자이고 고정금리를 선택한 경우에만 허용';
@@ -4821,7 +4933,6 @@
         <div class="repay-tenure">
           <span class="repay-tenure-label">대출 만기</span>
           <span class="repay-tenure-val">${tenure}</span>
-          ${!isBogeumjari ? `<div style="color:var(--label3);font-size:11px;margin-top:4px;line-height:1.6">· 체증식: 채무자가 접수일 현재 <strong style="color:var(--label2)">만 40세 미만 근로자</strong>이고 <strong style="color:var(--label2)">고정금리</strong>를 선택한 경우에만 허용</div>` : ''}
         </div>
       </div>`;
   }
@@ -4972,10 +5083,20 @@
     answers.children = null;
     answers.region = null;
     document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
-    ['income','price','asset','otherLoanInterest'].forEach(id => {
+    ['income','price','asset','otherLoanPrincipal','otherLoanRate'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
+    var noneChk = document.getElementById('otherLoanNone');
+    if (noneChk) { noneChk.checked = false; }
+    var noneBox = document.getElementById('otherLoanNoneBox');
+    if (noneBox) { noneBox.textContent = ''; noneBox.style.background = 'var(--bg2)'; noneBox.style.borderColor = 'var(--separator)'; }
+    var noneLabel = document.getElementById('otherLoanNoneLabel');
+    if (noneLabel) noneLabel.style.borderColor = 'var(--separator)';
+    var wrap = document.getElementById('otherLoanInputWrap');
+    if (wrap) wrap.style.opacity = '';
+    var calc = document.getElementById('otherLoanCalcResult');
+    if (calc) calc.style.display = 'none';
     ['incomeErr','priceErr','assetErr','otherLoanErr'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.textContent = '';
