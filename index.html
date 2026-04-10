@@ -3898,7 +3898,7 @@
   }
 
   // ── 월별 상환 스케줄 ──
-  var scheduleExpanded = {};
+  
 
   function buildScheduleRows(principal, rate, method, years) {
     var rows = [], rem = principal;
@@ -3934,6 +3934,19 @@
   function fmtEok(won) {
     return (won / 100000000).toFixed(2) + '억';
   }
+  // 억 단위 포맷 (총액용): 1억 미만은 만원, 이상은 "N억 N,NNN만원"
+  function fmtEokMan(won) {
+    var man = Math.round(won / 10000);
+    if (man < 10000) return man.toLocaleString() + '만원';
+    var eok = Math.floor(man / 10000);
+    var rem = man % 10000;
+    return rem > 0
+      ? eok + '억 ' + rem.toLocaleString() + '만원'
+      : eok + '억원';
+  }
+
+  // uid별 현재 표시 회차 수 관리
+  var scheduleShowCount = {};
 
   function renderSchedule(uid) {
     var bodyEl = document.getElementById('sch-body-' + uid);
@@ -3959,9 +3972,15 @@
       else if (activeTab.id.includes('increasing')) method = 'increasing';
     }
 
-    var rows     = buildScheduleRows(principal, rate, method, years);
-    var expanded = scheduleExpanded[uid] || false;
-    var show     = expanded ? rows : rows.slice(0, 12);
+    var rows  = buildScheduleRows(principal, rate, method, years);
+    var total = rows.length;
+
+    // 금리/기간/방식 변경 시 초기화
+    if (!scheduleShowCount[uid] || scheduleShowCount[uid] > total) {
+      scheduleShowCount[uid] = 12;
+    }
+    var showCount = scheduleShowCount[uid];
+    var show = rows.slice(0, showCount);
 
     bodyEl.innerHTML = show.map(function(row) {
       return '<tr>' +
@@ -3975,16 +3994,28 @@
 
     var totalPay = rows.reduce(function(s, r) { return s + r.t;   }, 0);
     var totalInt = rows.reduce(function(s, r) { return s + r.int; }, 0);
-    var tpEl = document.getElementById('sch-tp-' + uid);
-    var tiEl = document.getElementById('sch-ti-' + uid);
+    var tpEl  = document.getElementById('sch-tp-' + uid);
+    var tiEl  = document.getElementById('sch-ti-' + uid);
     var btnEl = document.getElementById('sch-btn-' + uid);
-    if (tpEl) tpEl.textContent = Math.round(totalPay/10000).toLocaleString() + '만원';
-    if (tiEl) tiEl.textContent = Math.round(totalInt/10000).toLocaleString() + '만원';
-    if (btnEl) btnEl.textContent = expanded ? '접기 ▴' : '전체 ' + rows.length + '회 보기 ▾';
+    if (tpEl) tpEl.textContent = fmtEokMan(totalPay);
+    if (tiEl) tiEl.textContent = fmtEokMan(totalInt);
+
+    // 버튼 업데이트
+    if (btnEl) {
+      if (showCount >= total) {
+        btnEl.style.display = 'none';
+      } else {
+        btnEl.style.display = '';
+        var nextFrom = showCount + 1;
+        var nextTo   = Math.min(showCount + 12, total);
+        btnEl.textContent = '1년 더 보기 (' + nextFrom + '~' + nextTo + '회차) ▾';
+      }
+    }
   }
 
   function toggleSchedule(uid) {
-    scheduleExpanded[uid] = !scheduleExpanded[uid];
+    if (!scheduleShowCount[uid]) scheduleShowCount[uid] = 12;
+    scheduleShowCount[uid] += 12;
     renderSchedule(uid);
   }
 
@@ -4114,7 +4145,8 @@
       else if (color === 'nb') recalcDti('nb_dti');
     }
 
-    // 상환 스케줄 갱신
+    // 상환 스케줄 갱신 (초기화 후 렌더)
+    scheduleShowCount[uid] = 12;
     renderSchedule(uid);
   }
 
@@ -4163,7 +4195,8 @@
     var dtiUid = colorCls === 'green' ? 'green_dti' : colorCls === 'blue' ? 'blue_dti' : colorCls === 'nb' ? 'nb_dti' : null;
     if (dtiUid && document.getElementById('dti-card-' + dtiUid)) recalcDti(dtiUid);
 
-    // 상환 스케줄 갱신
+    // 상환 스케줄 갱신 (초기화 후 렌더)
+    scheduleShowCount[uid] = 12;
     renderSchedule(uid);
   }
   function limitCardHtml(colorCls, ltvLimit, maxLimit, finalLimit, price, household, house, children, region, income) {
@@ -4532,6 +4565,129 @@
       <div class="schedule-summary-row"><span>총 납입액</span><span id="schedule-total-${uid}">—</span></div>
       <div class="schedule-summary-row"><span>총 이자</span><span id="schedule-interest-${uid}" style="color:#ff9f0a">—</span></div>
     </div>`;
+  }
+
+
+  // ── 보금자리론 DTI 한도 계산 ──
+  function getBogeumDtiLimit(region, house, income, price) {
+    if (region !== '규제지역') return 60;
+    // 규제지역이지만 예외 조건이면 60%
+    const isFirstBuyer  = house === '생애최초';
+    const isRealNeeds   = house === '무주택' && price <= 6 && income <= 7000; // 실수요자
+    if (isFirstBuyer || isRealNeeds) return 60;
+    return 50;
+  }
+
+  // 원리금균등 DTI 역산 대출원금
+  function calcMaxLoanByDti(dtiLimit, annualIncome, otherInterestAnnual, annualRate, years) {
+    const allowedAnnual = (dtiLimit / 100) * annualIncome - otherInterestAnnual;
+    if (allowedAnnual <= 0) return 0;
+    const r = annualRate / 12 / 100;
+    const n = years * 12;
+    // 월납 = P * r*(1+r)^n / ((1+r)^n - 1) → P 역산
+    const factor = (r * Math.pow(1+r, n)) / (Math.pow(1+r, n) - 1);
+    return (allowedAnnual / 12) / factor;
+  }
+
+  // 체증식 초기 평균 원리금 산출 (초기 10년 또는 5년 평균)
+  function calcIncreasingAvgAnnual(principal, annualRate, years) {
+    const r = annualRate / 12 / 100;
+    const n = years * 12;
+    const a = 2 * principal / (n * (n + 1));
+    const avgMonths = years <= 10 ? 5 * 12 : 10 * 12;
+    let total = 0;
+    for (let i = 1; i <= avgMonths; i++) {
+      const remaining = principal - a * (i - 1) * i / 2;
+      total += a * i + remaining * r;
+    }
+    return (total / avgMonths) * 12;
+  }
+
+  // 원금균등 1회차 연간 원리금 (가장 높은 시점 = 보수적)
+  function calcEqualPrincipalFirstAnnual(principal, annualRate, years) {
+    const n = years * 12;
+    const r = annualRate / 12 / 100;
+    return ((principal / n) + principal * r) * 12;
+  }
+
+  // ── DTI 카드 HTML ──
+  function bogeumDtiCardHtml(uid, income, price, region, house, finalLimit, annualRate, years, otherLoanInterest) {
+    otherLoanInterest = otherLoanInterest || 0;
+    const dtiLimit = getBogeumDtiLimit(region, house, income, price);
+    const annualIncome = income * 10000;
+
+    return `<div class="dti-card" id="dti-card-${uid}"
+      data-annual-income="${annualIncome}"
+      data-dti-limit="${dtiLimit}"
+      data-annual-rate="${annualRate}"
+      data-years="${years}"
+      data-ltv-limit="${finalLimit}"
+      data-other-loan="${otherLoanInterest}">
+      <div class="dti-card-title">
+        DTI 시뮬레이션
+        <span class="dti-card-badge">참고용</span>
+      </div>
+      <div class="dti-rows" id="dti-rows-${uid}">
+        <div class="dti-row">
+          <span class="dti-row-label">DTI 한도</span>
+          <span class="dti-row-val">${dtiLimit}%${region === '규제지역' && dtiLimit === 50 ? ' (규제지역)' : ''}</span>
+        </div>
+        <div class="dti-row">
+          <span class="dti-row-label" id="dti-annual-label-${uid}">연간 원리금 (원리금균등 기준)</span>
+          <span class="dti-row-val" id="dti-annual-${uid}">—</span>
+        </div>
+        <div class="dti-row">
+          <span class="dti-row-label">기타대출 연간 이자</span>
+          <span class="dti-row-val">${otherLoanInterest > 0 ? otherLoanInterest.toLocaleString() + '만원' : '없음'}</span>
+        </div>
+      </div>
+      <hr class="dti-divider">
+      <div class="dti-result-row">
+        <span class="dti-result-label">현재 DTI</span>
+        <span class="dti-result-val" id="dti-pct-${uid}">—</span>
+      </div>
+      <div class="dti-limit-row">
+        <span>기준 한도 ${dtiLimit}%</span>
+        <span id="dti-status-${uid}"></span>
+      </div>
+      <div class="dti-note">※ 상환방식·적용금리 기준 계산. 실제 DTI는 금융사 심사 결과에 따라 달라질 수 있습니다.</div>
+    </div>`;
+  }
+
+  // ── DTI 재계산 — mc-amt 월납입 × 12 + 기타대출 이자 / 연소득 ──
+  function recalcDti(uid) {
+    const dtiCard = document.getElementById('dti-card-' + uid);
+    if (!dtiCard) return;
+
+    const annualIncome       = parseFloat(dtiCard.dataset.annualIncome || 0);
+    const dtiLimit           = parseFloat(dtiCard.dataset.dtiLimit || 60);
+    const otherLoanInterest  = parseFloat(dtiCard.dataset.otherLoan || 0) * 10000; // 만원→원
+
+    if (annualIncome <= 0) return;
+
+    // mc-amt에서 현재 월납입액 읽기 (recalcRate/selectRepayTab이 이미 계산해둠)
+    const rateSection = document.querySelector('.rate-calc-section[data-color="green"]');
+    if (!rateSection) return;
+    const card = rateSection.closest('.limit-detail-card');
+    if (!card) return;
+    const amtEl = card.querySelector('[id^="mc-amt-"]');
+    if (!amtEl) return;
+
+    // 월납입 텍스트에서 숫자 추출 (예: "960,605원" → 960605)
+    const monthlyWon = parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0;
+    const annualPrincipal = monthlyWon * 12;
+
+    const dtiPct     = ((annualPrincipal + otherLoanInterest) / annualIncome) * 100;
+    const dtiRounded = Math.round(dtiPct * 10) / 10;
+    const statusCls  = dtiRounded <= dtiLimit ? 'ok' : dtiRounded <= dtiLimit + 10 ? 'warn' : 'over';
+    const statusText = dtiRounded <= dtiLimit ? '✅ 기준 이내' : '⚠️ 기준 초과';
+
+    const annualEl  = document.getElementById('dti-annual-' + uid);
+    const pctEl     = document.getElementById('dti-pct-' + uid);
+    const statusEl  = document.getElementById('dti-status-' + uid);
+    if (annualEl)  annualEl.textContent  = Math.round(annualPrincipal / 10000).toLocaleString() + '만원';
+    if (pctEl)     { pctEl.textContent = dtiRounded + '%'; pctEl.className = 'dti-result-val ' + statusCls; }
+    if (statusEl)  statusEl.textContent = statusText;
   }
 
 
