@@ -20,17 +20,14 @@ const REGIONS = {
   '제주특별자치도': ['서귀포시','제주시'],
 };
 
-const API_KEY = '011e9c482bc2432198b0ac0a8cec2f1b';
 const PROXY_BASE = '/.netlify/functions/reb-proxy';
 
-// 통계표 코드
 const STAT = {
-  priceIndex:  'A_2024_00178', // 지역별 매매지수_아파트
-  jeonseIndex: 'A_2024_00182', // 지역별 전세지수_아파트
-  buyDemand:   'A_2024_00076', // 매매수급동향_아파트
-  jenseDemand: 'A_2024_00077', // 전세수급동향_아파트
-  avgPrice:    'A_2024_00188', // 지역별 매매 평균가격_아파트
-  avgJeonse:   'A_2024_00192', // 지역별 전세 평균가격_아파트
+  priceIndex:  'A_2024_00178',
+  buyDemand:   'A_2024_00076',
+  jenseDemand: 'A_2024_00077',
+  avgPrice:    'A_2024_00188',
+  avgJeonse:   'A_2024_00192',
 };
 
 let chart = null;
@@ -46,7 +43,6 @@ function initDashboard() {
         <div class="db-title">내 동네 부동산</div>
         <div class="db-sub">지역을 선택하면 최근 시장 현황을 보여드려요</div>
       </div>
-
       <div class="db-region">
         <select class="db-select" id="dbSido" onchange="onSidoChange()">
           <option value="">시/도 선택</option>
@@ -56,7 +52,9 @@ function initDashboard() {
           <option value="">시/군/구 선택</option>
         </select>
       </div>
-
+      <div class="db-loading" id="dbLoading" style="display:none">
+        <div class="db-loading-dot"></div>
+      </div>
       <div class="db-content" id="dbContent" style="display:none">
         <div class="db-facts" id="dbFacts"></div>
         <div class="db-chart-wrap">
@@ -64,18 +62,12 @@ function initDashboard() {
           <canvas id="dbChart"></canvas>
         </div>
       </div>
-
-      <div class="db-loading" id="dbLoading" style="display:none">
-        <div class="db-loading-dot"></div>
-      </div>
-
-      <div class="db-cta-wrap" id="dbCtaWrap">
+      <div class="db-cta-wrap">
         <button class="db-cta" onclick="showCalculator()">내 조건으로 대출 알아보기 →</button>
       </div>
     </div>
   `;
 
-  // Chart.js 동적 로드
   if (!window.Chart) {
     const s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
@@ -83,15 +75,12 @@ function initDashboard() {
   }
 }
 
-// ── 시/도 변경 ───────────────────────────────────────
 function onSidoChange() {
   selectedSido = document.getElementById('dbSido').value;
   const guSel = document.getElementById('dbGu');
   guSel.innerHTML = '<option value="">시/군/구 선택</option>';
   document.getElementById('dbContent').style.display = 'none';
-
   if (!selectedSido) { guSel.disabled = true; return; }
-
   guSel.disabled = false;
   REGIONS[selectedSido].forEach(g => {
     const opt = document.createElement('option');
@@ -100,7 +89,6 @@ function onSidoChange() {
   });
 }
 
-// ── 시/군/구 변경 → 데이터 로드 ─────────────────────
 function onGuChange() {
   selectedGu = document.getElementById('dbGu').value;
   if (!selectedGu) return;
@@ -108,11 +96,9 @@ function onGuChange() {
 }
 
 // ── 캐시 ─────────────────────────────────────────────
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24시간
+const CACHE_TTL = 24 * 60 * 60 * 1000;
 
-function cacheKey(sido, gu) {
-  return `db_cache_${sido}_${gu}`;
-}
+function cacheKey(sido, gu) { return `db_cache_${sido}_${gu}`; }
 
 function getCache(sido, gu) {
   try {
@@ -125,9 +111,7 @@ function getCache(sido, gu) {
 }
 
 function setCache(sido, gu, data) {
-  try {
-    localStorage.setItem(cacheKey(sido, gu), JSON.stringify({ ts: Date.now(), data }));
-  } catch {}
+  try { localStorage.setItem(cacheKey(sido, gu), JSON.stringify({ ts: Date.now(), data })); } catch {}
 }
 
 // ── API 호출 ─────────────────────────────────────────
@@ -138,17 +122,51 @@ async function fetchStat(statblId, pSize) {
     pSize: pSize || 13,
   });
   const res = await fetch(`${PROXY_BASE}?${params}`);
-  const data = await res.json();
-  return data;
+  return await res.json();
 }
 
-// ── 데이터 로드 & 렌더 ───────────────────────────────
+// ── 데이터 추출 헬퍼 ─────────────────────────────────
+function extractRows(data) {
+  // 가능한 응답 구조 모두 시도
+  try {
+    const candidates = [
+      data?.SttsApiTblData?.[1]?.row,
+      data?.SttsApiTblData?.[0]?.row,
+      data?.result?.row,
+      data?.row,
+    ];
+    for (const rows of candidates) {
+      if (Array.isArray(rows) && rows.length > 0) return rows;
+    }
+  } catch {}
+  return null;
+}
+
+function extractLatestValue(data) {
+  try {
+    const rows = extractRows(data);
+    if (!rows) return null;
+    return parseFloat(rows[0].DTA_VAL);
+  } catch { return null; }
+}
+
+function extractChartRows(data) {
+  try {
+    const rows = extractRows(data);
+    if (!rows) return [];
+    return rows.slice(0, 12).map(r => ({
+      period: r.WRTTIME_IDTFR_ID,
+      value: parseFloat(r.DTA_VAL),
+    }));
+  } catch { return []; }
+}
+
+// ── 데이터 로드 ───────────────────────────────────────
 async function loadDashboardData() {
   const content = document.getElementById('dbContent');
   const loading = document.getElementById('dbLoading');
   content.style.display = 'none';
 
-  // 캐시 확인
   const cached = getCache(selectedSido, selectedGu);
   if (cached) {
     renderFacts(cached.buyData, cached.jeonseData, cached.avgPriceData, cached.avgJeonseData);
@@ -168,12 +186,7 @@ async function loadDashboardData() {
       fetchStat(STAT.avgJeonse, 2),
     ]);
 
-    // 캐시 저장
     setCache(selectedSido, selectedGu, { priceData, buyData, jeonseData, avgPriceData, avgJeonseData });
-
-    // ── 임시 디버그 ──
-    document.getElementById("dbFacts").innerHTML = "<div style=\"font-size:11px;color:#aaa;word-break:break-all;line-height:1.6;background:#111;padding:12px;border-radius:10px\"><b>응답 키:</b> " + Object.keys(buyData).join(", ") + "<br><b>raw:</b> " + JSON.stringify(buyData).slice(0, 400) + "</div>";
-    // ── 디버그 끝 ──
 
     renderFacts(buyData, jeonseData, avgPriceData, avgJeonseData);
     renderChart(priceData);
@@ -182,44 +195,36 @@ async function loadDashboardData() {
     content.style.display = 'block';
   } catch (e) {
     loading.style.display = 'none';
-    document.getElementById('dbFacts').innerHTML = `<div class="db-error">데이터를 불러오지 못했어요.<br>잠시 후 다시 시도해주세요.</div>`;
+    document.getElementById('dbFacts').innerHTML = `<div class="db-error">데이터를 불러오지 못했어요.<br>${e.message}</div>`;
     content.style.display = 'block';
   }
 }
 
 // ── 팩트 카드 렌더 ───────────────────────────────────
 function renderFacts(buyData, jeonseData, avgPriceData, avgJeonseData) {
-  const facts = document.getElementById('dbFacts');
-
-  const buyVal  = extractLatestValue(buyData);
+  const buyVal    = extractLatestValue(buyData);
   const jeonseVal = extractLatestValue(jeonseData);
   const avgPrice  = extractLatestValue(avgPriceData);
   const avgJeonse = extractLatestValue(avgJeonseData);
 
-  const buyLabel  = buyVal  ? demandLabel(buyVal)  : '—';
-  const jeonseLabel = jeonseVal ? demandLabel(jeonseVal) : '—';
-
-  const priceStr  = avgPrice  ? formatManwon(avgPrice)  : '—';
-  const jeonseStr = avgJeonse ? formatManwon(avgJeonse) : '—';
-
-  facts.innerHTML = `
+  document.getElementById('dbFacts').innerHTML = `
     <div class="db-facts-title">${selectedSido} ${selectedGu} · 아파트 기준</div>
     <div class="db-facts-grid">
       <div class="db-fact-card">
         <div class="db-fact-label">매수 수급</div>
-        <div class="db-fact-val">${buyLabel}</div>
+        <div class="db-fact-val">${buyVal ? demandLabel(buyVal) : '—'}</div>
       </div>
       <div class="db-fact-card">
         <div class="db-fact-label">전세 수급</div>
-        <div class="db-fact-val">${jeonseLabel}</div>
+        <div class="db-fact-val">${jeonseVal ? demandLabel(jeonseVal) : '—'}</div>
       </div>
       <div class="db-fact-card">
         <div class="db-fact-label">평균 매매가</div>
-        <div class="db-fact-val">${priceStr}</div>
+        <div class="db-fact-val">${avgPrice ? formatManwon(avgPrice) : '—'}</div>
       </div>
       <div class="db-fact-card">
         <div class="db-fact-label">평균 전세가</div>
-        <div class="db-fact-val">${jeonseStr}</div>
+        <div class="db-fact-val">${avgJeonse ? formatManwon(avgJeonse) : '—'}</div>
       </div>
     </div>
   `;
@@ -227,7 +232,7 @@ function renderFacts(buyData, jeonseData, avgPriceData, avgJeonseData) {
 
 // ── 차트 렌더 ────────────────────────────────────────
 function renderChart(priceData) {
-  const rows = extractRows(priceData);
+  const rows = extractChartRows(priceData);
   if (!rows || rows.length === 0) return;
 
   const labels = rows.map(r => r.period).reverse();
@@ -236,7 +241,10 @@ function renderChart(priceData) {
   if (chart) { chart.destroy(); chart = null; }
 
   const ctx = document.getElementById('dbChart');
-  if (!ctx || !window.Chart) return;
+  if (!ctx || !window.Chart) {
+    setTimeout(() => renderChart(priceData), 500);
+    return;
+  }
 
   chart = new Chart(ctx, {
     type: 'line',
@@ -255,48 +263,16 @@ function renderChart(priceData) {
     },
     options: {
       responsive: true,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => `지수 ${ctx.parsed.y}`
-          }
-        }
-      },
+      plugins: { legend: { display: false } },
       scales: {
-        x: {
-          ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 10 } },
-          grid: { color: 'rgba(255,255,255,0.06)' },
-        },
-        y: {
-          ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 10 } },
-          grid: { color: 'rgba(255,255,255,0.06)' },
-        }
+        x: { ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.06)' } },
+        y: { ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.06)' } }
       }
     }
   });
 }
 
 // ── 유틸 ─────────────────────────────────────────────
-function extractLatestValue(data) {
-  try {
-    const rows = data?.SttsApiTblData?.[1]?.row;
-    if (!rows || rows.length === 0) return null;
-    return parseFloat(rows[0].DTA_VAL);
-  } catch { return null; }
-}
-
-function extractRows(data) {
-  try {
-    const rows = data?.SttsApiTblData?.[1]?.row;
-    if (!rows) return [];
-    return rows.slice(0, 12).map(r => ({
-      period: r.WRTTIME_IDTFR_ID,
-      value: parseFloat(r.DTA_VAL),
-    }));
-  } catch { return []; }
-}
-
 function demandLabel(val) {
   if (val > 100) return '수요 우위 ↑';
   if (val < 100) return '공급 우위 ↓';
@@ -305,16 +281,14 @@ function demandLabel(val) {
 
 function formatManwon(val) {
   if (!val || isNaN(val)) return '—';
-  const억 = Math.floor(val / 10000);
+  const 억 = Math.floor(val / 10000);
   const 만 = Math.round((val % 10000) / 100) * 100;
   if (억 > 0 && 만 > 0) return `${억}억 ${만.toLocaleString()}만원`;
   if (억 > 0) return `${억}억원`;
   return `${val.toLocaleString()}만원`;
 }
 
-// ── 진입점: showDashboard()에서 initDashboard() 호출됨 ─
-
-// 모든 스크립트 로드 완료 후 실행
+// ── 진입점 ───────────────────────────────────────────
 (function() {
   if (localStorage.getItem('authVerified') === '1') {
     document.getElementById('pwScreen').style.display = 'none';
