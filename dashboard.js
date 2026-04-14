@@ -259,8 +259,9 @@ function extractRows(data) {
 
 // ── 지역 필터 ─────────────────────────────────────────
 function filterByRegion(rows, clsId) {
+  const clsIdStr = String(clsId);
   return rows
-    .filter(r => r.CLS_ID === clsId)
+    .filter(r => String(r.CLS_ID) === clsIdStr)
     .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
 }
 
