@@ -2,93 +2,315 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CORS 테스트</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    min-height: 100vh;
-    background: #0a0a0a;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    color: #fff;
-  }
-  .card {
-    background: #1c1c1e;
-    border: 1px solid #2c2c2e;
-    border-radius: 20px;
-    padding: 40px 32px;
-    width: 100%;
-    max-width: 420px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-  h1 { font-size: 18px; font-weight: 600; }
-  .url {
-    font-size: 11px;
-    color: rgba(255,255,255,0.35);
-    word-break: break-all;
-    line-height: 1.6;
-    background: #111;
-    padding: 10px 14px;
-    border-radius: 10px;
-  }
-  button {
-    width: 100%;
-    height: 52px;
-    background: #0a84ff;
-    border: none;
-    border-radius: 14px;
-    color: #fff;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.15s;
-  }
-  button:active { opacity: 0.7; }
-  button:disabled { opacity: 0.4; cursor: default; }
-  #result {
-    font-size: 13px;
-    line-height: 1.7;
-    min-height: 40px;
-    text-align: center;
-    color: rgba(255,255,255,0.4);
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>주택 기금대출 추천</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="card">
-  <h1>🔍 Netlify 프록시 테스트</h1>
-  <div class="url">/.netlify/functions/reb-proxy</div>
-  <button id="btn" onclick="runTest()">테스트 시작</button>
-  <div id="result">버튼을 누르면 결과가 표시돼요</div>
+
+<div class="app">
+
+  <!-- 비밀번호 진입 화면 -->
+  <div class="pw-screen" id="pwScreen">
+    <video class="pw-bg-video" id="pwBgVideo" autoplay muted loop playsinline>
+      <source src="https://cdn.coverr.co/videos/coverr-aerial-view-of-seoul-south-korea-9872/1080p.mp4" type="video/mp4">
+    </video>
+    <div style="width:100%;max-width:390px;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1">
+      <div class="pw-logo">☕</div>
+      <div style="margin-bottom:12px;text-align:center">
+        <div class="pw-copy-line">커피 한 잔 값으로</div>
+        <div class="pw-copy-line">나한테 맞는 대출 상품</div>
+        <div class="pw-copy-line"><span class="pw-shimmer">3초 만에</span> 찾아보세요</div>
+      </div>
+      <div class="pw-sub">지금 바로 구매하지 않아도 괜찮아요.<br>먼저 둘러보고 결정하셔도 돼요 😊</div>
+      <div class="pw-input-wrap">
+        <input class="pw-input" id="pwInput" type="password" placeholder="비밀번호 입력"
+          oninput="document.getElementById('btnPwSubmit').disabled = this.value.length === 0"
+          onkeydown="if(event.key==='Enter') submitPassword()">
+        <button class="btn-pw-submit" id="btnPwSubmit" onclick="submitPassword()" disabled>입장하기</button>
+      </div>
+      <div class="pw-err" id="pwErr"></div>
+      <a class="btn-pw-pay" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">💳 결제하러 가기</a>
+      <button class="btn-pw-guest" onclick="enterAsGuest()">둘러볼게요</button>
+    </div>
+  </div>
+
+  <!-- 결제 유도 팝업 -->
+  <div class="pay-overlay" id="payOverlay">
+    <div class="pay-sheet">
+      <div class="pay-icon">☕</div>
+      <div class="pay-copy"><span class="shimmer-text">커피 한 잔</span> 값으로<br>실시간 규제 반영한<br>계산기 사용해 보세요!</div>
+      <div class="pay-copy-sub">대출 분석 결과는 구매 후 이용하실 수 있어요.<br>이미 구매하셨다면 비밀번호로 입장해 주세요.</div>
+      <a class="btn-pay-go" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">
+        💳 결제하러 가기
+      </a>
+      <button class="btn-pay-pw" onclick="closePayAndShowPw()">🔑 비밀번호 입력하러 가기</button>
+    </div>
+  </div>
+
+  <!-- DSR 초과 확인 바텀시트 -->
+  <div class="restart-confirm-overlay" id="dsrConfirmOverlay">
+    <div class="restart-confirm-sheet">
+      <div class="restart-confirm-title">DSR 약식 계산 초과</div>
+      <div class="restart-confirm-desc" id="dsrConfirmDesc"></div>
+      <div class="restart-confirm-btns">
+        <button class="restart-confirm-cancel" onclick="closeDsrConfirm()">취소</button>
+        <button class="restart-confirm-ok" onclick="confirmDsrAndProceed()">결과 보기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 처음으로 확인 바텀시트 -->
+  <div class="restart-confirm-overlay" id="restartConfirmOverlay">
+    <div class="restart-confirm-sheet">
+      <div class="restart-confirm-title">처음부터 다시 시작할까요?</div>
+      <div class="restart-confirm-desc">입력하신 정보가 모두 초기화돼요.</div>
+      <div class="restart-confirm-btns">
+        <button class="restart-confirm-cancel" onclick="closeRestartConfirm()">취소</button>
+        <button class="restart-confirm-ok" onclick="restartApp(); closeRestartConfirm();">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 진행 바 -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel"></div>
+  </div>
+
+  <!-- 슬라이드 영역 -->
+  <div class="slides" id="slidesContainer">
+
+    <!-- slide: intro -->
+    <div class="slide active" data-slide="intro">
+      <div>
+        <div class="slide-question">어떤 대출을<br>알아보시나요?</div>
+        <div class="slide-sub">대출 유형에 따라 추천 방식이 달라져요</div>
+      </div>
+      <div class="options">
+        <div class="option-card" onclick="selectLoanType('fund',this)">
+          <div><div class="option-title">🏦 주택기금 대출</div><div class="option-desc">디딤돌·보금자리론 등 정책금융상품</div></div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" onclick="selectLoanType('bank',this)">
+          <div><div class="option-title">🏢 시중은행 대출</div><div class="option-desc">KB·신한·하나·우리 등 일반 주택담보대출</div></div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" onclick="selectLoanType('both',this)">
+          <div><div class="option-title">🔍 둘 다 비교</div><div class="option-desc">기금 + 시중은행 상품을 한번에 비교</div></div>
+          <div class="option-check"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- slide 0: 가구유형 -->
+    <div class="slide" data-slide="0">
+      <div>
+        <div class="slide-question">가구유형이<br>어떻게 되시나요?</div>
+      </div>
+      <div class="options">
+        <div class="option-card" onclick="selectAnswer('household','single',this)">
+          <div><div class="option-title">단독 세대주</div><div class="option-desc">혼자 또는 배우자 없이 거주</div></div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" onclick="selectAnswer('household','multi',this)">
+          <div><div class="option-title">2인 이상 가구</div><div class="option-desc">배우자 또는 부양가족 있음</div></div>
+          <div class="option-check"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- slide 1: 주택 보유 -->
+    <div class="slide" data-slide="1">
+      <div>
+        <div class="slide-question">주택 매매 경험이<br>있으신가요?</div>
+        <div class="slide-sub">구매 이력과 현재 보유 여부를 기준으로 선택해주세요</div>
+      </div>
+      <div class="options">
+        <div class="option-card" onclick="selectAnswer('house','never',this)">
+          <div><div class="option-title">생애 최초 구매</div><div class="option-desc">본인과 배우자 모두 주택을 소유한 적 없음</div></div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" onclick="selectAnswer('house','none',this)">
+          <div><div class="option-title">무주택자</div><div class="option-desc">과거 보유 이력은 있지만 현재 무주택</div></div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" onclick="selectAnswer('house','own',this)">
+          <div><div class="option-title">1주택자</div><div class="option-desc">현재 주택 1채 보유 중</div></div>
+          <div class="option-check"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- slide 2: 자녀 -->
+    <div class="slide" data-slide="2">
+      <div>
+        <div class="slide-question">자녀가 몇 명<br>있으신가요?</div>
+      </div>
+      <div class="options">
+        <div class="option-card" onclick="selectAnswer('children','0',this)">
+          <div><div class="option-title">없음</div></div><div class="option-check"></div>
+        </div>
+        <div class="option-card" onclick="selectAnswer('children','1',this)">
+          <div><div class="option-title">1명</div></div><div class="option-check"></div>
+        </div>
+        <div class="option-card" onclick="selectAnswer('children','2',this)">
+          <div><div class="option-title">2명</div></div><div class="option-check"></div>
+        </div>
+        <div class="option-card" onclick="selectAnswer('children','3',this)">
+          <div><div class="option-title">3명 이상</div></div><div class="option-check"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- slide 3: 지역 -->
+    <div class="slide" data-slide="3">
+      <div>
+        <div class="slide-question">구입 예정 주택의<br>지역을 선택해주세요</div>
+        <div class="slide-sub">LTV 계산에 반영됩니다</div>
+      </div>
+      <div class="options">
+        <div class="option-card" onclick="selectAnswer('region','투기과열지구',this)">
+          <div><div class="option-title">투기과열지구</div><div class="option-desc">강남·서초·송파·용산 등</div></div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" onclick="selectAnswer('region','조정대상지역',this)">
+          <div><div class="option-title">조정대상지역</div><div class="option-desc">그 외 규제지역</div></div>
+          <div class="option-check"></div>
+        </div>
+        <div class="option-card" onclick="selectAnswer('region','일반',this)">
+          <div><div class="option-title">일반지역</div><div class="option-desc">비규제지역</div></div>
+          <div class="option-check"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- slide 4: 소득 -->
+    <div class="slide" data-slide="4">
+      <div>
+        <div class="slide-question">가구 합산<br>연소득은요?</div>
+        <div class="slide-sub">부부 합산 세전 연간 소득을 입력해주세요</div>
+      </div>
+      <div class="number-input-wrap">
+        <div class="number-field">
+          <input type="number" id="income" placeholder="0" oninput="onNumberInput(this,'income')" inputmode="numeric">
+          <span class="number-unit">만원</span>
+        </div>
+        <div class="input-err" id="incomeErr"></div>
+      </div>
+    </div>
+
+    <!-- slide 5: 주택가격 -->
+    <div class="slide" data-slide="5">
+      <div>
+        <div class="slide-question">구입하려는<br>주택 가격은요?</div>
+        <div class="slide-sub">실거래가 기준으로 입력해주세요</div>
+      </div>
+      <div class="number-input-wrap">
+        <div class="number-field">
+          <input type="number" id="price" placeholder="0" oninput="onNumberInput(this,'price')" inputmode="numeric">
+          <span class="number-unit">만원</span>
+        </div>
+        <div class="input-err" id="priceErr"></div>
+      </div>
+    </div>
+
+    <!-- slide 6: 자산 -->
+    <div class="slide" data-slide="6">
+      <div>
+        <div class="slide-question">보유 순자산<br>규모는요?</div>
+        <div class="slide-sub">총 자산에서 부채를 제외한 금액이에요</div>
+      </div>
+      <div class="number-input-wrap">
+        <div class="number-field">
+          <input type="number" id="asset" placeholder="0" oninput="onNumberInput(this,'asset')" inputmode="numeric">
+          <span class="number-unit">만원</span>
+        </div>
+        <div class="input-err" id="assetErr"></div>
+      </div>
+    </div>
+
+    <!-- slide 7: 기존 대출 -->
+    <div class="slide" data-slide="7">
+      <div>
+        <div class="slide-question">다른 대출도<br>보유하고 계신가요?</div>
+        <div class="slide-sub">원금과 금리를 입력해주시면 DTI에 자동으로 산정돼요</div>
+      </div>
+      <div class="number-input-wrap" id="otherLoanInputWrap">
+        <div class="number-field">
+          <input type="number" id="otherLoanPrincipal" placeholder="대출 원금" oninput="onOtherLoanInput()" inputmode="numeric">
+          <span class="number-unit">만원</span>
+        </div>
+        <div class="number-field" style="margin-top:8px">
+          <input type="number" id="otherLoanRate" placeholder="금리" oninput="onOtherLoanInput()" inputmode="decimal">
+          <span class="number-unit">%</span>
+        </div>
+        <div class="number-field" style="margin-top:8px">
+          <input type="number" id="otherLoanYears" placeholder="잔여 기간" oninput="onOtherLoanInput()" inputmode="numeric">
+          <span class="number-unit">년</span>
+        </div>
+        <div class="other-loan-calc-result" id="otherLoanCalcResult" style="display:none"></div>
+        <div class="input-err" id="otherLoanErr"></div>
+      </div>
+      <label class="other-loan-none-label" id="otherLoanNoneLabel">
+        <div class="other-loan-none-box" id="otherLoanNoneBox"></div>
+        <input type="checkbox" id="otherLoanNone" onchange="toggleOtherLoanNone()" style="display:none">
+        <span>다른 대출 없음</span>
+      </label>
+    </div>
+
+    <!-- slide 8: 결과 -->
+    <div class="slide result-slide" data-slide="8">
+      <div id="resultContent"></div>
+    </div>
+
+  </div><!-- /slides -->
+
+  <!-- 하단 네비게이션 -->
+  <div class="bottom-nav" id="bottomNav">
+    <button class="btn-back" id="btnBack" onclick="goBack()" disabled>←</button>
+    <button class="btn-next" id="btnNext" disabled onclick="goNext()">다음</button>
+  </div>
+
+</div><!-- /app -->
+
+<!-- 우대금리 상한 토스트 -->
+<div class="pref-toast" id="prefToast">
+  <span class="pref-toast-icon">🚫</span>우대금리 상한을 초과할 수 없어요
 </div>
-<script>
-  async function runTest() {
-    const btn = document.getElementById('btn');
-    const result = document.getElementById('result');
-    btn.disabled = true;
-    btn.textContent = '테스트 중...';
-    result.style.color = 'rgba(255,255,255,0.4)';
-    result.textContent = '요청 보내는 중...';
-    try {
-      const res = await fetch('/.netlify/functions/reb-proxy');
-      const data = await res.json();
-      result.style.color = '#30d158';
-      result.textContent = '✅ 성공! 프록시 정상 작동\n\n' + JSON.stringify(data, null, 2).slice(0, 300) + '...';
-    } catch (e) {
-      result.style.color = '#ff453a';
-      result.textContent = '❌ 실패: ' + e.message;
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '다시 테스트';
-    }
-  }
-</script>
+
+<!-- 상환 스케줄 바텀시트 -->
+<div class="sch-sheet-overlay" id="schOverlay" onclick="closeScheduleSheet()"></div>
+<div class="sch-sheet" id="schSheet">
+  <div class="sch-sheet-handle"></div>
+  <div class="sch-sheet-head">
+    <div class="sch-sheet-title-row">
+      <span class="sch-sheet-title">월별 상환 스케줄</span>
+      <button class="sch-sheet-close" onclick="closeScheduleSheet()">✕</button>
+    </div>
+  </div>
+  <div class="sch-sheet-summary">
+    <div class="sch-sheet-summary-card">
+      <div class="sch-sheet-summary-label">총 납입액</div>
+      <div class="sch-sheet-summary-val" id="schSumPay">—</div>
+    </div>
+    <div class="sch-sheet-summary-card">
+      <div class="sch-sheet-summary-label">총 이자</div>
+      <div class="sch-sheet-summary-val" id="schSumInt" style="color:#ff9f0a">—</div>
+    </div>
+  </div>
+  <div class="sch-sheet-sub" id="schSubLabel"></div>
+  <div class="sch-sheet-divider"></div>
+  <div class="sch-sheet-body">
+    <table class="sch-sheet-table">
+      <thead><tr><th>회차</th><th>원금</th><th>이자</th><th>납입액</th><th>잔액</th></tr></thead>
+      <tbody id="schTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="calculator.js"></script>
+
 </body>
 </html>
