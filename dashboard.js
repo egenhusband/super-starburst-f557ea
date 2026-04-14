@@ -272,12 +272,4 @@ function formatManwon(val) {
   return `${val.toLocaleString()}만원`;
 }
 
-// ── 진입점: showDashboard() 호출 시 실행 ─────────────
-const _origShowDashboard = window.showDashboard;
-window.showDashboard = function() {
-  if (_origShowDashboard) _origShowDashboard();
-  const screen = document.getElementById('dashboardScreen');
-  if (screen && screen.innerHTML.trim() === '') {
-    initDashboard();
-  }
-};
+// ── 진입점: showDashboard()에서 initDashboard() 호출됨 ─

@@ -329,6 +329,10 @@
     document.getElementById('slidesContainer').style.display = 'none';
     document.getElementById('bottomNav').style.display = 'none';
     document.getElementById('progressWrap').style.display = 'none';
+    if (typeof initDashboard === 'function') {
+      const screen = document.getElementById('dashboardScreen');
+      if (screen && screen.innerHTML.trim() === '') initDashboard();
+    }
   }
   function showCalculator() {
     document.getElementById('dashboardScreen').style.display = 'none';
