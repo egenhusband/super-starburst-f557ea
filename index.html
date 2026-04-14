@@ -26,7 +26,7 @@
     flex-direction: column;
     gap: 20px;
   }
-  h1 { font-size: 18px; font-weight: 600; color: #fff; }
+  h1 { font-size: 18px; font-weight: 600; }
   .url {
     font-size: 11px;
     color: rgba(255,255,255,0.35);
@@ -51,40 +51,39 @@
   button:active { opacity: 0.7; }
   button:disabled { opacity: 0.4; cursor: default; }
   #result {
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 13px;
+    line-height: 1.7;
     min-height: 40px;
     text-align: center;
     color: rgba(255,255,255,0.4);
+    white-space: pre-wrap;
+    word-break: break-all;
   }
 </style>
 </head>
 <body>
 <div class="card">
-  <h1>🔍 CORS 테스트</h1>
-  <div class="url">https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do?KEY=011e9c482bc2432198b0ac0a8cec2f1b&Type=json&pIndex=1&pSize=3&STATBL_ID=A_2024_00016&DTACYCLE_CD=MM</div>
+  <h1>🔍 Netlify 프록시 테스트</h1>
+  <div class="url">/.netlify/functions/reb-proxy</div>
   <button id="btn" onclick="runTest()">테스트 시작</button>
   <div id="result">버튼을 누르면 결과가 표시돼요</div>
 </div>
-
 <script>
   async function runTest() {
     const btn = document.getElementById('btn');
     const result = document.getElementById('result');
-
     btn.disabled = true;
     btn.textContent = '테스트 중...';
     result.style.color = 'rgba(255,255,255,0.4)';
     result.textContent = '요청 보내는 중...';
-
     try {
-      const res = await fetch('https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do?KEY=011e9c482bc2432198b0ac0a8cec2f1b&Type=json&pIndex=1&pSize=3&STATBL_ID=A_2024_00016&DTACYCLE_CD=MM');
+      const res = await fetch('/.netlify/functions/reb-proxy');
       const data = await res.json();
       result.style.color = '#30d158';
-      result.textContent = '✅ CORS 허용! 브라우저에서 바로 연동 가능해요.';
+      result.textContent = '✅ 성공! 프록시 정상 작동\n\n' + JSON.stringify(data, null, 2).slice(0, 300) + '...';
     } catch (e) {
       result.style.color = '#ff453a';
-      result.textContent = '❌ CORS 차단 → Netlify Functions 프록시 필요\n' + e.message;
+      result.textContent = '❌ 실패: ' + e.message;
     } finally {
       btn.disabled = false;
       btn.textContent = '다시 테스트';
