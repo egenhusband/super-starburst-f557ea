@@ -2966,11 +2966,7 @@
   const CORRECT_PW = 'egenhusband^^';
   let isGuestMode  = false;
 
-  // 이미 인증된 경우 비밀번호 화면 즉시 숨김
-  if (localStorage.getItem('authVerified') === '1') {
-    document.getElementById('pwScreen').style.display = 'none';
-    showDashboard();
-  }
+  // 초기 진입 처리는 dashboard.js 로드 후 실행됨
 
   function submitPassword() {
     const val = document.getElementById('pwInput').value;

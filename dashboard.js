@@ -273,3 +273,11 @@ function formatManwon(val) {
 }
 
 // ── 진입점: showDashboard()에서 initDashboard() 호출됨 ─
+
+// 모든 스크립트 로드 완료 후 실행
+(function() {
+  if (localStorage.getItem('authVerified') === '1') {
+    document.getElementById('pwScreen').style.display = 'none';
+    showDashboard();
+  }
+})();
