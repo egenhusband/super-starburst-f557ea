@@ -107,6 +107,29 @@ function onGuChange() {
   loadDashboardData();
 }
 
+// ── 캐시 ─────────────────────────────────────────────
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24시간
+
+function cacheKey(sido, gu) {
+  return `db_cache_${sido}_${gu}`;
+}
+
+function getCache(sido, gu) {
+  try {
+    const raw = localStorage.getItem(cacheKey(sido, gu));
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(cacheKey(sido, gu)); return null; }
+    return data;
+  } catch { return null; }
+}
+
+function setCache(sido, gu, data) {
+  try {
+    localStorage.setItem(cacheKey(sido, gu), JSON.stringify({ ts: Date.now(), data }));
+  } catch {}
+}
+
 // ── API 호출 ─────────────────────────────────────────
 async function fetchStat(statblId, pSize) {
   const params = new URLSearchParams({
@@ -124,6 +147,16 @@ async function loadDashboardData() {
   const content = document.getElementById('dbContent');
   const loading = document.getElementById('dbLoading');
   content.style.display = 'none';
+
+  // 캐시 확인
+  const cached = getCache(selectedSido, selectedGu);
+  if (cached) {
+    renderFacts(cached.buyData, cached.jeonseData, cached.avgPriceData, cached.avgJeonseData);
+    renderChart(cached.priceData);
+    content.style.display = 'block';
+    return;
+  }
+
   loading.style.display = 'flex';
 
   try {
@@ -134,6 +167,9 @@ async function loadDashboardData() {
       fetchStat(STAT.avgPrice, 2),
       fetchStat(STAT.avgJeonse, 2),
     ]);
+
+    // 캐시 저장
+    setCache(selectedSido, selectedGu, { priceData, buyData, jeonseData, avgPriceData, avgJeonseData });
 
     renderFacts(buyData, jeonseData, avgPriceData, avgJeonseData);
     renderChart(priceData);
