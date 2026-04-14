@@ -10,6 +10,9 @@
 <body>
 <div class="app">
 
+  <!-- 대시보드 -->
+  <div id="dashboardScreen" style="display:none"></div>
+
   <!-- 비밀번호 진입 화면 -->
   <div class="pw-screen" id="pwScreen">
     <div style="width:100%;max-width:390px;display:flex;flex-direction:column;align-items:center">
@@ -321,6 +324,21 @@
 </div>
 
 <script src="calculator.js"></script>
+<script src="dashboard.js"></script>
+<script>
+  function showDashboard() {
+    document.getElementById('dashboardScreen').style.display = 'block';
+    document.getElementById('slidesContainer').style.display = 'none';
+    document.getElementById('bottomNav').style.display = 'none';
+    document.getElementById('progressWrap').style.display = 'none';
+  }
+  function showCalculator() {
+    document.getElementById('dashboardScreen').style.display = 'none';
+    document.getElementById('slidesContainer').style.display = '';
+    document.getElementById('bottomNav').style.display = 'flex';
+    document.getElementById('progressWrap').style.display = 'block';
+  }
+</script>
 
 <!-- 우대금리 상한 토스트 -->
 <div class="pref-toast" id="prefToast">

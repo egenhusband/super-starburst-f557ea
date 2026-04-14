@@ -124,7 +124,7 @@
   }
 
   function goBack() {
-    if (current === 0) return;
+    if (current === 0) { showDashboard(); return; }
     navigateTo(current - 1);
   }
 
@@ -2954,11 +2954,12 @@
     current = 0;
     allSlides[0].classList.add('active');
 
-    document.getElementById('bottomNav').style.display = 'flex';
-    document.getElementById('progressWrap').style.display = 'block';
+    document.getElementById('bottomNav').style.display = 'none';
+    document.getElementById('progressWrap').style.display = 'none';
     setProgress(0);
-    document.getElementById('btnBack').disabled = true;
+    document.getElementById('btnBack').disabled = false;
     document.getElementById('btnNext').disabled = true;
+    showDashboard();
   }
 
   // ── 비밀번호 & 게스트 모드 ──
@@ -2968,6 +2969,7 @@
   // 이미 인증된 경우 비밀번호 화면 즉시 숨김
   if (localStorage.getItem('authVerified') === '1') {
     document.getElementById('pwScreen').style.display = 'none';
+    showDashboard();
   }
 
   function submitPassword() {
@@ -2977,6 +2979,7 @@
       localStorage.setItem('authVerified', '1');
       document.getElementById('pwScreen').style.display = 'none';
       document.getElementById('pwErr').textContent = '';
+      showDashboard();
     } else {
       document.getElementById('pwErr').textContent = '비밀번호가 올바르지 않아요.';
       document.getElementById('pwInput').value = '';
@@ -2993,6 +2996,7 @@
     const hasResult = (resultContent && resultContent.innerHTML.trim() !== '') ||
                       (bankResultArea && bankResultArea.innerHTML.trim() !== '');
     if (hasResult) setTimeout(showPayPopup, 200);
+    else showDashboard();
   }
 
   // ── 결제 팝업 ──
