@@ -171,6 +171,10 @@ async function loadDashboardData() {
     // 캐시 저장
     setCache(selectedSido, selectedGu, { priceData, buyData, jeonseData, avgPriceData, avgJeonseData });
 
+    // ── 임시 디버그 ──
+    document.getElementById("dbFacts").innerHTML = "<div style=\"font-size:11px;color:#aaa;word-break:break-all;line-height:1.6;background:#111;padding:12px;border-radius:10px\"><b>응답 키:</b> " + Object.keys(buyData).join(", ") + "<br><b>raw:</b> " + JSON.stringify(buyData).slice(0, 400) + "</div>";
+    // ── 디버그 끝 ──
+
     renderFacts(buyData, jeonseData, avgPriceData, avgJeonseData);
     renderChart(priceData);
 
