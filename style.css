@@ -2231,3 +2231,175 @@
   transition: opacity 0.18s;
 }
 .db-cta:active { opacity: 0.8; }
+
+/* ── 대시보드 (신규) ────────────────────────────────── */
+.db-wrap {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 48px 20px max(env(safe-area-inset-bottom), 24px);
+  overflow-y: auto;
+  gap: 20px;
+}
+.db-title {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.db-sub {
+  font-size: 13px;
+  color: var(--label2);
+  margin-top: 5px;
+  font-weight: 300;
+}
+
+/* 지역 그리드 */
+.db-region-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.db-region-btn {
+  height: 44px;
+  background: var(--bg3);
+  border: 1.5px solid var(--separator);
+  border-radius: 12px;
+  color: var(--label2);
+  font-family: 'Pretendard Variable', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.db-region-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.db-region-btn:active { transform: scale(0.97); }
+
+/* 팩트 카드 */
+.db-facts-title {
+  font-size: 11px;
+  color: var(--label3);
+  margin-bottom: 10px;
+  letter-spacing: 0.3px;
+}
+.db-facts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.db-fact-card {
+  background: var(--bg3);
+  border: 1.5px solid var(--separator);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.db-fact-label {
+  font-size: 11px;
+  color: var(--label3);
+  margin-bottom: 5px;
+}
+.db-fact-val {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--label1);
+  letter-spacing: -0.3px;
+}
+.db-fact-desc {
+  font-size: 11px;
+  color: var(--label3);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+/* 차트 */
+.db-chart-wrap {
+  background: var(--bg3);
+  border: 1.5px solid var(--separator);
+  border-radius: 14px;
+  padding: 16px;
+}
+.db-chart-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.db-chart-tabs, .db-period-tabs {
+  display: flex;
+  gap: 4px;
+}
+.db-chart-tab, .db-period-tab {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--separator);
+  background: transparent;
+  color: var(--label3);
+  font-family: 'Pretendard Variable', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.db-chart-tab.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.db-period-tab.active {
+  background: var(--bg4);
+  border-color: var(--label3);
+  color: var(--label1);
+  font-weight: 600;
+}
+.db-chart-unit {
+  font-size: 10px;
+  color: var(--label3);
+  margin-top: 10px;
+  text-align: right;
+}
+
+/* 로딩 */
+.db-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+.db-loading-dot {
+  width: 8px; height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: dbPulse 1s ease-in-out infinite;
+}
+@keyframes dbPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.db-error {
+  font-size: 14px;
+  color: var(--label2);
+  text-align: center;
+  padding: 24px 0;
+  line-height: 1.6;
+}
+
+.db-cta-wrap { margin-top: auto; }
+.db-cta {
+  width: 100%;
+  height: 52px;
+  background: var(--accent);
+  border: none;
+  border-radius: 14px;
+  color: white;
+  font-family: 'Pretendard Variable', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.18s;
+}
+.db-cta:active { opacity: 0.8; }

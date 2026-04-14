@@ -1,67 +1,139 @@
 // ── 대시보드 ──────────────────────────────────────────
 
-const REGIONS = {
-  '서울특별시': ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구','노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구','성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'],
-  '부산광역시': ['강서구','금정구','기장군','남구','동구','동래구','부산진구','북구','사상구','사하구','서구','수영구','연제구','영도구','중구','해운대구'],
-  '대구광역시': ['군위군','남구','달서구','달성군','동구','북구','서구','수성구','중구'],
-  '인천광역시': ['강화군','계양구','남동구','동구','미추홀구','부평구','서구','연수구','옹진군','중구'],
-  '광주광역시': ['광산구','남구','동구','북구','서구'],
-  '대전광역시': ['대덕구','동구','서구','유성구','중구'],
-  '울산광역시': ['남구','동구','북구','울주군','중구'],
-  '세종특별자치시': ['세종시'],
-  '경기도': ['가평군','고양시','과천시','광명시','광주시','구리시','군포시','김포시','남양주시','동두천시','부천시','성남시','수원시','시흥시','안산시','안성시','안양시','양주시','양평군','여주시','연천군','오산시','용인시','의왕시','의정부시','이천시','파주시','평택시','포천시','하남시','화성시'],
-  '강원특별자치도': ['강릉시','고성군','동해시','삼척시','속초시','양구군','양양군','영월군','원주시','인제군','정선군','철원군','춘천시','태백시','평창군','홍천군','화천군','횡성군'],
-  '충청북도': ['괴산군','단양군','보은군','영동군','옥천군','음성군','제천시','증평군','진천군','청주시','충주시'],
-  '충청남도': ['계룡시','공주시','금산군','논산시','당진시','보령시','부여군','서산시','서천군','아산시','예산군','천안시','청양군','태안군','홍성군'],
-  '전북특별자치도': ['고창군','군산시','김제시','남원시','무주군','부안군','순창군','완주군','익산시','임실군','장수군','전주시','정읍시','진안군'],
-  '전라남도': ['강진군','고흥군','곡성군','광양시','구례군','나주시','담양군','목포시','무안군','보성군','순천시','신안군','여수시','영광군','영암군','완도군','장성군','장흥군','진도군','함평군','해남군','화순군'],
-  '경상북도': ['경산시','경주시','고령군','구미시','군위군','김천시','문경시','봉화군','상주시','성주군','안동시','영덕군','영양군','영주시','영천시','예천군','울릉군','울진군','의성군','청도군','청송군','칠곡군','포항시'],
-  '경상남도': ['거제시','거창군','고성군','김해시','남해군','밀양시','사천시','산청군','양산시','의령군','진주시','창녕군','창원시','통영시','하동군','함안군','함양군','합천군'],
-  '제주특별자치도': ['서귀포시','제주시'],
-};
+// CLS_ID 매핑 (시/도)
+const REGION_MAP = [
+  { id: 500001, name: '전국' },
+  { id: 500004, name: '서울' },
+  { id: 500012, name: '경기' },
+  { id: 500007, name: '인천' },
+  { id: 500005, name: '부산' },
+  { id: 500006, name: '대구' },
+  { id: 500008, name: '광주' },
+  { id: 500009, name: '대전' },
+  { id: 500010, name: '울산' },
+  { id: 500011, name: '세종' },
+  { id: 500013, name: '강원' },
+  { id: 500014, name: '충북' },
+  { id: 500015, name: '충남' },
+  { id: 500016, name: '전북' },
+  { id: 500017, name: '전남' },
+  { id: 500018, name: '경북' },
+  { id: 500019, name: '경남' },
+  { id: 500020, name: '제주' },
+];
+
+// 수급동향 CLS_ID (A_2024_00076 기준)
+const DEMAND_REGION_MAP = [
+  { id: 100001, name: '전국' },
+  { id: 100004, name: '서울' },
+  { id: 100012, name: '경기' },
+  { id: 100007, name: '인천' },
+  { id: 100005, name: '부산' },
+  { id: 100006, name: '대구' },
+  { id: 100008, name: '광주' },
+  { id: 100009, name: '대전' },
+  { id: 100010, name: '울산' },
+  { id: 100011, name: '세종' },
+  { id: 100013, name: '강원' },
+  { id: 100014, name: '충북' },
+  { id: 100015, name: '충남' },
+  { id: 100016, name: '전북' },
+  { id: 100017, name: '전남' },
+  { id: 100018, name: '경북' },
+  { id: 100019, name: '경남' },
+  { id: 100020, name: '제주' },
+];
 
 const PROXY_BASE = '/.netlify/functions/reb-proxy';
 
 const STAT = {
-  priceIndex:  'A_2024_00178',
-  buyDemand:   'A_2024_00076',
-  jenseDemand: 'A_2024_00077',
-  avgPrice:    'A_2024_00188',
-  avgJeonse:   'A_2024_00192',
+  avgPrice:    'A_2024_00188', // 지역별 매매 평균가격_아파트 (만원/㎡)
+  avgJeonse:   'A_2024_00192', // 지역별 전세 평균가격_아파트 (만원/㎡)
+  buyDemand:   'A_2024_00076', // 매매수급동향_아파트
+  jenseDemand: 'A_2024_00077', // 전세수급동향_아파트
+  priceIndex:  'A_2024_00178', // 지역별 매매지수_아파트
+  jeonseIndex: 'A_2024_00182', // 지역별 전세지수_아파트
 };
 
+// 최근 N개월 날짜 범위 계산
+function getDateRange(months) {
+  const now = new Date();
+  const end = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const start = new Date(now.getFullYear(), now.getMonth() - months, 1);
+  const startStr = `${start.getFullYear()}${String(start.getMonth() + 1).padStart(2, '0')}`;
+  return { start: startStr, end };
+}
+
 let chart = null;
-let selectedSido = '';
-let selectedGu = '';
+let selectedClsId = 500001; // 기본값: 전국
+let selectedName  = '전국';
+let chartMode     = 'buy';  // 'buy' | 'jeonse'
+let chartPeriod   = 12;     // 개월
+let allPriceData  = null;   // 캐시된 전체 데이터
+let allJeonseData = null;
+
+// ── 캐시 ─────────────────────────────────────────────
+const CACHE_TTL = 24 * 60 * 60 * 1000;
+
+function getCache(key) {
+  try {
+    const raw = localStorage.getItem('db_' + key);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem('db_' + key); return null; }
+    return data;
+  } catch { return null; }
+}
+
+function setCache(key, data) {
+  try { localStorage.setItem('db_' + key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+}
 
 // ── 대시보드 초기화 ──────────────────────────────────
 function initDashboard() {
   const screen = document.getElementById('dashboardScreen');
+
+  const regionBtns = REGION_MAP.map(r => `
+    <button class="db-region-btn${r.id === 500001 ? ' active' : ''}"
+      data-id="${r.id}" data-name="${r.name}"
+      onclick="selectRegion(${r.id}, '${r.name}')">
+      ${r.name}
+    </button>`).join('');
+
   screen.innerHTML = `
     <div class="db-wrap">
       <div class="db-header">
         <div class="db-title">내 동네 부동산</div>
         <div class="db-sub">지역을 선택하면 최근 시장 현황을 보여드려요</div>
       </div>
-      <div class="db-region">
-        <select class="db-select" id="dbSido" onchange="onSidoChange()">
-          <option value="">시/도 선택</option>
-          ${Object.keys(REGIONS).map(r => `<option value="${r}">${r}</option>`).join('')}
-        </select>
-        <select class="db-select" id="dbGu" disabled onchange="onGuChange()">
-          <option value="">시/군/구 선택</option>
-        </select>
-      </div>
+
+      <div class="db-region-grid">${regionBtns}</div>
+
       <div class="db-loading" id="dbLoading" style="display:none">
         <div class="db-loading-dot"></div>
       </div>
+
       <div class="db-content" id="dbContent" style="display:none">
         <div class="db-facts" id="dbFacts"></div>
+
         <div class="db-chart-wrap">
-          <div class="db-chart-label">매매가격지수 추이 (최근 12개월)</div>
+          <div class="db-chart-top">
+            <div class="db-chart-tabs">
+              <button class="db-chart-tab active" onclick="switchChartMode('buy', this)">매매</button>
+              <button class="db-chart-tab" onclick="switchChartMode('jeonse', this)">전세</button>
+            </div>
+            <div class="db-period-tabs">
+              <button class="db-period-tab" onclick="switchPeriod(1, this)">1개월</button>
+              <button class="db-period-tab" onclick="switchPeriod(6, this)">6개월</button>
+              <button class="db-period-tab active" onclick="switchPeriod(12, this)">1년</button>
+              <button class="db-period-tab" onclick="switchPeriod(36, this)">3년</button>
+            </div>
+          </div>
           <canvas id="dbChart"></canvas>
+          <div class="db-chart-unit">평균 평당가 (만원/평) · 한국부동산원</div>
         </div>
       </div>
+
       <div class="db-cta-wrap">
         <button class="db-cta" onclick="showCalculator()">내 조건으로 대출 알아보기 →</button>
       </div>
@@ -73,178 +145,184 @@ function initDashboard() {
     s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
     document.head.appendChild(s);
   }
-}
 
-function onSidoChange() {
-  selectedSido = document.getElementById('dbSido').value;
-  const guSel = document.getElementById('dbGu');
-  guSel.innerHTML = '<option value="">시/군/구 선택</option>';
-  document.getElementById('dbContent').style.display = 'none';
-  if (!selectedSido) { guSel.disabled = true; return; }
-  guSel.disabled = false;
-  REGIONS[selectedSido].forEach(g => {
-    const opt = document.createElement('option');
-    opt.value = g; opt.textContent = g;
-    guSel.appendChild(opt);
-  });
-}
-
-function onGuChange() {
-  selectedGu = document.getElementById('dbGu').value;
-  if (!selectedGu) return;
   loadDashboardData();
 }
 
-// ── 캐시 ─────────────────────────────────────────────
-const CACHE_TTL = 24 * 60 * 60 * 1000;
+// ── 지역 선택 ─────────────────────────────────────────
+function selectRegion(clsId, name) {
+  selectedClsId = clsId;
+  selectedName  = name;
 
-function cacheKey(sido, gu) { return `db_cache_${sido}_${gu}`; }
-
-function getCache(sido, gu) {
-  try {
-    const raw = localStorage.getItem(cacheKey(sido, gu));
-    if (!raw) return null;
-    const { ts, data } = JSON.parse(raw);
-    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem(cacheKey(sido, gu)); return null; }
-    return data;
-  } catch { return null; }
-}
-
-function setCache(sido, gu, data) {
-  try { localStorage.setItem(cacheKey(sido, gu), JSON.stringify({ ts: Date.now(), data })); } catch {}
-}
-
-// ── API 호출 ─────────────────────────────────────────
-async function fetchStat(statblId, pSize) {
-  const params = new URLSearchParams({
-    STATBL_ID: statblId,
-    DTACYCLE_CD: 'MM',
-    pSize: pSize || 13,
+  document.querySelectorAll('.db-region-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.id) === clsId);
   });
-  const res = await fetch(`${PROXY_BASE}?${params}`);
-  return await res.json();
-}
 
-// ── 데이터 추출 헬퍼 ─────────────────────────────────
-function extractRows(data) {
-  // 가능한 응답 구조 모두 시도
-  try {
-    const candidates = [
-      data?.SttsApiTblData?.[1]?.row,
-      data?.SttsApiTblData?.[0]?.row,
-      data?.result?.row,
-      data?.row,
-    ];
-    for (const rows of candidates) {
-      if (Array.isArray(rows) && rows.length > 0) return rows;
-    }
-  } catch {}
-  return null;
-}
-
-function extractLatestValue(data) {
-  try {
-    const rows = extractRows(data);
-    if (!rows) return null;
-    return parseFloat(rows[0].DTA_VAL);
-  } catch { return null; }
-}
-
-function extractChartRows(data) {
-  try {
-    const rows = extractRows(data);
-    if (!rows) return [];
-    return rows.slice(0, 12).map(r => ({
-      period: r.WRTTIME_IDTFR_ID,
-      value: parseFloat(r.DTA_VAL),
-    }));
-  } catch { return []; }
+  renderFacts();
+  renderChart();
 }
 
 // ── 데이터 로드 ───────────────────────────────────────
 async function loadDashboardData() {
-  const content = document.getElementById('dbContent');
   const loading = document.getElementById('dbLoading');
+  const content = document.getElementById('dbContent');
+  loading.style.display = 'flex';
   content.style.display = 'none';
 
-  const cached = getCache(selectedSido, selectedGu);
+  // 캐시 확인
+  const cached = getCache('main');
   if (cached) {
-    renderFacts(cached.buyData, cached.jeonseData, cached.avgPriceData, cached.avgJeonseData);
-    renderChart(cached.priceData);
+    allPriceData  = cached.priceData;
+    allJeonseData = cached.jeonseData;
+    allBuyDemand  = cached.buyDemand;
+    allJenseDemand = cached.jenseDemand;
+    loading.style.display = 'none';
     content.style.display = 'block';
+    renderFacts();
+    renderChart();
     return;
   }
 
-  loading.style.display = 'flex';
-
   try {
-    const [priceData, buyData, jeonseData, avgPriceData, avgJeonseData] = await Promise.all([
-      fetchStat(STAT.priceIndex, 13),
-      fetchStat(STAT.buyDemand, 3),
-      fetchStat(STAT.jenseDemand, 3),
-      fetchStat(STAT.avgPrice, 2),
-      fetchStat(STAT.avgJeonse, 2),
+    const { start, end } = getDateRange(37); // 3년 + 여유
+
+    const [priceRes, jeonseRes, buyRes, jeonseReq] = await Promise.all([
+      fetchStat(STAT.avgPrice,    500, start, end),
+      fetchStat(STAT.avgJeonse,   500, start, end),
+      fetchStat(STAT.buyDemand,   500, start, end),
+      fetchStat(STAT.jenseDemand, 500, start, end),
     ]);
 
-    setCache(selectedSido, selectedGu, { priceData, buyData, jeonseData, avgPriceData, avgJeonseData });
+    allPriceData   = extractRows(priceRes);
+    allJeonseData  = extractRows(jeonseRes);
+    allBuyDemand   = extractRows(buyRes);
+    allJenseDemand = extractRows(jeonseReq);
 
-    renderFacts(buyData, jeonseData, avgPriceData, avgJeonseData);
-    renderChart(priceData);
+    setCache('main', {
+      priceData:  allPriceData,
+      jeonseData: allJeonseData,
+      buyDemand:  allBuyDemand,
+      jenseDemand: allJenseDemand,
+    });
 
     loading.style.display = 'none';
     content.style.display = 'block';
+    renderFacts();
+    renderChart();
   } catch (e) {
     loading.style.display = 'none';
-    document.getElementById('dbFacts').innerHTML = `<div class="db-error">데이터를 불러오지 못했어요.<br>${e.message}</div>`;
+    content.innerHTML = `<div class="db-error">데이터를 불러오지 못했어요.<br>${e.message}</div>`;
     content.style.display = 'block';
   }
 }
 
-// ── 팩트 카드 렌더 ───────────────────────────────────
-function renderFacts(buyData, jeonseData, avgPriceData, avgJeonseData) {
-  const buyVal    = extractLatestValue(buyData);
-  const jeonseVal = extractLatestValue(jeonseData);
-  const avgPrice  = extractLatestValue(avgPriceData);
-  const avgJeonse = extractLatestValue(avgJeonseData);
+let allBuyDemand   = null;
+let allJenseDemand = null;
 
-  document.getElementById('dbFacts').innerHTML = `
-    <div class="db-facts-title">${selectedSido} ${selectedGu} · 아파트 기준</div>
+// ── API 호출 ─────────────────────────────────────────
+async function fetchStat(statblId, pSize, start, end) {
+  const params = new URLSearchParams({
+    STATBL_ID: statblId,
+    DTACYCLE_CD: 'MM',
+    pSize: pSize || 500,
+  });
+  if (start) params.set('START_WRTTIME', start);
+  if (end)   params.set('END_WRTTIME',   end);
+  const res = await fetch(`${PROXY_BASE}?${params}`);
+  return await res.json();
+}
+
+function extractRows(data) {
+  try {
+    const rows = data?.SttsApiTblData?.[1]?.row;
+    return Array.isArray(rows) ? rows : [];
+  } catch { return []; }
+}
+
+// ── 지역 필터 ─────────────────────────────────────────
+function filterByRegion(rows, clsId) {
+  return rows.filter(r => r.CLS_ID === clsId);
+}
+
+// ── 팩트 카드 렌더 ───────────────────────────────────
+function renderFacts() {
+  const facts = document.getElementById('dbFacts');
+  if (!facts || !allPriceData) return;
+
+  // 최신 데이터 1개
+  const priceRows  = filterByRegion(allPriceData,   selectedClsId);
+  const jeonseRows = filterByRegion(allJeonseData,  selectedClsId);
+  const buyRows    = filterByRegion(allBuyDemand,   selectedClsId);
+  const jeonseReqRows = filterByRegion(allJenseDemand, selectedClsId);
+
+  const latestPrice  = priceRows.length  ? priceRows[priceRows.length - 1].DTA_VAL  : null;
+  const latestJeonse = jeonseRows.length ? jeonseRows[jeonseRows.length - 1].DTA_VAL : null;
+  const latestBuy    = buyRows.length    ? buyRows[buyRows.length - 1].DTA_VAL       : null;
+  const latestJReq   = jeonseReqRows.length ? jeonseReqRows[jeonseReqRows.length - 1].DTA_VAL : null;
+
+  facts.innerHTML = `
+    <div class="db-facts-title">${selectedName} · 아파트 기준</div>
     <div class="db-facts-grid">
       <div class="db-fact-card">
-        <div class="db-fact-label">매수 수급</div>
-        <div class="db-fact-val">${buyVal ? demandLabel(buyVal) : '—'}</div>
+        <div class="db-fact-label">매매 시장</div>
+        <div class="db-fact-val">${demandLabel(latestBuy)}</div>
+        <div class="db-fact-desc">${demandDesc(latestBuy, '매매')}</div>
       </div>
       <div class="db-fact-card">
-        <div class="db-fact-label">전세 수급</div>
-        <div class="db-fact-val">${jeonseVal ? demandLabel(jeonseVal) : '—'}</div>
+        <div class="db-fact-label">전세 시장</div>
+        <div class="db-fact-val">${demandLabel(latestJReq)}</div>
+        <div class="db-fact-desc">${demandDesc(latestJReq, '전세')}</div>
       </div>
       <div class="db-fact-card">
-        <div class="db-fact-label">평균 매매가</div>
-        <div class="db-fact-val">${avgPrice ? formatManwon(avgPrice) : '—'}</div>
+        <div class="db-fact-label">평균 매매가 (25평)</div>
+        <div class="db-fact-val">${formatPrice(latestPrice)}</div>
       </div>
       <div class="db-fact-card">
-        <div class="db-fact-label">평균 전세가</div>
-        <div class="db-fact-val">${avgJeonse ? formatManwon(avgJeonse) : '—'}</div>
+        <div class="db-fact-label">평균 전세가 (25평)</div>
+        <div class="db-fact-val">${formatPrice(latestJeonse)}</div>
       </div>
     </div>
   `;
 }
 
-// ── 차트 렌더 ────────────────────────────────────────
-function renderChart(priceData) {
-  const rows = extractChartRows(priceData);
-  if (!rows || rows.length === 0) return;
+// ── 차트 모드/기간 전환 ──────────────────────────────
+function switchChartMode(mode, btn) {
+  chartMode = mode;
+  document.querySelectorAll('.db-chart-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderChart();
+}
 
-  const labels = rows.map(r => r.period).reverse();
-  const values = rows.map(r => r.value).reverse();
+function switchPeriod(months, btn) {
+  chartPeriod = months;
+  document.querySelectorAll('.db-period-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderChart();
+}
+
+// ── 차트 렌더 ────────────────────────────────────────
+function renderChart() {
+  const ctx = document.getElementById('dbChart');
+  if (!ctx || !window.Chart) { setTimeout(renderChart, 300); return; }
+
+  const sourceRows = chartMode === 'buy' ? allPriceData : allJeonseData;
+  if (!sourceRows) return;
+
+  const filtered = filterByRegion(sourceRows, selectedClsId)
+    .filter(r => r.DTA_VAL !== null)
+    .slice(-chartPeriod);
+
+  const labels = filtered.map(r => r.WRTTIME_DESC.replace('년 ', '.').replace('월', ''));
+  const values = filtered.map(r => {
+    // 만원/㎡ → 만원/평 (×3.3058), 25평 기준 총액
+    const perPyeong = r.DTA_VAL * 3.3058;
+    return Math.round(perPyeong);
+  });
+
+  const color = chartMode === 'buy' ? '#0a84ff' : '#30d158';
+  const bgColor = chartMode === 'buy' ? 'rgba(10,132,255,0.08)' : 'rgba(48,209,88,0.08)';
 
   if (chart) { chart.destroy(); chart = null; }
-
-  const ctx = document.getElementById('dbChart');
-  if (!ctx || !window.Chart) {
-    setTimeout(() => renderChart(priceData), 500);
-    return;
-  }
 
   chart = new Chart(ctx, {
     type: 'line',
@@ -252,21 +330,42 @@ function renderChart(priceData) {
       labels,
       datasets: [{
         data: values,
-        borderColor: '#0a84ff',
-        backgroundColor: 'rgba(10,132,255,0.08)',
+        borderColor: color,
+        backgroundColor: bgColor,
         borderWidth: 2,
-        pointRadius: 3,
-        pointBackgroundColor: '#0a84ff',
+        pointRadius: chartPeriod <= 6 ? 4 : 2,
+        pointBackgroundColor: color,
         fill: true,
         tension: 0.3,
       }]
     },
     options: {
       responsive: true,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.parsed.y.toLocaleString()}만원/평`
+          }
+        }
+      },
       scales: {
-        x: { ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.06)' } },
-        y: { ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.06)' } }
+        x: {
+          ticks: {
+            color: 'rgba(255,255,255,0.35)',
+            font: { size: 10 },
+            maxTicksLimit: 6,
+          },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+        },
+        y: {
+          ticks: {
+            color: 'rgba(255,255,255,0.35)',
+            font: { size: 10 },
+            callback: v => v.toLocaleString() + '만',
+          },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+        }
       }
     }
   });
@@ -274,18 +373,28 @@ function renderChart(priceData) {
 
 // ── 유틸 ─────────────────────────────────────────────
 function demandLabel(val) {
-  if (val > 100) return '수요 우위 ↑';
-  if (val < 100) return '공급 우위 ↓';
+  if (val === null || val === undefined) return '—';
+  if (val > 100) return '사려는 사람↑';
+  if (val < 100) return '팔려는 사람↑';
   return '균형';
 }
 
-function formatManwon(val) {
+function demandDesc(val, type) {
+  if (val === null || val === undefined) return '';
+  if (val > 100) return `${type}하려는 수요가 더 많아요`;
+  if (val < 100) return `${type} 매물이 더 많아요`;
+  return '수요와 공급이 비슷해요';
+}
+
+function formatPrice(val) {
   if (!val || isNaN(val)) return '—';
-  const 억 = Math.floor(val / 10000);
-  const 만 = Math.round((val % 10000) / 100) * 100;
-  if (억 > 0 && 만 > 0) return `${억}억 ${만.toLocaleString()}만원`;
-  if (억 > 0) return `${억}억원`;
-  return `${val.toLocaleString()}만원`;
+  // 만원/㎡ × 25평(=82.6㎡) → 총액 만원
+  const total = Math.round(val * 82.6 / 10000); // 억 단위
+  const 억 = Math.floor(total);
+  const 천 = Math.round((total - 억) * 10) / 10;
+  if (억 > 0 && 천 > 0) return `약 ${억}억 ${Math.round(천 * 1000).toLocaleString()}만원`;
+  if (억 > 0) return `약 ${억}억원`;
+  return `약 ${Math.round(val * 82.6).toLocaleString()}만원`;
 }
 
 // ── 진입점 ───────────────────────────────────────────
