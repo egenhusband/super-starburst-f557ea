@@ -56,12 +56,10 @@ const STAT = {
 };
 
 // 최근 N개월 날짜 범위 계산
-function getDateRange(months) {
+function getStartDate(months) {
   const now = new Date();
-  const end = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
   const start = new Date(now.getFullYear(), now.getMonth() - months, 1);
-  const startStr = `${start.getFullYear()}${String(start.getMonth() + 1).padStart(2, '0')}`;
-  return { start: startStr, end };
+  return `${start.getFullYear()}${String(start.getMonth() + 1).padStart(2, "0")}`;
 }
 
 let chart = null;
@@ -184,13 +182,13 @@ async function loadDashboardData() {
   }
 
   try {
-    const { start, end } = getDateRange(37); // 3년 + 여유
+    const start = getStartDate(40); // 3년 + 여유
 
     const [priceRes, jeonseRes, buyRes, jeonseReq] = await Promise.all([
-      fetchStat(STAT.avgPrice,    500, start, end),
-      fetchStat(STAT.avgJeonse,   500, start, end),
-      fetchStat(STAT.buyDemand,   500, start, end),
-      fetchStat(STAT.jenseDemand, 500, start, end),
+      fetchStat(STAT.avgPrice,    1500, start),
+      fetchStat(STAT.avgJeonse,   1500, start),
+      fetchStat(STAT.buyDemand,   1500, start),
+      fetchStat(STAT.jenseDemand, 1500, start),
     ]);
 
     allPriceData   = extractRows(priceRes);
@@ -220,14 +218,13 @@ let allBuyDemand   = null;
 let allJenseDemand = null;
 
 // ── API 호출 ─────────────────────────────────────────
-async function fetchStat(statblId, pSize, start, end) {
+async function fetchStat(statblId, pSize, start) {
   const params = new URLSearchParams({
     STATBL_ID: statblId,
     DTACYCLE_CD: 'MM',
-    pSize: pSize || 500,
+    pSize: pSize || 1500,
   });
   if (start) params.set('START_WRTTIME', start);
-  if (end)   params.set('END_WRTTIME',   end);
   const res = await fetch(`${PROXY_BASE}?${params}`);
   return await res.json();
 }
@@ -241,7 +238,9 @@ function extractRows(data) {
 
 // ── 지역 필터 ─────────────────────────────────────────
 function filterByRegion(rows, clsId) {
-  return rows.filter(r => r.CLS_ID === clsId);
+  return rows
+    .filter(r => r.CLS_ID === clsId)
+    .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
 }
 
 // ── 팩트 카드 렌더 ───────────────────────────────────
