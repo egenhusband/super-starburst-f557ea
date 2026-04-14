@@ -217,16 +217,37 @@ async function loadDashboardData() {
 let allBuyDemand   = null;
 let allJenseDemand = null;
 
-// ── API 호출 ─────────────────────────────────────────
+// ── API 호출 (페이지네이션) ──────────────────────────
 async function fetchStat(statblId, pSize, start) {
-  const params = new URLSearchParams({
-    STATBL_ID: statblId,
-    DTACYCLE_CD: 'MM',
-    pSize: pSize || 1500,
-  });
-  if (start) params.set('START_WRTTIME', start);
-  const res = await fetch(`${PROXY_BASE}?${params}`);
-  return await res.json();
+  const fetchPage = async (pIndex) => {
+    const params = new URLSearchParams({
+      STATBL_ID: statblId,
+      DTACYCLE_CD: 'MM',
+      pSize: 1000,
+      pIndex,
+    });
+    if (start) params.set('START_WRTTIME', start);
+    const res = await fetch(`${PROXY_BASE}?${params}`);
+    return await res.json();
+  };
+
+  const page1 = await fetchPage(1);
+  const rows1 = page1?.SttsApiTblData?.[1]?.row || [];
+  const total = page1?.SttsApiTblData?.[0]?.head?.[0]?.list_total_count || 0;
+
+  if (total <= 1000) return page1;
+
+  // 2페이지 이상 필요하면 추가 호출
+  const page2 = await fetchPage(2);
+  const rows2 = page2?.SttsApiTblData?.[1]?.row || [];
+
+  // 두 페이지 합쳐서 반환
+  return {
+    SttsApiTblData: [
+      page1.SttsApiTblData[0],
+      { row: [...rows1, ...rows2] }
+    ]
+  };
 }
 
 function extractRows(data) {
