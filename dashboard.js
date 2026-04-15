@@ -66,7 +66,7 @@ let chart = null;
 let selectedClsId = 500001; // 기본값: 전국
 let selectedName  = '전국';
 let chartMode     = 'buy';  // 'buy' | 'jeonse'
-let chartPeriod   = 12;     // 개월
+let chartPeriod   = 6;      // 개월 (기본: 6개월)
 let allPriceData  = null;   // 캐시된 전체 데이터
 let allJeonseData = null;
 
@@ -121,10 +121,9 @@ function initDashboard() {
               <button class="db-chart-tab" onclick="switchChartMode('jeonse', this)">전세</button>
             </div>
             <div class="db-period-tabs">
-              <button class="db-period-tab" onclick="switchPeriod(1, this)">1개월</button>
-              <button class="db-period-tab" onclick="switchPeriod(6, this)">6개월</button>
-              <button class="db-period-tab active" onclick="switchPeriod(12, this)">1년</button>
-              <button class="db-period-tab" onclick="switchPeriod(36, this)">3년</button>
+              <button class="db-period-tab" onclick="switchPeriod(3, this)">3개월</button>
+              <button class="db-period-tab active" onclick="switchPeriod(6, this)">6개월</button>
+              <button class="db-period-tab" onclick="switchPeriod(12, this)">1년</button>
             </div>
           </div>
           <canvas id="dbChart"></canvas>
@@ -168,7 +167,7 @@ async function loadDashboardData() {
   content.style.display = 'none';
 
   // 캐시 확인
-  const cached = getCache('main');
+  const cached = getCache('main_v2');
   if (cached) {
     allPriceData  = cached.priceData;
     allJeonseData = cached.jeonseData;
@@ -182,7 +181,7 @@ async function loadDashboardData() {
   }
 
   try {
-    const start = getStartDate(40); // 3년 + 여유
+    const start = getStartDate(14); // 1년 + 여유
 
     const [priceRes, jeonseRes, buyRes, jeonseReq] = await Promise.all([
       fetchStat(STAT.avgPrice,    1500, start),
@@ -196,7 +195,7 @@ async function loadDashboardData() {
     allBuyDemand   = extractRows(buyRes);
     allJenseDemand = extractRows(jeonseReq);
 
-    setCache('main', {
+    setCache('main_v2', {
       priceData:  allPriceData,
       jeonseData: allJeonseData,
       buyDemand:  allBuyDemand,
