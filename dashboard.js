@@ -265,42 +265,125 @@ function filterByRegion(rows, clsId) {
     .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
 }
 
+// ── 전월 대비 등락률 계산 ────────────────────────────
+function calcPriceChange(rows) {
+  if (!rows || rows.length < 2) return null;
+  const prev = parseFloat(rows[rows.length - 2].DTA_VAL);
+  const curr = parseFloat(rows[rows.length - 1].DTA_VAL);
+  if (!prev || !curr || isNaN(prev) || isNaN(curr)) return null;
+  return (curr - prev) / prev * 100;
+}
+
+function renderChangeTag(pct) {
+  if (pct === null) return '';
+  const abs = Math.abs(pct).toFixed(2);
+  if (pct > 0)  return `<div class="db-change up">▲ ${abs}% 전월比</div>`;
+  if (pct < 0)  return `<div class="db-change down">▼ ${abs}% 전월比</div>`;
+  return `<div class="db-change flat">— 전월 동일</div>`;
+}
+
+// ── 시장 분위기 요약 생성 ────────────────────────────
+function getMarketSummary(buyVal, priceRows) {
+  // 수급 분위기
+  let demandText = '';
+  if (buyVal !== null && buyVal !== undefined) {
+    const v = parseFloat(buyVal);
+    if (v > 110)      demandText = '매수 수요가 강해요';
+    else if (v > 100) demandText = '매수세가 우세해요';
+    else if (v < 90)  demandText = '매물이 많아요';
+    else if (v < 100) demandText = '매물이 조금 많아요';
+    else              demandText = '수요와 공급이 균형이에요';
+  }
+
+  // 3개월 가격 방향
+  let trendText = '';
+  let trendDir  = 'neutral';
+  if (priceRows && priceRows.length >= 3) {
+    const recent = priceRows.slice(-3).map(r => parseFloat(r.DTA_VAL)).filter(v => !isNaN(v));
+    if (recent.length >= 2) {
+      const change = (recent[recent.length - 1] - recent[0]) / recent[0] * 100;
+      if      (change >  1)   { trendText = '3개월간 가격이 빠르게 오르고 있어요'; trendDir = 'up'; }
+      else if (change >  0.2) { trendText = '3개월간 가격이 오르고 있어요';         trendDir = 'up'; }
+      else if (change < -1)   { trendText = '3개월간 가격이 빠르게 내리고 있어요'; trendDir = 'down'; }
+      else if (change < -0.2) { trendText = '3개월간 가격이 내리고 있어요';         trendDir = 'down'; }
+      else                    { trendText = '가격이 보합세예요';                      trendDir = 'neutral'; }
+    }
+  }
+
+  // 최종 한 줄 코멘트
+  let conclusion = '';
+  const buyNum = buyVal !== null ? parseFloat(buyVal) : 100;
+  if (buyNum > 100 && trendDir === 'up')      conclusion = '지금은 매수 경쟁이 치열한 시장이에요.';
+  else if (buyNum < 100 && trendDir === 'down') conclusion = '지금은 매수자에게 유리한 시장이에요.';
+  else if (buyNum > 100 && trendDir === 'down') conclusion = '수요는 있지만 가격은 조정 중이에요.';
+  else if (buyNum < 100 && trendDir === 'up')   conclusion = '매물은 많지만 가격은 오르고 있어요.';
+  else                                           conclusion = '전반적으로 안정적인 시장 흐름이에요.';
+
+  // 아이콘
+  const icon = trendDir === 'up' ? '📈' : trendDir === 'down' ? '📉' : '📊';
+
+  return { demandText, trendText, conclusion, trendDir, icon };
+}
+
 // ── 팩트 카드 렌더 ───────────────────────────────────
 function renderFacts() {
   const facts = document.getElementById('dbFacts');
   if (!facts || !allPriceData) return;
 
-  // 최신 데이터 1개
-  const priceRows  = filterByRegion(allPriceData,   selectedClsId);
-  const jeonseRows = filterByRegion(allJeonseData,  selectedClsId);
-  const buyRows    = filterByRegion(allBuyDemand,   selectedClsId);
-  const jeonseReqRows = filterByRegion(allJenseDemand, selectedClsId);
+  const priceRows     = filterByRegion(allPriceData,    selectedClsId);
+  const jeonseRows    = filterByRegion(allJeonseData,   selectedClsId);
+  const buyRows       = filterByRegion(allBuyDemand,    selectedClsId);
+  const jeonseReqRows = filterByRegion(allJenseDemand,  selectedClsId);
 
   const latestPrice  = priceRows.length  ? priceRows[priceRows.length - 1].DTA_VAL  : null;
   const latestJeonse = jeonseRows.length ? jeonseRows[jeonseRows.length - 1].DTA_VAL : null;
   const latestBuy    = buyRows.length    ? buyRows[buyRows.length - 1].DTA_VAL       : null;
   const latestJReq   = jeonseReqRows.length ? jeonseReqRows[jeonseReqRows.length - 1].DTA_VAL : null;
 
+  const priceChange  = calcPriceChange(priceRows);
+  const jeonseChange = calcPriceChange(jeonseRows);
+  const summary      = getMarketSummary(latestBuy, priceRows);
+
+  // 데이터 기준월
+  const latestMonth = priceRows.length
+    ? priceRows[priceRows.length - 1].WRTTIME_DESC
+    : '';
+
   facts.innerHTML = `
+    <div class="db-summary-card db-summary-${summary.trendDir}">
+      <div class="db-summary-top">
+        <span class="db-summary-icon">${summary.icon}</span>
+        <span class="db-summary-region">${selectedName} 시장 분위기</span>
+        ${latestMonth ? `<span class="db-summary-month">${latestMonth} 기준</span>` : ''}
+      </div>
+      <div class="db-summary-lines">
+        ${summary.demandText ? `<div class="db-summary-line">• ${summary.demandText}</div>` : ''}
+        ${summary.trendText  ? `<div class="db-summary-line">• ${summary.trendText}</div>`  : ''}
+      </div>
+      <div class="db-summary-conclusion">${summary.conclusion}</div>
+    </div>
+
     <div class="db-facts-title">${selectedName} · 아파트 기준</div>
     <div class="db-facts-grid">
       <div class="db-fact-card">
-        <div class="db-fact-label">매매 시장</div>
+        <div class="db-fact-label">매매 수급</div>
         <div class="db-fact-val">${demandLabel(latestBuy)}</div>
         <div class="db-fact-desc">${demandDesc(latestBuy, '매매')}</div>
       </div>
       <div class="db-fact-card">
-        <div class="db-fact-label">전세 시장</div>
+        <div class="db-fact-label">전세 수급</div>
         <div class="db-fact-val">${demandLabel(latestJReq)}</div>
         <div class="db-fact-desc">${demandDesc(latestJReq, '전세')}</div>
       </div>
       <div class="db-fact-card">
         <div class="db-fact-label">평균 매매가 (25평)</div>
         <div class="db-fact-val">${formatPrice(latestPrice)}</div>
+        ${renderChangeTag(priceChange)}
       </div>
       <div class="db-fact-card">
         <div class="db-fact-label">평균 전세가 (25평)</div>
         <div class="db-fact-val">${formatPrice(latestJeonse)}</div>
+        ${renderChangeTag(jeonseChange)}
       </div>
     </div>
   `;
