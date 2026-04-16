@@ -86,6 +86,7 @@
     opacity: 0;
     pointer-events: none;
     overflow-y: auto;
+    transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .slide.active {
     opacity: 1;
@@ -94,12 +95,10 @@
   .slide.exit-left {
     opacity: 0;
     transform: translateX(-50px);
-    transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .slide.exit-right {
     opacity: 0;
     transform: translateX(50px);
-    transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   }
   @keyframes slideUpFadeIn {
     from { opacity: 0; transform: translateY(18px); }
@@ -2585,11 +2584,15 @@
     // 퇴장 완료 후 새 슬라이드 진입
     setTimeout(() => {
       allSlides[prev].classList.remove(exitClass);
+      // 부모는 transition 없이 즉시 표시 (자식이 애니메이션 담당)
+      allSlides[current].style.transition = 'none';
       allSlides[current].classList.add('active');
+      void allSlides[current].offsetWidth; // reflow
+      allSlides[current].style.transition = '';
       // 자식 요소 순차 애니메이션
       Array.from(allSlides[current].children).forEach((child, i) => {
         child.classList.remove('slide-child-enter');
-        void child.offsetWidth; // reflow로 애니메이션 리셋
+        void child.offsetWidth;
         child.style.setProperty('--enter-delay', `${i * 70}ms`);
         child.classList.add('slide-child-enter');
       });
