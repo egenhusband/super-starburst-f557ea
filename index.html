@@ -84,19 +84,19 @@
     flex-direction: column;
     gap: 32px;
     opacity: 0;
-    transform: translateX(60px);
+    transform: translateY(32px);
     pointer-events: none;
     transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     overflow-y: auto;
   }
   .slide.active {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
     pointer-events: all;
   }
   .slide.exit {
     opacity: 0;
-    transform: translateX(-60px);
+    transform: translateY(-16px);
   }
 
   .slide-question {
