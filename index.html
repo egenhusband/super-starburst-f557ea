@@ -84,19 +84,20 @@
     flex-direction: column;
     gap: 32px;
     opacity: 0;
-    transform: translateX(60px);
+    transform: translateY(32px);
     pointer-events: none;
     transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     overflow-y: auto;
   }
   .slide.active {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
     pointer-events: all;
   }
   .slide.exit {
     opacity: 0;
-    transform: translateX(-60px);
+    transform: translateY(-12px);
+    transition: opacity 0.24s ease, transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .slide-question {
@@ -2561,14 +2562,16 @@
     allSlides[current].classList.remove('active');
     allSlides[current].classList.add('exit');
     const prev = current;
-    setTimeout(() => allSlides[prev].classList.remove('exit'), 380);
     current = next;
-    allSlides[current].classList.add('active');
     setProgress(current);
     document.getElementById('btnBack').disabled = current === 0;
     updateNextBtn();
-    const inp = allSlides[current].querySelector('input');
-    if (inp) setTimeout(() => inp.focus(), 400);
+    setTimeout(() => {
+      allSlides[prev].classList.remove('exit');
+      allSlides[current].classList.add('active');
+      const inp = allSlides[current].querySelector('input');
+      if (inp) setTimeout(() => inp.focus(), 350);
+    }, 260);
   }
 
 
