@@ -61,7 +61,7 @@
         return;
       }
       // 기금대출: 다음 슬라이드(slide 1)로
-      navigateTo(1);
+      navigateTo(1, 'forward');
       return;
     }
     if (current === 8) {
@@ -92,13 +92,13 @@
         }
       }
       renderResult(income, price, asset, otherLoanInterest);
-      navigateTo(9);
+      navigateTo(9, 'forward');
       document.getElementById('bottomNav').style.display = 'none';
       document.getElementById('progressWrap').style.display = 'none';
       if (isGuestMode) setTimeout(showPayPopup, 400);
       return;
     }
-    navigateTo(current + 1);
+    navigateTo(current + 1, 'forward');
   }
 
   function toggleOtherLoanNone() {
@@ -125,22 +125,38 @@
 
   function goBack() {
     if (current === 0) { showDashboard(); return; }
-    navigateTo(current - 1);
+    navigateTo(current - 1, 'back');
   }
 
-  function navigateTo(next) {
+  function navigateTo(next, direction = 'forward') {
     const allSlides = document.querySelectorAll('.slide');
+    const exitClass = direction === 'forward' ? 'exit-left' : 'exit-right';
+
     allSlides[current].classList.remove('active');
-    allSlides[current].classList.add('exit');
+    Array.from(allSlides[current].children).forEach(c => c.classList.remove('slide-child-enter'));
+    allSlides[current].classList.add(exitClass);
+
     const prev = current;
-    setTimeout(() => allSlides[prev].classList.remove('exit'), 380);
     current = next;
-    allSlides[current].classList.add('active');
     setProgress(current);
     document.getElementById('btnBack').disabled = current === 0;
     updateNextBtn();
-    const inp = allSlides[current].querySelector('input');
-    if (inp) setTimeout(() => inp.focus(), 400);
+
+    setTimeout(() => {
+      allSlides[prev].classList.remove(exitClass);
+      Array.from(allSlides[current].children).forEach((child, i) => {
+        child.classList.remove('slide-child-enter');
+        void child.offsetWidth;
+        child.style.setProperty('--enter-delay', `${i * 70}ms`);
+        child.classList.add('slide-child-enter');
+      });
+      allSlides[current].style.transition = 'none';
+      allSlides[current].classList.add('active');
+      void allSlides[current].offsetWidth;
+      allSlides[current].style.transition = '';
+      const inp = allSlides[current].querySelector('input');
+      if (inp) setTimeout(() => inp.focus(), 350);
+    }, 240);
   }
 
 
@@ -156,9 +172,10 @@
   function showBankLoanScreen() {
     const allSlides = document.querySelectorAll('.slide');
     allSlides[current].classList.remove('active');
-    allSlides[current].classList.add('exit');
+    Array.from(allSlides[current].children).forEach(c => c.classList.remove('slide-child-enter'));
+    allSlides[current].classList.add('exit-left');
     const prev = current;
-    setTimeout(() => allSlides[prev].classList.remove('exit'), 380);
+    setTimeout(() => allSlides[prev].classList.remove('exit-left'), 380);
 
     document.getElementById('bottomNav').style.display = 'none';
     document.getElementById('progressWrap').style.display = 'none';
