@@ -286,11 +286,12 @@ async function loadDashboardData() {
 
 // ── API 호출 (페이지네이션) ──────────────────────────
 async function fetchStat(statblId, pSize, start) {
+  const pageSize = 1000;
   const fetchPage = async (pIndex) => {
     const params = new URLSearchParams({
       STATBL_ID: statblId,
       DTACYCLE_CD: 'MM',
-      pSize: String(pSize || 1000),
+      pSize: String(pageSize),
       pIndex,
     });
     if (start) params.set('START_WRTTIME', start);
@@ -305,7 +306,7 @@ async function fetchStat(statblId, pSize, start) {
   if (rows1.length >= total) return page1;
 
   const mergedRows = [...rows1];
-  const totalPages = Math.ceil(total / (pSize || 1000));
+  const totalPages = Math.ceil(total / pageSize);
 
   for (let page = 2; page <= totalPages; page += 1) {
     const nextPage = await fetchPage(page);
