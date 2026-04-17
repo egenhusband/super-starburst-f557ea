@@ -346,34 +346,23 @@ function calcPriceChange(rows) {
   return (curr - prev) / prev * 100;
 }
 
-// 거래량 데이터는 한 달에 규모별(소/중/대/합계) 여러 행이 있으므로 월별 합산 후 비교
-function aggregateTradeByMonth(rows) {
+// 거래량: CLS_ID 코드체계가 가격 데이터와 달라 CLS_NM(지역명)으로 필터, ITM_NM='동(호)수'만 사용
+function filterTradeByRegion(rows, regionName) {
   const now = new Date();
   const thisMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const totals = {};
-  for (const row of rows) {
-    const month = row.WRTTIME_IDTFR_ID;
-    if (month === thisMonth) continue;
-    const val = parseNumericValue(row.DTA_VAL);
-    if (val === null || val <= 0) continue;
-    totals[month] = (totals[month] || 0) + val;
-  }
-  return totals;
+  return rows
+    .filter(r => r.CLS_NM === regionName && r.ITM_NM === '동(호)수' && r.WRTTIME_IDTFR_ID !== thisMonth)
+    .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
 }
 
 function calcTradeChange(rows) {
-  const totals = aggregateTradeByMonth(rows);
-  const months = Object.keys(totals).sort();
-  if (months.length < 2) return null;
-
-  const currMonth = months[months.length - 1];
-  const prevMonth = months[months.length - 2];
-  if (prevMonth !== prevMonthStr(currMonth)) return null;
-
-  const curr = totals[currMonth];
-  const prev = totals[prevMonth];
-  if (prev === 0) return null;
-
+  if (rows.length < 2) return null;
+  const currRow = rows[rows.length - 1];
+  const prevRow = rows[rows.length - 2];
+  if (prevRow.WRTTIME_IDTFR_ID !== prevMonthStr(currRow.WRTTIME_IDTFR_ID)) return null;
+  const curr = parseNumericValue(currRow.DTA_VAL);
+  const prev = parseNumericValue(prevRow.DTA_VAL);
+  if (curr === null || prev === null || prev === 0) return null;
   return (curr - prev) / prev * 100;
 }
 
@@ -393,15 +382,13 @@ function renderFacts() {
   const priceRows       = filterByRegion(allPriceData,  selectedClsId);
   const jeonseRows      = filterByRegion(allJeonseData, selectedClsId);
   const indexRows       = filterByRegion(allIndexData,  selectedClsId);
-  const tradeRows       = filterByRegion(allTradeData,  selectedClsId);
+  const tradeRows       = filterTradeByRegion(allTradeData, selectedName);
   const validPriceRows  = getRecentValidRows(priceRows, 0);
   const validJeonseRows = getRecentValidRows(jeonseRows, 0);
 
   const latestPrice  = validPriceRows.length  ? validPriceRows[validPriceRows.length - 1].DTA_VAL   : null;
   const latestJeonse = validJeonseRows.length ? validJeonseRows[validJeonseRows.length - 1].DTA_VAL : null;
-  const tradeTotals  = aggregateTradeByMonth(tradeRows);
-  const tradeMonths  = Object.keys(tradeTotals).sort();
-  const latestTrade  = tradeMonths.length ? tradeTotals[tradeMonths[tradeMonths.length - 1]] : null;
+  const latestTrade  = tradeRows.length ? parseNumericValue(tradeRows[tradeRows.length - 1].DTA_VAL) : null;
 
   const priceChange  = calcPriceChange(priceRows);
   const jeonseChange = calcPriceChange(jeonseRows);
