@@ -165,22 +165,6 @@ function initDashboard() {
 
       <div class="db-content" id="dbContent" style="display:none">
         <div class="db-facts" id="dbFacts"></div>
-
-        <div class="db-chart-wrap">
-          <div class="db-chart-top">
-            <div class="db-chart-tabs">
-              <button class="db-chart-tab active" onclick="switchChartMode('buy', this)">매매</button>
-              <button class="db-chart-tab" onclick="switchChartMode('jeonse', this)">전세</button>
-            </div>
-            <div class="db-period-tabs">
-              <button class="db-period-tab" onclick="switchPeriod(3, this)">3개월</button>
-              <button class="db-period-tab active" onclick="switchPeriod(6, this)">6개월</button>
-              <button class="db-period-tab" onclick="switchPeriod(12, this)">1년</button>
-            </div>
-          </div>
-          <canvas id="dbChart"></canvas>
-          <div class="db-chart-unit">평균 평당가 (만원/평) · 한국부동산원</div>
-        </div>
       </div>
 
       <div class="db-cta-wrap">
@@ -209,18 +193,10 @@ function selectRegion(clsId, name) {
   selectedClsId = clsId;
   selectedName  = name;
 
-  let activeBtn = null;
   document.querySelectorAll('.db-region-btn').forEach(btn => {
     const isActive = parseInt(btn.dataset.id) === clsId;
     btn.classList.toggle('active', isActive);
-    if (isActive) activeBtn = btn;
   });
-
-  if (activeBtn) {
-    activeBtn.classList.remove('db-region-btn--pulse');
-    void activeBtn.offsetWidth;
-    activeBtn.classList.add('db-region-btn--pulse');
-  }
 
   if (hasDashboardData()) {
     showDashboardData();
@@ -455,37 +431,58 @@ function renderFacts() {
     <div class="db-facts-title">${selectedName} · 아파트 기준${latestMonth ? ` · ${latestMonth}` : ''}</div>
     <div class="db-facts-grid">
 
-      <div class="db-fact-card db-fact-card--therm">
-        <div class="db-fact-label">시장 온도계</div>
-        <div class="db-therm-row">
-          <span class="db-therm-key">거래량</span>
-          <span class="db-therm-val">${tradeVal !== null ? tradeVal.toLocaleString() + '건' : '—'}</span>
-          <span class="db-therm-tag${tradeChange !== null && tradeChange > 0 ? ' up' : tradeChange !== null && tradeChange < 0 ? ' down' : ' flat'}">${fmtPct(tradeChange, 0)} 전월比</span>
-          <span class="db-therm-sub">선택 지역 기준</span>
+      <div class="db-fact-card db-fact-card--regional">
+        <div class="db-fact-label">지역 시장 요약</div>
+        <div class="db-fact-card db-fact-card--therm">
+          <div class="db-fact-label">시장 온도계</div>
+          <div class="db-therm-row">
+            <span class="db-therm-key">거래량</span>
+            <span class="db-therm-val">${tradeVal !== null ? tradeVal.toLocaleString() + '건' : '—'}</span>
+            <span class="db-therm-tag${tradeChange !== null && tradeChange > 0 ? ' up' : tradeChange !== null && tradeChange < 0 ? ' down' : ' flat'}">${fmtPct(tradeChange, 0)} 전월比</span>
+            <span class="db-therm-sub">선택 지역 기준</span>
+          </div>
+          <div class="db-therm-row">
+            <span class="db-therm-key">가격변동률</span>
+            <span class="db-therm-val${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ''}">${fmtPct(indexChange)}</span>
+            <span class="db-therm-sub">선택 지역 기준</span>
+          </div>
         </div>
-        <div class="db-therm-row">
-          <span class="db-therm-key">가격변동률</span>
-          <span class="db-therm-val${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ''}">${fmtPct(indexChange)}</span>
-          <span class="db-therm-sub">선택 지역 기준</span>
+
+        <div class="db-regional-grid">
+          <div class="db-fact-card">
+            <div class="db-fact-label">전세가율</div>
+            <div class="db-fact-val">${ratio !== null ? ratio.toFixed(1) + '%' : '—'}</div>
+            ${ratioChange !== null ? `<div class="db-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월比</div>` : ''}
+          </div>
+
+          <div class="db-fact-card">
+            <div class="db-fact-label">평균 매매가 (25평)</div>
+            <div class="db-fact-val">${formatPrice(latestPrice)}</div>
+            ${renderChangeTag(priceChange)}
+          </div>
+
+          <div class="db-fact-card">
+            <div class="db-fact-label">평균 전세가 (25평)</div>
+            <div class="db-fact-val">${formatPrice(latestJeonse)}</div>
+            ${renderChangeTag(jeonseChange)}
+          </div>
         </div>
-      </div>
 
-      <div class="db-fact-card">
-        <div class="db-fact-label">전세가율</div>
-        <div class="db-fact-val">${ratio !== null ? ratio.toFixed(1) + '%' : '—'}</div>
-        ${ratioChange !== null ? `<div class="db-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월比</div>` : ''}
-      </div>
-
-      <div class="db-fact-card">
-        <div class="db-fact-label">평균 매매가 (25평)</div>
-        <div class="db-fact-val">${formatPrice(latestPrice)}</div>
-        ${renderChangeTag(priceChange)}
-      </div>
-
-      <div class="db-fact-card">
-        <div class="db-fact-label">평균 전세가 (25평)</div>
-        <div class="db-fact-val">${formatPrice(latestJeonse)}</div>
-        ${renderChangeTag(jeonseChange)}
+        <div class="db-chart-wrap db-chart-wrap--embedded">
+          <div class="db-chart-top">
+            <div class="db-chart-tabs">
+              <button class="db-chart-tab active" onclick="switchChartMode('buy', this)">매매</button>
+              <button class="db-chart-tab" onclick="switchChartMode('jeonse', this)">전세</button>
+            </div>
+            <div class="db-period-tabs">
+              <button class="db-period-tab" onclick="switchPeriod(3, this)">3개월</button>
+              <button class="db-period-tab active" onclick="switchPeriod(6, this)">6개월</button>
+              <button class="db-period-tab" onclick="switchPeriod(12, this)">1년</button>
+            </div>
+          </div>
+          <canvas id="dbChart"></canvas>
+          <div class="db-chart-unit">평균 평당가 (만원/평) · 한국부동산원</div>
+        </div>
       </div>
 
       <div class="db-fact-card db-fact-card--context">

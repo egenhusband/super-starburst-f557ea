@@ -2271,10 +2271,8 @@
   gap: 8px;
 }
 .db-region-btn {
-  position: relative;
-  overflow: hidden;
   height: 44px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  background: var(--bg3);
   border: 1.5px solid var(--separator);
   border-radius: 12px;
   color: var(--label2);
@@ -2282,39 +2280,16 @@
   font-size: 14px;
   font-weight: 400;
   cursor: pointer;
-  transform: translateZ(0);
-  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.28s ease, background 0.28s ease, box-shadow 0.28s ease;
-}
-.db-region-btn::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0));
-  opacity: 0;
-  transition: opacity 0.28s ease;
-  pointer-events: none;
+  transition: all 0.15s;
 }
 .db-region-btn.active {
-  background: linear-gradient(180deg, rgba(10,132,255,0.24), rgba(10,132,255,0.12));
+  background: var(--accent-dim);
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
-  box-shadow: 0 10px 24px rgba(10,132,255,0.16);
-  transform: translateY(-1px) scale(1.01);
-}
-.db-region-btn.active::after {
-  opacity: 1;
 }
 .db-region-btn:active {
-  transform: scale(0.985);
-}
-.db-region-btn--pulse {
-  animation: dbRegionPulse 0.44s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-@keyframes dbRegionPulse {
-  0% { transform: scale(0.985); }
-  55% { transform: scale(1.018); }
-  100% { transform: scale(1.01); }
+  transform: scale(0.97);
 }
 
 /* 조회 버튼 */
@@ -2370,6 +2345,20 @@
   border-radius: 14px;
   padding: 14px 16px;
 }
+.db-fact-card--regional {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.db-regional-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.db-regional-grid .db-fact-card:last-child {
+  grid-column: 1 / -1;
+}
 .db-fact-label {
   font-size: 11px;
   color: var(--label3);
@@ -2394,6 +2383,9 @@
   border: 1.5px solid var(--separator);
   border-radius: 14px;
   padding: 16px;
+}
+.db-chart-wrap--embedded {
+  margin-top: 2px;
 }
 .db-chart-top {
   display: flex;
@@ -2490,21 +2482,19 @@
 }
 
 .db-rise-in {
-  animation: dbRiseIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: dbRiseIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: var(--rise-delay, 0ms);
   transform-origin: 50% 100%;
-  will-change: transform, opacity, filter;
+  will-change: transform, opacity;
 }
 @keyframes dbRiseIn {
   from {
     opacity: 0;
-    transform: translateY(18px) scale(0.985);
-    filter: blur(8px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
+    transform: translateY(0);
   }
 }
 
@@ -2584,7 +2574,7 @@
 
 /* 시장 온도계 카드 */
 .db-fact-card--therm {
-  grid-column: 1 / -1;
+  grid-column: auto;
 }
 .db-fact-card--context {
   grid-column: 1 / -1;
