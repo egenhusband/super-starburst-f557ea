@@ -22,6 +22,27 @@ const REGION_MAP = [
   { id: 500020, name: '제주' },
 ];
 
+const TRADE_REGION_ID_MAP = {
+  500001: 500001,
+  500004: 500002,
+  500005: 500003,
+  500006: 500004,
+  500007: 500005,
+  500008: 500006,
+  500009: 500007,
+  500010: 500008,
+  500011: 500009,
+  500012: 500010,
+  500013: 500011,
+  500014: 500012,
+  500015: 500013,
+  500016: 500014,
+  500017: 500015,
+  500018: 500016,
+  500019: 500017,
+  500020: 500019,
+};
+
 const PROXY_BASE = '/.netlify/functions/reb-proxy';
 
 const STAT = {
@@ -179,7 +200,7 @@ function initDashboard() {
     document.head.appendChild(s);
   }
 
-  const cached = getCache('main_v3');
+  const cached = getCache('main_v4');
   if (cached) {
     hydrateDashboardData(cached);
     showDashboardData();
@@ -223,7 +244,7 @@ async function loadDashboardData() {
   content.style.display = 'none';
 
   // 캐시 확인
-  const cached = getCache('main_v3');
+  const cached = getCache('main_v4');
   if (cached) {
     hydrateDashboardData(cached);
     showDashboardData();
@@ -247,7 +268,7 @@ async function loadDashboardData() {
       tradeData: extractRows(tradeRes),
     });
 
-    setCache('main_v3', {
+    setCache('main_v4', {
       priceData:  allPriceData,
       jeonseData: allJeonseData,
       indexData:  allIndexData,
@@ -269,7 +290,7 @@ async function fetchStat(statblId, pSize, start) {
     const params = new URLSearchParams({
       STATBL_ID: statblId,
       DTACYCLE_CD: 'MM',
-      pSize: 1000,
+      pSize: String(pSize || 1000),
       pIndex,
     });
     if (start) params.set('START_WRTTIME', start);
@@ -281,17 +302,21 @@ async function fetchStat(statblId, pSize, start) {
   const rows1 = page1?.SttsApiTblData?.[1]?.row || [];
   const total = page1?.SttsApiTblData?.[0]?.head?.[0]?.list_total_count || 0;
 
-  if (total <= 1000) return page1;
+  if (rows1.length >= total) return page1;
 
-  // 2페이지 이상 필요하면 추가 호출
-  const page2 = await fetchPage(2);
-  const rows2 = page2?.SttsApiTblData?.[1]?.row || [];
+  const mergedRows = [...rows1];
+  const totalPages = Math.ceil(total / (pSize || 1000));
 
-  // 두 페이지 합쳐서 반환
+  for (let page = 2; page <= totalPages; page += 1) {
+    const nextPage = await fetchPage(page);
+    const nextRows = nextPage?.SttsApiTblData?.[1]?.row || [];
+    mergedRows.push(...nextRows);
+  }
+
   return {
     SttsApiTblData: [
       page1.SttsApiTblData[0],
-      { row: [...rows1, ...rows2] }
+      { row: mergedRows }
     ]
   };
 }
@@ -346,12 +371,10 @@ function calcPriceChange(rows) {
   return (curr - prev) / prev * 100;
 }
 
-// 거래량: CLS_ID 코드체계가 가격 데이터와 달라 CLS_NM(지역명)으로 필터, ITM_NM='동(호)수'만 사용
-function filterTradeByRegion(rows, regionName) {
-  const now = new Date();
-  const thisMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+function filterTradeByRegion(rows, clsId) {
+  const tradeClsId = String(TRADE_REGION_ID_MAP[clsId] || clsId);
   return rows
-    .filter(r => r.CLS_NM === regionName && r.ITM_NM === '동(호)수' && r.WRTTIME_IDTFR_ID !== thisMonth)
+    .filter(r => String(r.CLS_ID) === tradeClsId && String(r.ITM_ID) === '100001')
     .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
 }
 
@@ -382,7 +405,7 @@ function renderFacts() {
   const priceRows       = filterByRegion(allPriceData,  selectedClsId);
   const jeonseRows      = filterByRegion(allJeonseData, selectedClsId);
   const indexRows       = filterByRegion(allIndexData,  selectedClsId);
-  const tradeRows       = filterTradeByRegion(allTradeData, selectedName);
+  const tradeRows       = filterTradeByRegion(allTradeData, selectedClsId);
   const validPriceRows  = getRecentValidRows(priceRows, 0);
   const validJeonseRows = getRecentValidRows(jeonseRows, 0);
 
