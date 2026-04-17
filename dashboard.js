@@ -81,11 +81,14 @@ function updateQueryUi() {
 }
 
 function animateDashboardContent() {
-  const facts = document.getElementById('dbFacts');
-  const chartWrap = document.querySelector('.db-chart-wrap');
-  [facts, chartWrap].forEach(el => {
-    if (!el) return;
+  const animatedEls = [
+    document.getElementById('dbFacts'),
+    document.querySelector('.db-chart-wrap')
+  ].filter(Boolean);
+
+  animatedEls.forEach((el, index) => {
     el.classList.remove('db-rise-in');
+    el.style.setProperty('--rise-delay', `${index * 55}ms`);
     void el.offsetWidth;
     el.classList.add('db-rise-in');
   });
@@ -206,9 +209,18 @@ function selectRegion(clsId, name) {
   selectedClsId = clsId;
   selectedName  = name;
 
+  let activeBtn = null;
   document.querySelectorAll('.db-region-btn').forEach(btn => {
-    btn.classList.toggle('active', parseInt(btn.dataset.id) === clsId);
+    const isActive = parseInt(btn.dataset.id) === clsId;
+    btn.classList.toggle('active', isActive);
+    if (isActive) activeBtn = btn;
   });
+
+  if (activeBtn) {
+    activeBtn.classList.remove('db-region-btn--pulse');
+    void activeBtn.offsetWidth;
+    activeBtn.classList.add('db-region-btn--pulse');
+  }
 
   if (hasDashboardData()) {
     showDashboardData();
@@ -347,6 +359,25 @@ function calcPriceChange(rows) {
   return (curr - prev) / prev * 100;
 }
 
+function calcTradeChange(rows) {
+  const validRows = getRecentValidRows(rows, 0);
+  if (validRows.length < 2) return null;
+
+  const curr = parseNumericValue(validRows[validRows.length - 1].DTA_VAL);
+  const baselineRows = validRows.slice(-4, -1);
+  const baselineValues = baselineRows
+    .map(row => parseNumericValue(row.DTA_VAL))
+    .filter(value => value !== null && value > 0);
+
+  if (curr === null || baselineValues.length === 0) return null;
+
+  const baseline = baselineValues.reduce((sum, value) => sum + value, 0) / baselineValues.length;
+  if (baseline < 10) return null;
+
+  const change = (curr - baseline) / baseline * 100;
+  return Math.abs(change) > 300 ? null : change;
+}
+
 function renderChangeTag(pct) {
   if (pct === null) return '';
   const abs = Math.abs(pct).toFixed(2);
@@ -374,7 +405,7 @@ function renderFacts() {
 
   const priceChange  = calcPriceChange(priceRows);
   const jeonseChange = calcPriceChange(jeonseRows);
-  const tradeChange  = calcPriceChange(validTradeRows);
+  const tradeChange  = calcTradeChange(tradeRows);
   const indexChange  = calcPriceChange(indexRows);
 
   // 전국 가격변동률 (선택 지역이 전국이 아닐 때 비교용)
@@ -439,6 +470,24 @@ function renderFacts() {
         </div>
       </div>
 
+      <div class="db-fact-card">
+        <div class="db-fact-label">전세가율</div>
+        <div class="db-fact-val">${ratio !== null ? ratio.toFixed(1) + '%' : '—'}</div>
+        ${ratioChange !== null ? `<div class="db-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월比</div>` : ''}
+      </div>
+
+      <div class="db-fact-card">
+        <div class="db-fact-label">평균 매매가 (25평)</div>
+        <div class="db-fact-val">${formatPrice(latestPrice)}</div>
+        ${renderChangeTag(priceChange)}
+      </div>
+
+      <div class="db-fact-card">
+        <div class="db-fact-label">평균 전세가 (25평)</div>
+        <div class="db-fact-val">${formatPrice(latestJeonse)}</div>
+        ${renderChangeTag(jeonseChange)}
+      </div>
+
       <div class="db-fact-card db-fact-card--context">
         <div class="db-fact-label">전국 비교</div>
         <div class="db-context-section">
@@ -461,24 +510,6 @@ function renderFacts() {
             ${bottom2.map(r => `<span class="db-therm-region down">${r.name} ${fmtPct(r.change)}</span>`).join('')}
           </div>
         </div>` : ''}
-      </div>
-
-      <div class="db-fact-card">
-        <div class="db-fact-label">전세가율</div>
-        <div class="db-fact-val">${ratio !== null ? ratio.toFixed(1) + '%' : '—'}</div>
-        ${ratioChange !== null ? `<div class="db-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월比</div>` : ''}
-      </div>
-
-      <div class="db-fact-card">
-        <div class="db-fact-label">평균 매매가 (25평)</div>
-        <div class="db-fact-val">${formatPrice(latestPrice)}</div>
-        ${renderChangeTag(priceChange)}
-      </div>
-
-      <div class="db-fact-card">
-        <div class="db-fact-label">평균 전세가 (25평)</div>
-        <div class="db-fact-val">${formatPrice(latestJeonse)}</div>
-        ${renderChangeTag(jeonseChange)}
       </div>
 
     </div>
