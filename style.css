@@ -2614,6 +2614,36 @@
 .db-context-section {
   margin-top: 10px;
 }
+.db-market-guide {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+}
+.db-market-guide-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--label1);
+  letter-spacing: -0.2px;
+}
+.db-market-guide-summary,
+.db-market-guide-detail,
+.db-market-guide-caution {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  letter-spacing: -0.15px;
+}
+.db-market-guide-summary {
+  color: var(--label1);
+}
+.db-market-guide-detail {
+  color: var(--label2);
+}
+.db-market-guide-caution {
+  color: var(--label3);
+}
 .db-context-section--rank {
   margin-top: 14px;
   padding-top: 12px;
