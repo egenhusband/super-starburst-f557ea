@@ -326,22 +326,44 @@ function getRecentValidRows(rows, minValue = null) {
 }
 
 // ── 전월 대비 등락률 계산 ────────────────────────────
+function prevMonthStr(yyyymm) {
+  const y = parseInt(yyyymm.slice(0, 4));
+  const m = parseInt(yyyymm.slice(4, 6));
+  return m === 1
+    ? `${y - 1}12`
+    : `${y}${String(m - 1).padStart(2, '0')}`;
+}
+
 function calcPriceChange(rows) {
   const validRows = getRecentValidRows(rows);
   if (validRows.length < 2) return null;
-  const prev = parseNumericValue(validRows[validRows.length - 2].DTA_VAL);
-  const curr = parseNumericValue(validRows[validRows.length - 1].DTA_VAL);
+  const currRow = validRows[validRows.length - 1];
+  const prevRow = validRows[validRows.length - 2];
+  if (prevRow.WRTTIME_IDTFR_ID !== prevMonthStr(currRow.WRTTIME_IDTFR_ID)) return null;
+  const prev = parseNumericValue(prevRow.DTA_VAL);
+  const curr = parseNumericValue(currRow.DTA_VAL);
   if (prev === null || curr === null || prev === 0) return null;
   return (curr - prev) / prev * 100;
 }
 
 function calcTradeChange(rows) {
-  const validRows = getRecentValidRows(rows, 0);
-  if (validRows.length < 2) return null;
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  const prev = parseNumericValue(validRows[validRows.length - 2].DTA_VAL);
-  const curr = parseNumericValue(validRows[validRows.length - 1].DTA_VAL);
-  if (prev === null || curr === null || prev === 0) return null;
+  // 거래량 데이터는 당월 집계가 미완성이므로 제외
+  const completeRows = getRecentValidRows(rows, 0)
+    .filter(r => r.WRTTIME_IDTFR_ID !== thisMonth);
+  if (completeRows.length < 2) return null;
+
+  const currRow = completeRows[completeRows.length - 1];
+  const prevRow = completeRows[completeRows.length - 2];
+
+  // 연속된 달인지 확인
+  if (prevRow.WRTTIME_IDTFR_ID !== prevMonthStr(currRow.WRTTIME_IDTFR_ID)) return null;
+
+  const curr = parseNumericValue(currRow.DTA_VAL);
+  const prev = parseNumericValue(prevRow.DTA_VAL);
+  if (curr === null || prev === null || prev === 0) return null;
 
   return (curr - prev) / prev * 100;
 }
@@ -363,7 +385,8 @@ function renderFacts() {
   const jeonseRows      = filterByRegion(allJeonseData, selectedClsId);
   const indexRows       = filterByRegion(allIndexData,  selectedClsId);
   const tradeRows       = filterByRegion(allTradeData,  selectedClsId);
-  const validTradeRows  = getRecentValidRows(tradeRows, 0);
+  const thisMonth = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const validTradeRows  = getRecentValidRows(tradeRows, 0).filter(r => r.WRTTIME_IDTFR_ID !== thisMonth);
   const validPriceRows  = getRecentValidRows(priceRows, 0);
   const validJeonseRows = getRecentValidRows(jeonseRows, 0);
 
