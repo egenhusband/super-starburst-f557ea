@@ -43,22 +43,7 @@ const TRADE_REGION_ID_MAP = {
   500020: 500019,
 };
 
-const PROXY_BASE = '/.netlify/functions/reb-proxy';
-
-const STAT = {
-  avgPrice:    'A_2024_00188', // 지역별 매매 평균가격_아파트 (만원/㎡)
-  avgJeonse:   'A_2024_00192', // 지역별 전세 평균가격_아파트 (만원/㎡)
-  priceIndex:  'A_2024_00178', // 지역별 매매지수_아파트
-  jeonseIndex: 'A_2024_00182', // 지역별 전세지수_아파트
-  tradeVolume: 'A_2024_00554', // 월별 행정구역별 아파트매매거래현황
-};
-
-// 최근 N개월 날짜 범위 계산
-function getStartDate(months) {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth() - months, 1);
-  return `${start.getFullYear()}${String(start.getMonth() + 1).padStart(2, "0")}`;
-}
+const MARKET_CACHE_ENDPOINT = '/.netlify/functions/market-cache';
 
 let chart = null;
 let selectedClsId     = 500001; // 기본값: 전국
@@ -69,6 +54,7 @@ let allPriceData      = null;   // 캐시된 전체 데이터
 let allJeonseData     = null;
 let allIndexData      = null;
 let allTradeData      = null;
+let marketBundlePromise = null;
 
 // ── 캐시 ─────────────────────────────────────────────
 const CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -85,6 +71,63 @@ function getCache(key) {
 
 function setCache(key, data) {
   try { localStorage.setItem('db_' + key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+}
+
+function getMarketBundleCache() {
+  return getCache('market_bundle_v1');
+}
+
+function setMarketBundleCache(data) {
+  setCache('market_bundle_v1', data);
+}
+
+function hydrateMarketBundle(bundle) {
+  if (!bundle?.detail) return;
+  hydrateDashboardData(bundle.detail);
+}
+
+function buildNationalMarqueeItems(summary) {
+  if (!summary) return ['전국 시장 데이터 준비 중'];
+  const items = [];
+  if (summary.latestMonth) items.push(`전국 · <strong>${summary.latestMonth}</strong>`);
+  if (Number.isFinite(summary.tradeVolume)) items.push(`거래량 <strong>${summary.tradeVolume.toLocaleString()}건</strong>`);
+  if (Number.isFinite(summary.tradeChange)) items.push(`거래량 <strong>${summary.tradeChange > 0 ? '▲' : summary.tradeChange < 0 ? '▼' : '±'}${Math.abs(summary.tradeChange).toFixed(0)}%</strong> 전월比`);
+  if (Number.isFinite(summary.priceChange)) items.push(`가격변동률 <strong>${summary.priceChange > 0 ? '▲' : summary.priceChange < 0 ? '▼' : '±'}${Math.abs(summary.priceChange).toFixed(2)}%</strong> 전월比`);
+  if (Number.isFinite(summary.avgBuyPrice)) items.push(`평균 매매가(25평) <strong>${formatPrice(summary.avgBuyPrice)}</strong>`);
+  return items.length ? items : ['전국 시장 데이터 준비 중'];
+}
+
+function renderCalculatorMarquee(bundle) {
+  const track = document.getElementById('calcMarketTrack');
+  if (!track) return;
+  const items = buildNationalMarqueeItems(bundle?.summary?.national);
+  const pills = items.concat(items).map(item => `<span class="calc-marquee-pill">${item}</span>`).join('');
+  track.innerHTML = pills;
+}
+
+async function fetchMarketBundle() {
+  const cached = getMarketBundleCache();
+  if (cached) {
+    renderCalculatorMarquee(cached);
+    return cached;
+  }
+
+  const res = await fetch(MARKET_CACHE_ENDPOINT);
+  if (!res.ok) throw new Error('시장 캐시를 불러오지 못했어요.');
+  const bundle = await res.json();
+  setMarketBundleCache(bundle);
+  renderCalculatorMarquee(bundle);
+  return bundle;
+}
+
+function preloadMarketBundle() {
+  if (!marketBundlePromise) {
+    marketBundlePromise = fetchMarketBundle().catch(err => {
+      marketBundlePromise = null;
+      throw err;
+    });
+  }
+  return marketBundlePromise;
 }
 
 function hasDashboardData() {
@@ -165,6 +208,13 @@ function initDashboard() {
 
   screen.innerHTML = `
     <div class="db-wrap">
+      <div class="db-topbar">
+        <button class="db-back-btn" type="button" onclick="showCalculator()">← 계산기로 돌아가기</button>
+        <div class="db-topbar-copy">
+          <strong>시장 상세 보기</strong>
+          <span>계산 흐름은 그대로 유지돼요</span>
+        </div>
+      </div>
       <div class="db-header">
         <div class="db-title">내 동네 부동산</div>
         <div class="db-sub">지역을 선택하고 조회하면 최근 시장 현황을 보여드려요</div>
@@ -189,7 +239,7 @@ function initDashboard() {
       </div>
 
       <div class="db-cta-wrap">
-        <button class="db-cta" onclick="showCalculator()">내 조건으로 대출 알아보기 →</button>
+        <button class="db-cta" onclick="startCalculatorFlow()">내 조건으로 대출 알아보기 →</button>
       </div>
     </div>
   `;
@@ -200,9 +250,9 @@ function initDashboard() {
     document.head.appendChild(s);
   }
 
-  const cached = getCache('main_v4');
+  const cached = getMarketBundleCache();
   if (cached) {
-    hydrateDashboardData(cached);
+    hydrateMarketBundle(cached);
     showDashboardData();
   } else {
     updateQueryUi();
@@ -243,37 +293,16 @@ async function loadDashboardData() {
   loading.style.display = 'flex';
   content.style.display = 'none';
 
-  // 캐시 확인
-  const cached = getCache('main_v4');
+  const cached = getMarketBundleCache();
   if (cached) {
-    hydrateDashboardData(cached);
+    hydrateMarketBundle(cached);
     showDashboardData();
     return;
   }
 
   try {
-    const start = getStartDate(14); // 1년 + 여유
-
-    const [priceRes, jeonseRes, indexRes, tradeRes] = await Promise.all([
-      fetchStat(STAT.avgPrice,    1500, start),
-      fetchStat(STAT.avgJeonse,   1500, start),
-      fetchStat(STAT.priceIndex,  1500, start),
-      fetchStat(STAT.tradeVolume, 1500, start),
-    ]);
-
-    hydrateDashboardData({
-      priceData: extractRows(priceRes),
-      jeonseData: extractRows(jeonseRes),
-      indexData: extractRows(indexRes),
-      tradeData: extractRows(tradeRes),
-    });
-
-    setCache('main_v4', {
-      priceData:  allPriceData,
-      jeonseData: allJeonseData,
-      indexData:  allIndexData,
-      tradeData:  allTradeData,
-    });
+    const bundle = await preloadMarketBundle();
+    hydrateMarketBundle(bundle);
 
     showDashboardData();
   } catch (e) {
@@ -282,51 +311,6 @@ async function loadDashboardData() {
     content.style.display = 'block';
     updateQueryUi();
   }
-}
-
-// ── API 호출 (페이지네이션) ──────────────────────────
-async function fetchStat(statblId, pSize, start) {
-  const pageSize = 1000;
-  const fetchPage = async (pIndex) => {
-    const params = new URLSearchParams({
-      STATBL_ID: statblId,
-      DTACYCLE_CD: 'MM',
-      pSize: String(pageSize),
-      pIndex,
-    });
-    if (start) params.set('START_WRTTIME', start);
-    const res = await fetch(`${PROXY_BASE}?${params}`);
-    return await res.json();
-  };
-
-  const page1 = await fetchPage(1);
-  const rows1 = page1?.SttsApiTblData?.[1]?.row || [];
-  const total = page1?.SttsApiTblData?.[0]?.head?.[0]?.list_total_count || 0;
-
-  if (rows1.length >= total) return page1;
-
-  const mergedRows = [...rows1];
-  const totalPages = Math.ceil(total / pageSize);
-
-  for (let page = 2; page <= totalPages; page += 1) {
-    const nextPage = await fetchPage(page);
-    const nextRows = nextPage?.SttsApiTblData?.[1]?.row || [];
-    mergedRows.push(...nextRows);
-  }
-
-  return {
-    SttsApiTblData: [
-      page1.SttsApiTblData[0],
-      { row: mergedRows }
-    ]
-  };
-}
-
-function extractRows(data) {
-  try {
-    const rows = data?.SttsApiTblData?.[1]?.row;
-    return Array.isArray(rows) ? rows : [];
-  } catch { return []; }
 }
 
 // ── 지역 필터 ─────────────────────────────────────────
@@ -724,8 +708,12 @@ function formatPrice(val) {
 
 // ── 진입점 ───────────────────────────────────────────
 (function() {
+  const cachedBundle = getMarketBundleCache();
+  if (cachedBundle) renderCalculatorMarquee(cachedBundle);
+
   if (localStorage.getItem('authVerified') === '1') {
     document.getElementById('pwScreen').style.display = 'none';
-    showDashboard();
+    showCalculator();
+    preloadMarketBundle().catch(() => {});
   }
 })();
