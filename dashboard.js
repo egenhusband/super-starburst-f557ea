@@ -346,24 +346,33 @@ function calcPriceChange(rows) {
   return (curr - prev) / prev * 100;
 }
 
-function calcTradeChange(rows) {
+// 거래량 데이터는 한 달에 규모별(소/중/대/합계) 여러 행이 있으므로 월별 합산 후 비교
+function aggregateTradeByMonth(rows) {
   const now = new Date();
   const thisMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const totals = {};
+  for (const row of rows) {
+    const month = row.WRTTIME_IDTFR_ID;
+    if (month === thisMonth) continue;
+    const val = parseNumericValue(row.DTA_VAL);
+    if (val === null || val <= 0) continue;
+    totals[month] = (totals[month] || 0) + val;
+  }
+  return totals;
+}
 
-  // 거래량 데이터는 당월 집계가 미완성이므로 제외
-  const completeRows = getRecentValidRows(rows, 0)
-    .filter(r => r.WRTTIME_IDTFR_ID !== thisMonth);
-  if (completeRows.length < 2) return null;
+function calcTradeChange(rows) {
+  const totals = aggregateTradeByMonth(rows);
+  const months = Object.keys(totals).sort();
+  if (months.length < 2) return null;
 
-  const currRow = completeRows[completeRows.length - 1];
-  const prevRow = completeRows[completeRows.length - 2];
+  const currMonth = months[months.length - 1];
+  const prevMonth = months[months.length - 2];
+  if (prevMonth !== prevMonthStr(currMonth)) return null;
 
-  // 연속된 달인지 확인
-  if (prevRow.WRTTIME_IDTFR_ID !== prevMonthStr(currRow.WRTTIME_IDTFR_ID)) return null;
-
-  const curr = parseNumericValue(currRow.DTA_VAL);
-  const prev = parseNumericValue(prevRow.DTA_VAL);
-  if (curr === null || prev === null || prev === 0) return null;
+  const curr = totals[currMonth];
+  const prev = totals[prevMonth];
+  if (prev === 0) return null;
 
   return (curr - prev) / prev * 100;
 }
@@ -385,14 +394,14 @@ function renderFacts() {
   const jeonseRows      = filterByRegion(allJeonseData, selectedClsId);
   const indexRows       = filterByRegion(allIndexData,  selectedClsId);
   const tradeRows       = filterByRegion(allTradeData,  selectedClsId);
-  const thisMonth = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-  const validTradeRows  = getRecentValidRows(tradeRows, 0).filter(r => r.WRTTIME_IDTFR_ID !== thisMonth);
   const validPriceRows  = getRecentValidRows(priceRows, 0);
   const validJeonseRows = getRecentValidRows(jeonseRows, 0);
 
   const latestPrice  = validPriceRows.length  ? validPriceRows[validPriceRows.length - 1].DTA_VAL   : null;
   const latestJeonse = validJeonseRows.length ? validJeonseRows[validJeonseRows.length - 1].DTA_VAL : null;
-  const latestTrade  = validTradeRows.length  ? validTradeRows[validTradeRows.length - 1].DTA_VAL   : null;
+  const tradeTotals  = aggregateTradeByMonth(tradeRows);
+  const tradeMonths  = Object.keys(tradeTotals).sort();
+  const latestTrade  = tradeMonths.length ? tradeTotals[tradeMonths[tradeMonths.length - 1]] : null;
 
   const priceChange  = calcPriceChange(priceRows);
   const jeonseChange = calcPriceChange(jeonseRows);
