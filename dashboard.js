@@ -260,12 +260,27 @@ function filterByRegion(rows, clsId) {
     .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
 }
 
+function parseNumericValue(value) {
+  const num = parseFloat(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function getRecentValidRows(rows, minValue = null) {
+  if (!Array.isArray(rows)) return [];
+  return rows.filter(row => {
+    const value = parseNumericValue(row?.DTA_VAL);
+    if (value === null) return false;
+    return minValue === null ? true : value > minValue;
+  });
+}
+
 // ── 전월 대비 등락률 계산 ────────────────────────────
 function calcPriceChange(rows) {
-  if (!rows || rows.length < 2) return null;
-  const prev = parseFloat(rows[rows.length - 2].DTA_VAL);
-  const curr = parseFloat(rows[rows.length - 1].DTA_VAL);
-  if (!prev || !curr || isNaN(prev) || isNaN(curr)) return null;
+  const validRows = getRecentValidRows(rows);
+  if (validRows.length < 2) return null;
+  const prev = parseNumericValue(validRows[validRows.length - 2].DTA_VAL);
+  const curr = parseNumericValue(validRows[validRows.length - 1].DTA_VAL);
+  if (prev === null || curr === null || prev === 0) return null;
   return (curr - prev) / prev * 100;
 }
 
@@ -282,18 +297,21 @@ function renderFacts() {
   const facts = document.getElementById('dbFacts');
   if (!facts || !allPriceData) return;
 
-  const priceRows  = filterByRegion(allPriceData,  selectedClsId);
-  const jeonseRows = filterByRegion(allJeonseData, selectedClsId);
-  const indexRows  = filterByRegion(allIndexData,  selectedClsId);
-  const tradeRows  = filterByRegion(allTradeData,  selectedClsId);
+  const priceRows       = filterByRegion(allPriceData,  selectedClsId);
+  const jeonseRows      = filterByRegion(allJeonseData, selectedClsId);
+  const indexRows       = filterByRegion(allIndexData,  selectedClsId);
+  const tradeRows       = filterByRegion(allTradeData,  selectedClsId);
+  const validTradeRows  = getRecentValidRows(tradeRows, 0);
+  const validPriceRows  = getRecentValidRows(priceRows, 0);
+  const validJeonseRows = getRecentValidRows(jeonseRows, 0);
 
-  const latestPrice  = priceRows.length  ? priceRows[priceRows.length - 1].DTA_VAL  : null;
-  const latestJeonse = jeonseRows.length ? jeonseRows[jeonseRows.length - 1].DTA_VAL : null;
-  const latestTrade  = tradeRows.length  ? tradeRows[tradeRows.length - 1].DTA_VAL   : null;
+  const latestPrice  = validPriceRows.length  ? validPriceRows[validPriceRows.length - 1].DTA_VAL   : null;
+  const latestJeonse = validJeonseRows.length ? validJeonseRows[validJeonseRows.length - 1].DTA_VAL : null;
+  const latestTrade  = validTradeRows.length  ? validTradeRows[validTradeRows.length - 1].DTA_VAL   : null;
 
   const priceChange  = calcPriceChange(priceRows);
   const jeonseChange = calcPriceChange(jeonseRows);
-  const tradeChange  = calcPriceChange(tradeRows);
+  const tradeChange  = calcPriceChange(validTradeRows);
   const indexChange  = calcPriceChange(indexRows);
 
   // 전국 가격변동률 (선택 지역이 전국이 아닐 때 비교용)
@@ -314,16 +332,16 @@ function renderFacts() {
   const bottom2 = regionChanges.slice(-2).reverse();
 
   // 전세가율
-  const currP    = latestPrice  ? parseFloat(latestPrice)  : null;
-  const currJ    = latestJeonse ? parseFloat(latestJeonse) : null;
+  const currP    = parseNumericValue(latestPrice);
+  const currJ    = parseNumericValue(latestJeonse);
   const ratio    = (currP && currJ) ? currJ / currP * 100 : null;
-  const prevP    = priceRows.length  >= 2 ? parseFloat(priceRows[priceRows.length - 2].DTA_VAL)  : null;
-  const prevJ    = jeonseRows.length >= 2 ? parseFloat(jeonseRows[jeonseRows.length - 2].DTA_VAL) : null;
+  const prevP    = validPriceRows.length  >= 2 ? parseNumericValue(validPriceRows[validPriceRows.length - 2].DTA_VAL)   : null;
+  const prevJ    = validJeonseRows.length >= 2 ? parseNumericValue(validJeonseRows[validJeonseRows.length - 2].DTA_VAL) : null;
   const prevRatio   = (prevP && prevJ) ? prevJ / prevP * 100 : null;
   const ratioChange = (ratio !== null && prevRatio !== null) ? ratio - prevRatio : null;
 
-  const latestMonth = priceRows.length
-    ? priceRows[priceRows.length - 1].WRTTIME_DESC
+  const latestMonth = validPriceRows.length
+    ? validPriceRows[validPriceRows.length - 1].WRTTIME_DESC
     : '';
 
   const fmtPct = (v, digits = 2) => {
@@ -346,14 +364,16 @@ function renderFacts() {
           <span class="db-therm-key">거래량</span>
           <span class="db-therm-val">${tradeVal !== null ? tradeVal.toLocaleString() + '건' : '—'}</span>
           <span class="db-therm-tag${tradeChange !== null && tradeChange > 0 ? ' up' : tradeChange !== null && tradeChange < 0 ? ' down' : ' flat'}">${fmtPct(tradeChange, 0)} 전월比</span>
+          <span class="db-therm-sub">선택 지역 기준</span>
         </div>
         <div class="db-therm-row">
           <span class="db-therm-key">가격변동률</span>
           <span class="db-therm-val${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ''}">${fmtPct(indexChange)}</span>
-          <span class="db-therm-sub">전국 ${fmtPct(nationalIndexChange)}</span>
+          <span class="db-therm-sub">선택 지역 기준 · 전국 ${fmtPct(nationalIndexChange)}</span>
         </div>
         ${regionChanges.length >= 4 ? `
         <div class="db-therm-row db-therm-regions">
+          <span class="db-therm-sub">전국 시도 기준</span>
           <span class="db-therm-key">상위</span>
           ${top2.map(r => `<span class="db-therm-region up">${r.name} ${fmtPct(r.change)}</span>`).join('')}
           <span class="db-therm-key" style="margin-left:6px">하위</span>

@@ -2534,7 +2534,13 @@
   font-size: 11px;
   color: var(--label3);
 }
-.db-therm-regions { align-items: center; }
+.db-therm-regions {
+  align-items: center;
+}
+.db-therm-regions .db-therm-sub {
+  width: 100%;
+  margin-bottom: 2px;
+}
 .db-therm-region {
   font-size: 11px;
   font-weight: 500;
