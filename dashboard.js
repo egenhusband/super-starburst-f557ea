@@ -63,12 +63,13 @@ function getStartDate(months) {
 }
 
 let chart = null;
-let selectedClsId = 500001; // 기본값: 전국
-let selectedName  = '전국';
-let chartMode     = 'buy';  // 'buy' | 'jeonse'
-let chartPeriod   = 6;      // 개월 (기본: 6개월)
-let allPriceData  = null;   // 캐시된 전체 데이터
-let allJeonseData = null;
+let selectedClsId    = 500001; // 기본값: 전국
+let selectedName     = '전국';
+let chartMode        = 'buy';  // 'buy' | 'jeonse'
+let chartPeriod      = 6;      // 개월 (기본: 6개월)
+let allPriceData     = null;   // 캐시된 전체 데이터
+let allJeonseData    = null;
+let lastQueriedRegion = null;  // 마지막으로 조회한 지역
 
 // ── 캐시 ─────────────────────────────────────────────
 const CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -102,10 +103,18 @@ function initDashboard() {
     <div class="db-wrap">
       <div class="db-header">
         <div class="db-title">내 동네 부동산</div>
-        <div class="db-sub">지역을 선택하면 최근 시장 현황을 보여드려요</div>
+        <div class="db-sub">지역을 선택하고 조회하면 최근 시장 현황을 보여드려요</div>
       </div>
 
       <div class="db-region-grid">${regionBtns}</div>
+
+      <div class="db-query-wrap">
+        <button class="db-query-btn" onclick="handleQuery()">조회</button>
+      </div>
+
+      <div class="db-placeholder" id="dbPlaceholder">
+        지역을 선택하고 조회를 눌러주세요
+      </div>
 
       <div class="db-loading" id="dbLoading" style="display:none">
         <div class="db-loading-dot"></div>
@@ -142,8 +151,6 @@ function initDashboard() {
     s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
     document.head.appendChild(s);
   }
-
-  loadDashboardData();
 }
 
 // ── 지역 선택 ─────────────────────────────────────────
@@ -154,15 +161,28 @@ function selectRegion(clsId, name) {
   document.querySelectorAll('.db-region-btn').forEach(btn => {
     btn.classList.toggle('active', parseInt(btn.dataset.id) === clsId);
   });
+}
 
-  renderFacts();
-  renderChart();
+// ── 조회 버튼 ─────────────────────────────────────────
+function handleQuery() {
+  // 같은 지역이고 데이터가 이미 메모리에 있으면 즉각 렌더
+  if (lastQueriedRegion === selectedClsId && allPriceData) {
+    document.getElementById('dbPlaceholder').style.display = 'none';
+    document.getElementById('dbContent').style.display = 'block';
+    renderFacts();
+    renderChart();
+    return;
+  }
+  lastQueriedRegion = selectedClsId;
+  loadDashboardData();
 }
 
 // ── 데이터 로드 ───────────────────────────────────────
 async function loadDashboardData() {
-  const loading = document.getElementById('dbLoading');
-  const content = document.getElementById('dbContent');
+  const loading     = document.getElementById('dbLoading');
+  const content     = document.getElementById('dbContent');
+  const placeholder = document.getElementById('dbPlaceholder');
+  placeholder.style.display = 'none';
   loading.style.display = 'flex';
   content.style.display = 'none';
 

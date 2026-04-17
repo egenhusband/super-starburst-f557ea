@@ -2290,6 +2290,39 @@
 }
 .db-region-btn:active { transform: scale(0.97); }
 
+/* 조회 버튼 */
+.db-query-wrap {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -4px;
+}
+.db-query-btn {
+  height: 40px;
+  padding: 0 24px;
+  background: var(--accent);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-family: 'Pretendard Variable', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.18s;
+}
+.db-query-btn:active { opacity: 0.8; }
+
+/* 조회 전 안내 문구 */
+.db-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--label3);
+  text-align: center;
+  padding: 40px 0;
+}
+
 /* 팩트 카드 */
 .db-facts-title {
   font-size: 11px;
