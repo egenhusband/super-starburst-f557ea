@@ -2482,7 +2482,7 @@
 }
 
 .db-rise-in {
-  animation: dbRiseIn 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: dbRiseIn 0.48s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: var(--rise-delay, 0ms);
   transform-origin: 50% 100%;
   will-change: transform, opacity;
@@ -2490,7 +2490,7 @@
 @keyframes dbRiseIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(18px);
   }
   to {
     opacity: 1;

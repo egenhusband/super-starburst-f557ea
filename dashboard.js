@@ -88,7 +88,7 @@ function animateDashboardContent() {
 
   animatedEls.forEach((el, index) => {
     el.classList.remove('db-rise-in');
-    el.style.setProperty('--rise-delay', `${index * 55}ms`);
+    el.style.setProperty('--rise-delay', `${index * 80}ms`);
     void el.offsetWidth;
     el.classList.add('db-rise-in');
   });
