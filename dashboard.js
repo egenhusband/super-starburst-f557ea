@@ -101,8 +101,18 @@ function renderCalculatorMarquee(bundle) {
   const track = document.getElementById('calcMarketTrack');
   if (!track) return;
   const items = buildNationalMarqueeItems(bundle?.summary?.national);
-  const pills = items.concat(items).map(item => `<span class="calc-marquee-pill">${item}</span>`).join('');
-  track.innerHTML = pills;
+  const pills = items.map(item => `<span class="calc-marquee-pill">${item}</span>`).join('');
+  if (!bundle?.summary?.national) {
+    track.classList.add('is-placeholder');
+    track.innerHTML = `<div class="calc-marquee-group">${pills}</div>`;
+    return;
+  }
+
+  track.classList.remove('is-placeholder');
+  track.innerHTML = `
+    <div class="calc-marquee-group">${pills}</div>
+    <div class="calc-marquee-group" aria-hidden="true">${pills}</div>
+  `;
 }
 
 async function fetchMarketBundle() {
