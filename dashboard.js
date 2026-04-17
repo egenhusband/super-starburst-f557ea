@@ -343,6 +343,9 @@ function renderFacts() {
   const latestMonth = validPriceRows.length
     ? validPriceRows[validPriceRows.length - 1].WRTTIME_DESC
     : '';
+  const regionalGap = (indexChange !== null && nationalIndexChange !== null)
+    ? indexChange - nationalIndexChange
+    : null;
 
   const fmtPct = (v, digits = 2) => {
     if (v === null || v === undefined) return '—';
@@ -369,15 +372,31 @@ function renderFacts() {
         <div class="db-therm-row">
           <span class="db-therm-key">가격변동률</span>
           <span class="db-therm-val${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ''}">${fmtPct(indexChange)}</span>
-          <span class="db-therm-sub">선택 지역 기준 · 전국 ${fmtPct(nationalIndexChange)}</span>
+          <span class="db-therm-sub">선택 지역 기준</span>
+        </div>
+      </div>
+
+      <div class="db-fact-card db-fact-card--context">
+        <div class="db-fact-label">전국 비교</div>
+        <div class="db-context-section">
+          <div class="db-context-title">전국 기준 요약</div>
+          <div class="db-therm-row">
+            <span class="db-therm-key">전국 변동률</span>
+            <span class="db-therm-val${nationalIndexChange !== null && nationalIndexChange > 0 ? ' up' : nationalIndexChange !== null && nationalIndexChange < 0 ? ' down' : ''}">${fmtPct(nationalIndexChange)}</span>
+            <span class="db-therm-sub">${selectedName} ${selectedClsId === 500001 ? '기준' : `대비 ${fmtPct(regionalGap)}`}</span>
+          </div>
         </div>
         ${regionChanges.length >= 4 ? `
-        <div class="db-therm-row db-therm-regions">
-          <span class="db-therm-sub">전국 시도 기준</span>
-          <span class="db-therm-key">상위</span>
-          ${top2.map(r => `<span class="db-therm-region up">${r.name} ${fmtPct(r.change)}</span>`).join('')}
-          <span class="db-therm-key" style="margin-left:6px">하위</span>
-          ${bottom2.map(r => `<span class="db-therm-region down">${r.name} ${fmtPct(r.change)}</span>`).join('')}
+        <div class="db-context-section db-context-section--rank">
+          <div class="db-context-title">전국 시도 흐름</div>
+          <div class="db-therm-row db-therm-regions">
+            <span class="db-therm-key">상위</span>
+            ${top2.map(r => `<span class="db-therm-region up">${r.name} ${fmtPct(r.change)}</span>`).join('')}
+          </div>
+          <div class="db-therm-row db-therm-regions">
+            <span class="db-therm-key">하위</span>
+            ${bottom2.map(r => `<span class="db-therm-region down">${r.name} ${fmtPct(r.change)}</span>`).join('')}
+          </div>
         </div>` : ''}
       </div>
 

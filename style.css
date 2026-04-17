@@ -2502,6 +2502,9 @@
 .db-fact-card--therm {
   grid-column: 1 / -1;
 }
+.db-fact-card--context {
+  grid-column: 1 / -1;
+}
 .db-therm-row {
   display: flex;
   align-items: baseline;
@@ -2534,16 +2537,31 @@
   font-size: 11px;
   color: var(--label3);
 }
+.db-context-section {
+  margin-top: 10px;
+}
+.db-context-section--rank {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.db-context-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--label2);
+  letter-spacing: -0.2px;
+}
 .db-therm-regions {
   align-items: center;
-}
-.db-therm-regions .db-therm-sub {
-  width: 100%;
-  margin-bottom: 2px;
 }
 .db-therm-region {
   font-size: 11px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.04);
 }
 .db-therm-region.up   { color: #ff453a; }
 .db-therm-region.down { color: #30d158; }
