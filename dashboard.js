@@ -339,19 +339,11 @@ function calcTradeChange(rows) {
   const validRows = getRecentValidRows(rows, 0);
   if (validRows.length < 2) return null;
 
+  const prev = parseNumericValue(validRows[validRows.length - 2].DTA_VAL);
   const curr = parseNumericValue(validRows[validRows.length - 1].DTA_VAL);
-  const baselineRows = validRows.slice(-4, -1);
-  const baselineValues = baselineRows
-    .map(row => parseNumericValue(row.DTA_VAL))
-    .filter(value => value !== null && value > 0);
+  if (prev === null || curr === null || prev === 0) return null;
 
-  if (curr === null || baselineValues.length === 0) return null;
-
-  const baseline = baselineValues.reduce((sum, value) => sum + value, 0) / baselineValues.length;
-  if (baseline < 10) return null;
-
-  const change = (curr - baseline) / baseline * 100;
-  return Math.abs(change) > 300 ? null : change;
+  return (curr - prev) / prev * 100;
 }
 
 function renderChangeTag(pct) {
