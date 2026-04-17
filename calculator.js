@@ -124,8 +124,30 @@
   }
 
   function goBack() {
-    if (current === 0) { showDashboard(); return; }
+    if (current === 0) return;
     navigateTo(current - 1, 'back');
+  }
+
+  function resetCalculatorToIntro() {
+    const allSlides = document.querySelectorAll('.slide');
+    allSlides.forEach(slide => {
+      slide.classList.remove('active', 'exit-left', 'exit-right');
+      Array.from(slide.children).forEach(c => c.classList.remove('slide-child-enter'));
+    });
+
+    current = 0;
+    if (allSlides[0]) allSlides[0].classList.add('active');
+    setProgress(0);
+    document.getElementById('bottomNav').style.display = 'flex';
+    document.getElementById('progressWrap').style.display = 'block';
+    document.getElementById('btnBack').disabled = true;
+    updateNextBtn();
+  }
+
+  function startCalculatorFlow() {
+    restartApp({ showDashboardAfterReset: false });
+    resetCalculatorToIntro();
+    showCalculator();
   }
 
   function navigateTo(next, direction = 'forward') {
@@ -2925,7 +2947,8 @@
     setTimeout(() => { overlay.style.display = 'none'; }, 300);
   }
 
-  function restartApp() {
+  function restartApp(options = {}) {
+    const { showDashboardAfterReset = true } = options;
     loanType = null;
     answers.household = null;
     answers.house = null;
@@ -2971,12 +2994,12 @@
     current = 0;
     allSlides[0].classList.add('active');
 
-    document.getElementById('bottomNav').style.display = 'none';
-    document.getElementById('progressWrap').style.display = 'none';
+    document.getElementById('bottomNav').style.display = 'flex';
+    document.getElementById('progressWrap').style.display = 'block';
     setProgress(0);
-    document.getElementById('btnBack').disabled = false;
+    document.getElementById('btnBack').disabled = true;
     document.getElementById('btnNext').disabled = true;
-    showDashboard();
+    if (showDashboardAfterReset) showDashboard();
   }
 
   // ── 비밀번호 & 게스트 모드 ──
@@ -2992,7 +3015,8 @@
       localStorage.setItem('authVerified', '1');
       document.getElementById('pwScreen').style.display = 'none';
       document.getElementById('pwErr').textContent = '';
-      showDashboard();
+      startCalculatorFlow();
+      if (typeof preloadMarketBundle === 'function') preloadMarketBundle().catch(() => {});
     } else {
       document.getElementById('pwErr').textContent = '비밀번호가 올바르지 않아요.';
       document.getElementById('pwInput').value = '';
@@ -3009,7 +3033,10 @@
     const hasResult = (resultContent && resultContent.innerHTML.trim() !== '') ||
                       (bankResultArea && bankResultArea.innerHTML.trim() !== '');
     if (hasResult) setTimeout(showPayPopup, 200);
-    else showDashboard();
+    else {
+      startCalculatorFlow();
+      if (typeof preloadMarketBundle === 'function') preloadMarketBundle().catch(() => {});
+    }
   }
 
   // ── 결제 팝업 ──

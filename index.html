@@ -72,6 +72,15 @@
     </div>
   </div>
 
+  <div class="calc-topbar" id="calcTopbar" style="display:none">
+    <button class="calc-topbar-btn" type="button" onclick="showDashboard()">전국 시장 보기</button>
+    <div class="calc-marquee" id="calcMarketMarquee" aria-live="polite">
+      <div class="calc-marquee-track" id="calcMarketTrack">
+        <span class="calc-marquee-pill">전국 시장 데이터 준비 중</span>
+      </div>
+    </div>
+  </div>
+
   <div class="progress-wrap" id="progressWrap">
     <div class="progress-track">
       <div class="progress-fill" id="progressFill" style="width:0%"></div>
@@ -324,8 +333,24 @@
 </div>
 
 <script>
+  let activeScreen = 'calculator';
+  const calculatorUiState = {
+    bottomNavDisplay: 'flex',
+    progressWrapDisplay: 'block',
+  };
+
+  function rememberCalculatorUiState() {
+    const bottomNav = document.getElementById('bottomNav');
+    const progressWrap = document.getElementById('progressWrap');
+    calculatorUiState.bottomNavDisplay = bottomNav?.style.display || 'flex';
+    calculatorUiState.progressWrapDisplay = progressWrap?.style.display || 'block';
+  }
+
   function showDashboard() {
+    activeScreen = 'dashboard';
+    rememberCalculatorUiState();
     document.getElementById('dashboardScreen').style.display = 'block';
+    document.getElementById('calcTopbar').style.display = 'none';
     document.getElementById('slidesContainer').style.display = 'none';
     document.getElementById('bottomNav').style.display = 'none';
     document.getElementById('progressWrap').style.display = 'none';
@@ -333,12 +358,16 @@
       const screen = document.getElementById('dashboardScreen');
       if (screen && screen.innerHTML.trim() === '') initDashboard();
     }
+    if (typeof loadDashboardData === 'function') loadDashboardData();
   }
+
   function showCalculator() {
+    activeScreen = 'calculator';
     document.getElementById('dashboardScreen').style.display = 'none';
+    document.getElementById('calcTopbar').style.display = 'flex';
     document.getElementById('slidesContainer').style.display = '';
-    document.getElementById('bottomNav').style.display = 'flex';
-    document.getElementById('progressWrap').style.display = 'block';
+    document.getElementById('bottomNav').style.display = calculatorUiState.bottomNavDisplay;
+    document.getElementById('progressWrap').style.display = calculatorUiState.progressWrapDisplay;
   }
 </script>
 <script src="calculator.js"></script>
