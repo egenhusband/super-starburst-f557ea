@@ -479,6 +479,7 @@ function renderFacts() {
           <div class="db-therm-row">
             <span class="db-therm-key">가격변동률</span>
             <span class="db-therm-val${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ''}">${fmtPct(indexChange)}</span>
+            <span class="db-therm-tag${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ' flat'}">전월比</span>
             <span class="db-therm-sub">선택 지역 기준</span>
           </div>
         </div>
