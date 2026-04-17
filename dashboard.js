@@ -48,7 +48,6 @@ let allPriceData      = null;   // 캐시된 전체 데이터
 let allJeonseData     = null;
 let allIndexData      = null;
 let allTradeData      = null;
-let lastQueriedRegion = null;   // 마지막으로 조회한 지역
 
 // ── 캐시 ─────────────────────────────────────────────
 const CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -65,6 +64,68 @@ function getCache(key) {
 
 function setCache(key, data) {
   try { localStorage.setItem('db_' + key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+}
+
+function hasDashboardData() {
+  return Array.isArray(allPriceData) && allPriceData.length > 0;
+}
+
+function updateQueryUi() {
+  const queryWrap = document.getElementById('dbQueryWrap');
+  const placeholder = document.getElementById('dbPlaceholder');
+  if (!queryWrap || !placeholder) return;
+
+  const loaded = hasDashboardData();
+  queryWrap.style.display = loaded ? 'none' : 'block';
+  placeholder.style.display = loaded ? 'none' : 'flex';
+}
+
+function animateDashboardContent() {
+  const facts = document.getElementById('dbFacts');
+  const chartWrap = document.querySelector('.db-chart-wrap');
+  [facts, chartWrap].forEach(el => {
+    if (!el) return;
+    el.classList.remove('db-rise-in');
+    void el.offsetWidth;
+    el.classList.add('db-rise-in');
+  });
+}
+
+function renderLoadingSkeleton() {
+  const loading = document.getElementById('dbLoading');
+  if (!loading) return;
+  loading.innerHTML = `
+    <div class="db-skeleton-wrap">
+      <div class="db-skeleton-label db-skeleton-shimmer"></div>
+      <div class="db-skeleton-grid">
+        <div class="db-skeleton-card db-skeleton-shimmer db-skeleton-card--wide"></div>
+        <div class="db-skeleton-card db-skeleton-shimmer db-skeleton-card--wide"></div>
+        <div class="db-skeleton-card db-skeleton-shimmer"></div>
+        <div class="db-skeleton-card db-skeleton-shimmer"></div>
+      </div>
+      <div class="db-skeleton-chart db-skeleton-shimmer"></div>
+    </div>
+  `;
+}
+
+function hydrateDashboardData(data) {
+  allPriceData  = data.priceData;
+  allJeonseData = data.jeonseData;
+  allIndexData  = data.indexData;
+  allTradeData  = data.tradeData;
+}
+
+function showDashboardData() {
+  const loading = document.getElementById('dbLoading');
+  const content = document.getElementById('dbContent');
+  const placeholder = document.getElementById('dbPlaceholder');
+  if (loading) loading.style.display = 'none';
+  if (placeholder) placeholder.style.display = 'none';
+  if (content) content.style.display = 'block';
+  updateQueryUi();
+  renderFacts();
+  renderChart();
+  animateDashboardContent();
 }
 
 // ── 대시보드 초기화 ──────────────────────────────────
@@ -87,12 +148,12 @@ function initDashboard() {
 
       <div class="db-region-grid">${regionBtns}</div>
 
-      <div class="db-query-wrap">
-        <button class="db-query-btn" onclick="handleQuery()">조회</button>
+      <div class="db-query-wrap" id="dbQueryWrap">
+        <button class="db-query-btn" id="dbQueryBtn" onclick="handleQuery()">시장 데이터 불러오기</button>
       </div>
 
       <div class="db-placeholder" id="dbPlaceholder">
-        지역을 선택하고 조회를 눌러주세요
+        지역을 선택한 뒤 시장 데이터를 불러와 주세요
       </div>
 
       <div class="db-loading" id="dbLoading" style="display:none">
@@ -130,6 +191,14 @@ function initDashboard() {
     s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
     document.head.appendChild(s);
   }
+
+  const cached = getCache('main_v3');
+  if (cached) {
+    hydrateDashboardData(cached);
+    showDashboardData();
+  } else {
+    updateQueryUi();
+  }
 }
 
 // ── 지역 선택 ─────────────────────────────────────────
@@ -140,19 +209,18 @@ function selectRegion(clsId, name) {
   document.querySelectorAll('.db-region-btn').forEach(btn => {
     btn.classList.toggle('active', parseInt(btn.dataset.id) === clsId);
   });
+
+  if (hasDashboardData()) {
+    showDashboardData();
+  }
 }
 
 // ── 조회 버튼 ─────────────────────────────────────────
 function handleQuery() {
-  // 같은 지역이고 데이터가 이미 메모리에 있으면 즉각 렌더
-  if (lastQueriedRegion === selectedClsId && allPriceData) {
-    document.getElementById('dbPlaceholder').style.display = 'none';
-    document.getElementById('dbContent').style.display = 'block';
-    renderFacts();
-    renderChart();
+  if (hasDashboardData()) {
+    showDashboardData();
     return;
   }
-  lastQueriedRegion = selectedClsId;
   loadDashboardData();
 }
 
@@ -162,20 +230,15 @@ async function loadDashboardData() {
   const content     = document.getElementById('dbContent');
   const placeholder = document.getElementById('dbPlaceholder');
   placeholder.style.display = 'none';
+  renderLoadingSkeleton();
   loading.style.display = 'flex';
   content.style.display = 'none';
 
   // 캐시 확인
   const cached = getCache('main_v3');
   if (cached) {
-    allPriceData  = cached.priceData;
-    allJeonseData = cached.jeonseData;
-    allIndexData  = cached.indexData;
-    allTradeData  = cached.tradeData;
-    loading.style.display = 'none';
-    content.style.display = 'block';
-    renderFacts();
-    renderChart();
+    hydrateDashboardData(cached);
+    showDashboardData();
     return;
   }
 
@@ -189,10 +252,12 @@ async function loadDashboardData() {
       fetchStat(STAT.tradeVolume, 1500, start),
     ]);
 
-    allPriceData  = extractRows(priceRes);
-    allJeonseData = extractRows(jeonseRes);
-    allIndexData  = extractRows(indexRes);
-    allTradeData  = extractRows(tradeRes);
+    hydrateDashboardData({
+      priceData: extractRows(priceRes),
+      jeonseData: extractRows(jeonseRes),
+      indexData: extractRows(indexRes),
+      tradeData: extractRows(tradeRes),
+    });
 
     setCache('main_v3', {
       priceData:  allPriceData,
@@ -201,14 +266,12 @@ async function loadDashboardData() {
       tradeData:  allTradeData,
     });
 
-    loading.style.display = 'none';
-    content.style.display = 'block';
-    renderFacts();
-    renderChart();
+    showDashboardData();
   } catch (e) {
     loading.style.display = 'none';
     content.innerHTML = `<div class="db-error">데이터를 불러오지 못했어요.<br>${e.message}</div>`;
     content.style.display = 'block';
+    updateQueryUi();
   }
 }
 

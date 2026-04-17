@@ -2292,13 +2292,12 @@
 
 /* 조회 버튼 */
 .db-query-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: -4px;
+  margin-top: -2px;
 }
 .db-query-btn {
-  height: 40px;
-  padding: 0 24px;
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
   background: var(--accent);
   border: none;
   border-radius: 12px;
@@ -2307,9 +2306,12 @@
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.18s;
+  transition: opacity 0.18s, transform 0.18s ease;
 }
-.db-query-btn:active { opacity: 0.8; }
+.db-query-btn:active {
+  opacity: 0.86;
+  transform: scale(0.99);
+}
 
 /* 조회 전 안내 문구 */
 .db-placeholder {
@@ -2408,20 +2410,64 @@
 
 /* 로딩 */
 .db-loading {
+  padding: 8px 0 0;
+}
+.db-skeleton-wrap {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 0;
+  flex-direction: column;
+  gap: 10px;
 }
-.db-loading-dot {
-  width: 8px; height: 8px;
-  background: var(--accent);
-  border-radius: 50%;
-  animation: dbPulse 1s ease-in-out infinite;
+.db-skeleton-label {
+  width: 146px;
+  height: 12px;
+  border-radius: 999px;
 }
-@keyframes dbPulse {
-  0%, 100% { opacity: 0.3; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.2); }
+.db-skeleton-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.db-skeleton-card {
+  height: 86px;
+  border-radius: 14px;
+}
+.db-skeleton-card--wide {
+  grid-column: 1 / -1;
+  height: 96px;
+}
+.db-skeleton-chart {
+  height: 244px;
+  border-radius: 14px;
+}
+.db-skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255,255,255,0.06);
+}
+.db-skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.14), transparent);
+  animation: dbShimmer 1.25s ease-in-out infinite;
+}
+@keyframes dbShimmer {
+  100% { transform: translateX(100%); }
+}
+
+.db-rise-in {
+  animation: dbRiseIn 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes dbRiseIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .db-error {
