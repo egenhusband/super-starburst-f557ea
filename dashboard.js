@@ -398,6 +398,61 @@ function renderChangeTag(pct) {
   return `<div class="db-change flat">— 전월 동일</div>`;
 }
 
+function buildBeginnerMarketGuide({ selectedName, tradeVal, tradeChange, indexChange, latestPrice, nationalPrice }) {
+  if (tradeVal === null || indexChange === null || latestPrice === null) {
+    return {
+      title: '시장 읽는 법',
+      summary: '최근 수치가 충분하지 않아 지금은 방향을 단정하기보다 추이를 조금 더 지켜보는 편이 안전해요.',
+      detail: '거래량과 가격변동률이 2~3개월 연속 같은 방향인지 함께 확인해 보세요.',
+      caution: '이 안내는 참고용 요약이며, 투자 수익이나 가격 상승을 보장하지 않아요.'
+    };
+  }
+
+  let title = '시장 읽는 법';
+  let summary = '';
+
+  if (indexChange >= 0.12 && tradeChange !== null && tradeChange >= 5) {
+    title = '매수 관심이 붙는 흐름';
+    summary = `${selectedName}은 지난달보다 가격 흐름과 거래 움직임이 함께 강해진 편이에요. 초보자라면 관심 지역으로 볼 수 있지만, 단기 과열인지도 같이 확인해야 해요.`;
+  } else if (indexChange >= 0.12) {
+    title = '가격이 먼저 움직이는 흐름';
+    summary = `${selectedName}은 지난달보다 가격 흐름이 강해졌지만 거래가 같이 받쳐주는지는 더 확인이 필요해요. 소수 단지 움직임이 반영됐을 가능성도 있어요.`;
+  } else if (indexChange <= -0.12 && tradeChange !== null && tradeChange <= -5) {
+    title = '관망세가 짙은 흐름';
+    summary = `${selectedName}은 지난달보다 가격 흐름과 거래 움직임이 함께 약해진 편이에요. 초보자라면 서두르기보다 매물과 실거래를 더 비교해보는 쪽이 안전해요.`;
+  } else if (indexChange <= -0.12) {
+    title = '가격 조정 신호가 보이는 흐름';
+    summary = `${selectedName}은 지난달보다 가격 흐름이 다소 약해졌어요. 다만 한 달 수치만으로 추세 전환이라고 단정하기는 어려워요.`;
+  } else if (tradeChange !== null && tradeChange >= 10) {
+    title = '거래가 먼저 살아나는 흐름';
+    summary = `${selectedName}은 거래량이 지난달보다 늘었지만 가격 흐름은 아직 큰 폭으로 움직이지 않았어요. 초보자에게는 분위기 회복 초입인지 관찰할 구간에 가까워요.`;
+  } else if (tradeChange !== null && tradeChange <= -10) {
+    title = '거래가 줄며 숨 고르는 흐름';
+    summary = `${selectedName}은 가격 흐름보다 거래가 먼저 줄어든 모습이에요. 실제 매수세가 약해지는 구간인지 추가 확인이 필요해요.`;
+  } else {
+    title = '뚜렷한 한 방향은 아닌 흐름';
+    summary = `${selectedName}은 최근 한 달 기준으로 급한 상승장이나 급한 하락장으로 보긴 어려워요. 초보자라면 한 달 수치보다 몇 달 흐름을 함께 보는 편이 좋아요.`;
+  }
+
+  let detail = `현재 평균 매매가(25평)는 ${formatPrice(latestPrice)} 수준으로 보이고, 거래량은 ${tradeVal.toLocaleString()}건이에요.`;
+  if (nationalPrice !== null) {
+    if (latestPrice >= nationalPrice * 1.4) {
+      detail += ' 전국 평균보다 높은 가격대라 자금 계획과 대출 가능 금액을 더 보수적으로 보는 편이 좋아요.';
+    } else if (latestPrice <= nationalPrice * 0.8) {
+      detail += ' 전국 평균보다 낮은 가격대라 접근성은 있을 수 있지만, 개별 입지 차이는 꼭 따로 봐야 해요.';
+    } else {
+      detail += ' 전국 평균과 비교해 크게 벗어나지 않는 가격대예요.';
+    }
+  }
+
+  return {
+    title,
+    summary,
+    detail,
+    caution: '이 문구는 거래량·가격변동률·평균 매매가를 단순 해석한 참고용 안내예요. 투자 판단이나 미래 가격 상승을 보장하지 않으며, 실제 매수 전에는 단지별 실거래가와 대출 조건을 꼭 함께 확인해 주세요.'
+  };
+}
+
 // ── 팩트 카드 렌더 ───────────────────────────────────
 function renderFacts() {
   const facts = document.getElementById('dbFacts');
@@ -422,6 +477,8 @@ function renderFacts() {
   // 전국 가격변동률 (선택 지역이 전국이 아닐 때 비교용)
   const nationalIndexRows   = filterByRegion(allIndexData, 500001);
   const nationalIndexChange = calcPriceChange(nationalIndexRows);
+  const nationalPriceRows   = filterByRegion(allPriceData, 500001);
+  const validNationalPriceRows = getRecentValidRows(nationalPriceRows, 0);
 
   // 상위/하위 2개 지역 (전국 제외, 지수 기준)
   const regionChanges = REGION_MAP
@@ -451,6 +508,9 @@ function renderFacts() {
   const regionalGap = (indexChange !== null && nationalIndexChange !== null)
     ? indexChange - nationalIndexChange
     : null;
+  const latestNationalPrice = validNationalPriceRows.length
+    ? parseNumericValue(validNationalPriceRows[validNationalPriceRows.length - 1].DTA_VAL)
+    : null;
 
   const fmtPct = (v, digits = 2) => {
     if (v === null || v === undefined) return '—';
@@ -461,6 +521,14 @@ function renderFacts() {
   };
 
   const tradeVal = latestTrade !== null ? parseInt(latestTrade, 10) : null;
+  const marketGuide = buildBeginnerMarketGuide({
+    selectedName,
+    tradeVal,
+    tradeChange,
+    indexChange,
+    latestPrice: currP,
+    nationalPrice: latestNationalPrice,
+  });
 
   facts.innerHTML = `
     <div class="db-facts-title">${selectedName} · 아파트 기준${latestMonth ? ` · ${latestMonth}` : ''}</div>
@@ -502,6 +570,13 @@ function renderFacts() {
             <div class="db-fact-val">${formatPrice(latestJeonse)}</div>
             ${renderChangeTag(jeonseChange)}
           </div>
+        </div>
+
+        <div class="db-market-guide">
+          <div class="db-market-guide-title">${marketGuide.title}</div>
+          <div class="db-market-guide-summary">${marketGuide.summary}</div>
+          <div class="db-market-guide-detail">${marketGuide.detail}</div>
+          <div class="db-market-guide-caution">${marketGuide.caution}</div>
         </div>
 
         <div class="db-chart-wrap db-chart-wrap--embedded">
