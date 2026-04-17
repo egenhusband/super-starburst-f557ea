@@ -22,37 +22,14 @@ const REGION_MAP = [
   { id: 500020, name: '제주' },
 ];
 
-// 수급동향 CLS_ID (A_2024_00076 기준)
-const DEMAND_REGION_MAP = [
-  { id: 100001, name: '전국' },
-  { id: 100004, name: '서울' },
-  { id: 100012, name: '경기' },
-  { id: 100007, name: '인천' },
-  { id: 100005, name: '부산' },
-  { id: 100006, name: '대구' },
-  { id: 100008, name: '광주' },
-  { id: 100009, name: '대전' },
-  { id: 100010, name: '울산' },
-  { id: 100011, name: '세종' },
-  { id: 100013, name: '강원' },
-  { id: 100014, name: '충북' },
-  { id: 100015, name: '충남' },
-  { id: 100016, name: '전북' },
-  { id: 100017, name: '전남' },
-  { id: 100018, name: '경북' },
-  { id: 100019, name: '경남' },
-  { id: 100020, name: '제주' },
-];
-
 const PROXY_BASE = '/.netlify/functions/reb-proxy';
 
 const STAT = {
   avgPrice:    'A_2024_00188', // 지역별 매매 평균가격_아파트 (만원/㎡)
   avgJeonse:   'A_2024_00192', // 지역별 전세 평균가격_아파트 (만원/㎡)
-  buyDemand:   'A_2024_00076', // 매매수급동향_아파트
-  jenseDemand: 'A_2024_00077', // 전세수급동향_아파트
   priceIndex:  'A_2024_00178', // 지역별 매매지수_아파트
   jeonseIndex: 'A_2024_00182', // 지역별 전세지수_아파트
+  tradeVolume: 'A_2024_00554', // 월별 행정구역별 아파트매매거래현황
 };
 
 // 최근 N개월 날짜 범위 계산
@@ -63,13 +40,15 @@ function getStartDate(months) {
 }
 
 let chart = null;
-let selectedClsId    = 500001; // 기본값: 전국
-let selectedName     = '전국';
-let chartMode        = 'buy';  // 'buy' | 'jeonse'
-let chartPeriod      = 6;      // 개월 (기본: 6개월)
-let allPriceData     = null;   // 캐시된 전체 데이터
-let allJeonseData    = null;
-let lastQueriedRegion = null;  // 마지막으로 조회한 지역
+let selectedClsId     = 500001; // 기본값: 전국
+let selectedName      = '전국';
+let chartMode         = 'buy';  // 'buy' | 'jeonse'
+let chartPeriod       = 6;      // 개월 (기본: 6개월)
+let allPriceData      = null;   // 캐시된 전체 데이터
+let allJeonseData     = null;
+let allIndexData      = null;
+let allTradeData      = null;
+let lastQueriedRegion = null;   // 마지막으로 조회한 지역
 
 // ── 캐시 ─────────────────────────────────────────────
 const CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -187,12 +166,12 @@ async function loadDashboardData() {
   content.style.display = 'none';
 
   // 캐시 확인
-  const cached = getCache('main_v2');
+  const cached = getCache('main_v3');
   if (cached) {
     allPriceData  = cached.priceData;
     allJeonseData = cached.jeonseData;
-    allBuyDemand  = cached.buyDemand;
-    allJenseDemand = cached.jenseDemand;
+    allIndexData  = cached.indexData;
+    allTradeData  = cached.tradeData;
     loading.style.display = 'none';
     content.style.display = 'block';
     renderFacts();
@@ -203,23 +182,23 @@ async function loadDashboardData() {
   try {
     const start = getStartDate(14); // 1년 + 여유
 
-    const [priceRes, jeonseRes, buyRes, jeonseReq] = await Promise.all([
+    const [priceRes, jeonseRes, indexRes, tradeRes] = await Promise.all([
       fetchStat(STAT.avgPrice,    1500, start),
       fetchStat(STAT.avgJeonse,   1500, start),
-      fetchStat(STAT.buyDemand,   1500, start),
-      fetchStat(STAT.jenseDemand, 1500, start),
+      fetchStat(STAT.priceIndex,  1500, start),
+      fetchStat(STAT.tradeVolume, 1500, start),
     ]);
 
-    allPriceData   = extractRows(priceRes);
-    allJeonseData  = extractRows(jeonseRes);
-    allBuyDemand   = extractRows(buyRes);
-    allJenseDemand = extractRows(jeonseReq);
+    allPriceData  = extractRows(priceRes);
+    allJeonseData = extractRows(jeonseRes);
+    allIndexData  = extractRows(indexRes);
+    allTradeData  = extractRows(tradeRes);
 
-    setCache('main_v2', {
+    setCache('main_v3', {
       priceData:  allPriceData,
       jeonseData: allJeonseData,
-      buyDemand:  allBuyDemand,
-      jenseDemand: allJenseDemand,
+      indexData:  allIndexData,
+      tradeData:  allTradeData,
     });
 
     loading.style.display = 'none';
@@ -232,9 +211,6 @@ async function loadDashboardData() {
     content.style.display = 'block';
   }
 }
-
-let allBuyDemand   = null;
-let allJenseDemand = null;
 
 // ── API 호출 (페이지네이션) ──────────────────────────
 async function fetchStat(statblId, pSize, start) {
@@ -301,109 +277,108 @@ function renderChangeTag(pct) {
   return `<div class="db-change flat">— 전월 동일</div>`;
 }
 
-// ── 시장 분위기 요약 생성 ────────────────────────────
-function getMarketSummary(buyVal, priceRows) {
-  // 수급 분위기
-  let demandText = '';
-  if (buyVal !== null && buyVal !== undefined) {
-    const v = parseFloat(buyVal);
-    if (v > 110)      demandText = '매수 수요가 강해요';
-    else if (v > 100) demandText = '매수세가 우세해요';
-    else if (v < 90)  demandText = '매물이 많아요';
-    else if (v < 100) demandText = '매물이 조금 많아요';
-    else              demandText = '수요와 공급이 균형이에요';
-  }
-
-  // 3개월 가격 방향
-  let trendText = '';
-  let trendDir  = 'neutral';
-  if (priceRows && priceRows.length >= 3) {
-    const recent = priceRows.slice(-3).map(r => parseFloat(r.DTA_VAL)).filter(v => !isNaN(v));
-    if (recent.length >= 2) {
-      const change = (recent[recent.length - 1] - recent[0]) / recent[0] * 100;
-      if      (change >  1)   { trendText = '3개월간 가격이 빠르게 오르고 있어요'; trendDir = 'up'; }
-      else if (change >  0.2) { trendText = '3개월간 가격이 오르고 있어요';         trendDir = 'up'; }
-      else if (change < -1)   { trendText = '3개월간 가격이 빠르게 내리고 있어요'; trendDir = 'down'; }
-      else if (change < -0.2) { trendText = '3개월간 가격이 내리고 있어요';         trendDir = 'down'; }
-      else                    { trendText = '가격이 보합세예요';                      trendDir = 'neutral'; }
-    }
-  }
-
-  // 최종 한 줄 코멘트
-  let conclusion = '';
-  const buyNum = buyVal !== null ? parseFloat(buyVal) : 100;
-  if (buyNum > 100 && trendDir === 'up')      conclusion = '지금은 매수 경쟁이 치열한 시장이에요.';
-  else if (buyNum < 100 && trendDir === 'down') conclusion = '지금은 매수자에게 유리한 시장이에요.';
-  else if (buyNum > 100 && trendDir === 'down') conclusion = '수요는 있지만 가격은 조정 중이에요.';
-  else if (buyNum < 100 && trendDir === 'up')   conclusion = '매물은 많지만 가격은 오르고 있어요.';
-  else                                           conclusion = '전반적으로 안정적인 시장 흐름이에요.';
-
-  // 아이콘
-  const icon = trendDir === 'up' ? '📈' : trendDir === 'down' ? '📉' : '📊';
-
-  return { demandText, trendText, conclusion, trendDir, icon };
-}
-
 // ── 팩트 카드 렌더 ───────────────────────────────────
 function renderFacts() {
   const facts = document.getElementById('dbFacts');
   if (!facts || !allPriceData) return;
 
-  const priceRows     = filterByRegion(allPriceData,    selectedClsId);
-  const jeonseRows    = filterByRegion(allJeonseData,   selectedClsId);
-  const buyRows       = filterByRegion(allBuyDemand,    selectedClsId);
-  const jeonseReqRows = filterByRegion(allJenseDemand,  selectedClsId);
+  const priceRows  = filterByRegion(allPriceData,  selectedClsId);
+  const jeonseRows = filterByRegion(allJeonseData, selectedClsId);
+  const indexRows  = filterByRegion(allIndexData,  selectedClsId);
+  const tradeRows  = filterByRegion(allTradeData,  selectedClsId);
 
   const latestPrice  = priceRows.length  ? priceRows[priceRows.length - 1].DTA_VAL  : null;
   const latestJeonse = jeonseRows.length ? jeonseRows[jeonseRows.length - 1].DTA_VAL : null;
-  const latestBuy    = buyRows.length    ? buyRows[buyRows.length - 1].DTA_VAL       : null;
-  const latestJReq   = jeonseReqRows.length ? jeonseReqRows[jeonseReqRows.length - 1].DTA_VAL : null;
+  const latestTrade  = tradeRows.length  ? tradeRows[tradeRows.length - 1].DTA_VAL   : null;
 
   const priceChange  = calcPriceChange(priceRows);
   const jeonseChange = calcPriceChange(jeonseRows);
-  const summary      = getMarketSummary(latestBuy, priceRows);
+  const tradeChange  = calcPriceChange(tradeRows);
+  const indexChange  = calcPriceChange(indexRows);
 
-  // 데이터 기준월
+  // 전국 가격변동률 (선택 지역이 전국이 아닐 때 비교용)
+  const nationalIndexRows   = filterByRegion(allIndexData, 500001);
+  const nationalIndexChange = calcPriceChange(nationalIndexRows);
+
+  // 상위/하위 2개 지역 (전국 제외, 지수 기준)
+  const regionChanges = REGION_MAP
+    .filter(r => r.id !== 500001)
+    .map(r => {
+      const rows   = filterByRegion(allIndexData, r.id);
+      const change = calcPriceChange(rows);
+      return { name: r.name, change };
+    })
+    .filter(r => r.change !== null)
+    .sort((a, b) => b.change - a.change);
+  const top2    = regionChanges.slice(0, 2);
+  const bottom2 = regionChanges.slice(-2).reverse();
+
+  // 전세가율
+  const currP    = latestPrice  ? parseFloat(latestPrice)  : null;
+  const currJ    = latestJeonse ? parseFloat(latestJeonse) : null;
+  const ratio    = (currP && currJ) ? currJ / currP * 100 : null;
+  const prevP    = priceRows.length  >= 2 ? parseFloat(priceRows[priceRows.length - 2].DTA_VAL)  : null;
+  const prevJ    = jeonseRows.length >= 2 ? parseFloat(jeonseRows[jeonseRows.length - 2].DTA_VAL) : null;
+  const prevRatio   = (prevP && prevJ) ? prevJ / prevP * 100 : null;
+  const ratioChange = (ratio !== null && prevRatio !== null) ? ratio - prevRatio : null;
+
   const latestMonth = priceRows.length
     ? priceRows[priceRows.length - 1].WRTTIME_DESC
     : '';
 
-  facts.innerHTML = `
-    <div class="db-summary-card db-summary-${summary.trendDir}">
-      <div class="db-summary-top">
-        <span class="db-summary-icon">${summary.icon}</span>
-        <span class="db-summary-region">${selectedName} 시장 분위기</span>
-        ${latestMonth ? `<span class="db-summary-month">${latestMonth} 기준</span>` : ''}
-      </div>
-      <div class="db-summary-lines">
-        ${summary.demandText ? `<div class="db-summary-line">• ${summary.demandText}</div>` : ''}
-        ${summary.trendText  ? `<div class="db-summary-line">• ${summary.trendText}</div>`  : ''}
-      </div>
-      <div class="db-summary-conclusion">${summary.conclusion}</div>
-    </div>
+  const fmtPct = (v, digits = 2) => {
+    if (v === null || v === undefined) return '—';
+    const abs = Math.abs(v).toFixed(digits);
+    if (v > 0)  return `▲${abs}%`;
+    if (v < 0)  return `▼${abs}%`;
+    return `±0%`;
+  };
 
-    <div class="db-facts-title">${selectedName} · 아파트 기준</div>
+  const tradeVal = latestTrade !== null ? parseInt(latestTrade, 10) : null;
+
+  facts.innerHTML = `
+    <div class="db-facts-title">${selectedName} · 아파트 기준${latestMonth ? ` · ${latestMonth}` : ''}</div>
     <div class="db-facts-grid">
-      <div class="db-fact-card">
-        <div class="db-fact-label">매매 수급</div>
-        <div class="db-fact-val">${demandLabel(latestBuy)}</div>
-        <div class="db-fact-desc">${demandDesc(latestBuy, '매매')}</div>
+
+      <div class="db-fact-card db-fact-card--therm">
+        <div class="db-fact-label">시장 온도계</div>
+        <div class="db-therm-row">
+          <span class="db-therm-key">거래량</span>
+          <span class="db-therm-val">${tradeVal !== null ? tradeVal.toLocaleString() + '건' : '—'}</span>
+          <span class="db-therm-tag${tradeChange !== null && tradeChange > 0 ? ' up' : tradeChange !== null && tradeChange < 0 ? ' down' : ' flat'}">${fmtPct(tradeChange, 0)} 전월比</span>
+        </div>
+        <div class="db-therm-row">
+          <span class="db-therm-key">가격변동률</span>
+          <span class="db-therm-val${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ''}">${fmtPct(indexChange)}</span>
+          <span class="db-therm-sub">전국 ${fmtPct(nationalIndexChange)}</span>
+        </div>
+        ${regionChanges.length >= 4 ? `
+        <div class="db-therm-row db-therm-regions">
+          <span class="db-therm-key">상위</span>
+          ${top2.map(r => `<span class="db-therm-region up">${r.name} ${fmtPct(r.change)}</span>`).join('')}
+          <span class="db-therm-key" style="margin-left:6px">하위</span>
+          ${bottom2.map(r => `<span class="db-therm-region down">${r.name} ${fmtPct(r.change)}</span>`).join('')}
+        </div>` : ''}
       </div>
+
       <div class="db-fact-card">
-        <div class="db-fact-label">전세 수급</div>
-        <div class="db-fact-val">${demandLabel(latestJReq)}</div>
-        <div class="db-fact-desc">${demandDesc(latestJReq, '전세')}</div>
+        <div class="db-fact-label">전세가율</div>
+        <div class="db-fact-val">${ratio !== null ? ratio.toFixed(1) + '%' : '—'}</div>
+        ${ratioChange !== null ? `<div class="db-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월比</div>` : ''}
       </div>
+
       <div class="db-fact-card">
         <div class="db-fact-label">평균 매매가 (25평)</div>
         <div class="db-fact-val">${formatPrice(latestPrice)}</div>
         ${renderChangeTag(priceChange)}
       </div>
+
       <div class="db-fact-card">
         <div class="db-fact-label">평균 전세가 (25평)</div>
         <div class="db-fact-val">${formatPrice(latestJeonse)}</div>
         ${renderChangeTag(jeonseChange)}
       </div>
+
     </div>
   `;
 }
@@ -442,7 +417,7 @@ function renderChart() {
     return Math.round(perPyeong);
   });
 
-  const color = chartMode === 'buy' ? '#0a84ff' : '#30d158';
+  const color   = chartMode === 'buy' ? '#0a84ff' : '#30d158';
   const bgColor = chartMode === 'buy' ? 'rgba(10,132,255,0.08)' : 'rgba(48,209,88,0.08)';
 
   if (chart) { chart.destroy(); chart = null; }
@@ -495,20 +470,6 @@ function renderChart() {
 }
 
 // ── 유틸 ─────────────────────────────────────────────
-function demandLabel(val) {
-  if (val === null || val === undefined) return '—';
-  if (val > 100) return '사려는 사람↑';
-  if (val < 100) return '팔려는 사람↑';
-  return '균형';
-}
-
-function demandDesc(val, type) {
-  if (val === null || val === undefined) return '';
-  if (val > 100) return `${type}하려는 수요가 더 많아요`;
-  if (val < 100) return `${type} 매물이 더 많아요`;
-  return '수요와 공급이 비슷해요';
-}
-
 function formatPrice(val) {
   if (!val || isNaN(val)) return '—';
   // 만원/㎡ × 25평(=82.6㎡) → 총액 만원

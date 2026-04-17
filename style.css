@@ -2498,6 +2498,50 @@
 .db-change.down { color: #30d158; }
 .db-change.flat { color: var(--label3); }
 
+/* 시장 온도계 카드 */
+.db-fact-card--therm {
+  grid-column: 1 / -1;
+}
+.db-therm-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.db-therm-key {
+  font-size: 11px;
+  color: var(--label3);
+  min-width: 58px;
+  flex-shrink: 0;
+}
+.db-therm-val {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--label1);
+  letter-spacing: -0.3px;
+}
+.db-therm-val.up   { color: #ff453a; }
+.db-therm-val.down { color: #30d158; }
+.db-therm-tag {
+  font-size: 11px;
+  font-weight: 500;
+}
+.db-therm-tag.up   { color: #ff453a; }
+.db-therm-tag.down { color: #30d158; }
+.db-therm-tag.flat { color: var(--label3); }
+.db-therm-sub {
+  font-size: 11px;
+  color: var(--label3);
+}
+.db-therm-regions { align-items: center; }
+.db-therm-region {
+  font-size: 11px;
+  font-weight: 500;
+}
+.db-therm-region.up   { color: #ff453a; }
+.db-therm-region.down { color: #30d158; }
+
 .db-cta-wrap { margin-top: auto; }
 .db-cta {
   width: 100%;
