@@ -15,6 +15,8 @@
     --yellow: #ffd60a;
     --red: #ff453a;
     --red-dim: rgba(255,69,58,0.1);
+    --rise: #f04251;
+    --fall: #3485fa;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -97,6 +99,12 @@
   .calc-marquee-pill strong {
     color: var(--label1);
     font-weight: 600;
+  }
+  .calc-marquee-trend.up {
+    color: var(--rise);
+  }
+  .calc-marquee-trend.down {
+    color: var(--fall);
   }
   @keyframes calcMarqueeScroll {
     from { transform: translateX(0); }
@@ -2332,21 +2340,31 @@
 
 /* 지역 그리드 */
 .db-region-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
   gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.db-region-grid::-webkit-scrollbar {
+  display: none;
 }
 .db-region-btn {
-  height: 44px;
+  height: 40px;
+  padding: 0 14px;
   background: var(--bg3);
   border: 1.5px solid var(--separator);
   border-radius: 12px;
   color: var(--label2);
   font-family: 'Pretendard Variable', sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
   cursor: pointer;
   transition: all 0.15s;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 .db-region-btn.active {
   background: var(--accent-dim);
@@ -2583,12 +2601,12 @@
   gap: 10px;
 }
 .db-summary-card.db-summary-up {
-  border-color: rgba(255, 69, 58, 0.4);
-  background: rgba(255, 69, 58, 0.06);
+  border-color: rgba(240, 66, 81, 0.4);
+  background: rgba(240, 66, 81, 0.06);
 }
 .db-summary-card.db-summary-down {
-  border-color: rgba(48, 209, 88, 0.4);
-  background: rgba(48, 209, 88, 0.06);
+  border-color: rgba(52, 133, 250, 0.4);
+  background: rgba(52, 133, 250, 0.06);
 }
 .db-summary-top {
   display: flex;
@@ -2634,8 +2652,8 @@
   font-weight: 500;
   margin-top: 5px;
 }
-.db-change.up   { color: #ff453a; }
-.db-change.down { color: #30d158; }
+.db-change.up   { color: var(--rise); }
+.db-change.down { color: var(--fall); }
 .db-change.flat { color: var(--label3); }
 
 /* 시장 온도계 카드 */
@@ -2696,14 +2714,14 @@
   color: var(--label1);
   letter-spacing: -0.3px;
 }
-.db-therm-val.up   { color: #ff453a; }
-.db-therm-val.down { color: #30d158; }
+.db-therm-val.up   { color: var(--rise); }
+.db-therm-val.down { color: var(--fall); }
 .db-therm-tag {
   font-size: 11px;
   font-weight: 500;
 }
-.db-therm-tag.up   { color: #ff453a; }
-.db-therm-tag.down { color: #30d158; }
+.db-therm-tag.up   { color: var(--rise); }
+.db-therm-tag.down { color: var(--fall); }
 .db-therm-tag.flat { color: var(--label3); }
 .db-therm-sub {
   font-size: 11px;
@@ -2792,8 +2810,8 @@
   border-radius: 999px;
   background: rgba(255,255,255,0.04);
 }
-.db-therm-region.up   { color: #ff453a; }
-.db-therm-region.down { color: #30d158; }
+.db-therm-region.up   { color: var(--rise); }
+.db-therm-region.down { color: var(--fall); }
 
 .db-cta-wrap { margin-top: auto; }
 .db-cta {
