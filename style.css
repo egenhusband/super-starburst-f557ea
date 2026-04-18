@@ -2450,31 +2450,63 @@
   gap: 8px;
 }
 .db-fact-card--price-pair {
-  padding: 14px 16px;
+  padding: 14px 16px 12px;
 }
 .db-price-pair-row {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 0;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+.db-price-pair-row::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: rgba(255,255,255,0.08);
+  transform: translateX(-0.5px);
 }
 .db-price-pair-item {
   min-width: 0;
+  padding-right: 14px;
 }
 .db-price-pair-item + .db-price-pair-item {
-  padding-left: 14px;
-  border-left: 1px solid rgba(255,255,255,0.08);
+  padding-left: 28px;
+  padding-right: 0;
 }
-.db-fact-card--ratio {
-  padding: 12px 16px;
+.db-ratio-inline {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+  border-top: 1px solid rgba(255,255,255,0.08);
 }
-.db-fact-card--ratio .db-fact-label {
-  margin-bottom: 4px;
+.db-ratio-inline-label {
+  font-size: 11px;
+  color: var(--label3);
 }
-.db-fact-card--ratio .db-fact-val {
+.db-ratio-inline-value {
   font-size: 14px;
+  font-weight: 600;
+  color: var(--label1);
 }
-.db-fact-card--ratio .db-change {
-  margin-top: 4px;
+.db-ratio-inline-change {
+  font-size: 11px;
+  font-weight: 500;
+}
+.db-ratio-inline-change.up {
+  color: var(--rise);
+}
+.db-ratio-inline-change.down {
+  color: var(--fall);
+}
+.db-ratio-inline-change.flat {
+  color: var(--label3);
 }
 .db-fact-label {
   font-size: 11px;

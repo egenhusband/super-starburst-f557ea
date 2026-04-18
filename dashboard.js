@@ -589,12 +589,11 @@ function renderFacts() {
                 ${renderChangeTag(jeonseChange)}
               </div>
             </div>
-          </div>
-
-          <div class="db-fact-card db-fact-card--ratio">
-            <div class="db-fact-label">전세가율</div>
-            <div class="db-fact-val">${ratio !== null ? ratio.toFixed(1) + '%' : '—'}</div>
-            ${ratioChange !== null ? `<div class="db-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월 대비</div>` : ''}
+            <div class="db-ratio-inline">
+              <span class="db-ratio-inline-label">전세가율</span>
+              <span class="db-ratio-inline-value">${ratio !== null ? ratio.toFixed(1) + '%' : '—'}</span>
+              ${ratioChange !== null ? `<span class="db-ratio-inline-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월 대비</span>` : ''}
+            </div>
           </div>
         </div>
 
