@@ -57,7 +57,7 @@ let allTradeData      = null;
 let marketBundlePromise = null;
 
 // ── 캐시 ─────────────────────────────────────────────
-const CACHE_TTL = 24 * 60 * 60 * 1000;
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
 function getCache(key) {
   try {
