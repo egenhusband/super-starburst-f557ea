@@ -2341,12 +2341,15 @@
 /* 지역 그리드 */
 .db-region-grid {
   display: flex;
+  align-items: center;
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
   margin-inline: -24px;
   padding-inline: 24px;
-  padding-bottom: 2px;
+  padding-top: 2px;
+  padding-bottom: 6px;
+  min-height: 48px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -2354,6 +2357,9 @@
   display: none;
 }
 .db-region-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 40px;
   padding: 0 14px;
   background: var(--bg3);
@@ -2367,6 +2373,7 @@
   transition: all 0.15s;
   flex: 0 0 auto;
   white-space: nowrap;
+  line-height: 1;
 }
 .db-region-btn.active {
   background: var(--accent-dim);
