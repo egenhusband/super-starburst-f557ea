@@ -178,7 +178,7 @@ exports.handler = async function() {
         'Access-Control-Allow-Origin': '*',
         'Cache-Control': 'public, max-age=300',
         'CDN-Cache-Control': `public, s-maxage=${CACHE_TTL_SECONDS}, stale-while-revalidate=${STALE_TTL_SECONDS}`,
-        'Netlify-CDN-Cache-Control': `public, s-maxage=${CACHE_TTL_SECONDS}, stale-while-revalidate=${STALE_TTL_SECONDS}`,
+        'Netlify-CDN-Cache-Control': `public, durable, s-maxage=${CACHE_TTL_SECONDS}, stale-while-revalidate=${STALE_TTL_SECONDS}`,
       },
       body: JSON.stringify(payload),
     };

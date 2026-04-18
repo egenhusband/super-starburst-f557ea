@@ -392,6 +392,34 @@ function renderChangeTag(pct) {
   return `<div class="db-change flat">— 전월 동일</div>`;
 }
 
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderStreamingWords(text, className, startDelay = 0) {
+  const tokens = String(text).split(/(\s+)/).filter(token => token.length > 0);
+  let delay = startDelay;
+
+  return `
+    <span class="${className}" aria-label="${escapeHtml(text)}">
+      ${tokens.map(token => {
+        if (/^\s+$/.test(token)) {
+          return `<span class="db-stream-space">${token.replace(/ /g, '&nbsp;')}</span>`;
+        }
+
+        const html = `<span class="db-stream-word" style="--stream-delay:${delay}ms">${escapeHtml(token)}</span>`;
+        delay += 42;
+        return html;
+      }).join('')}
+    </span>
+  `;
+}
+
 function buildMarketGuide({ selectedName, tradeVal, tradeChange, indexChange, latestPrice, nationalPrice }) {
   if (tradeVal === null || indexChange === null || latestPrice === null) {
     return {
@@ -568,8 +596,8 @@ function renderFacts() {
 
         <div class="db-market-guide">
           <div class="db-market-guide-title">${marketGuide.title}</div>
-          <div class="db-market-guide-summary">${marketGuide.summary}</div>
-          <div class="db-market-guide-detail">${marketGuide.detail}</div>
+          <div class="db-market-guide-summary">${renderStreamingWords(marketGuide.summary, 'db-market-guide-stream', 40)}</div>
+          <div class="db-market-guide-detail">${renderStreamingWords(marketGuide.detail, 'db-market-guide-stream', 220)}</div>
           <div class="db-market-guide-caution">${marketGuide.caution}</div>
         </div>
 
