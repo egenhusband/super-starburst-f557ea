@@ -89,10 +89,16 @@ function hydrateMarketBundle(bundle) {
 function buildNationalMarqueeItems(summary) {
   if (!summary) return ['전국 시장 데이터 준비 중'];
   const items = [];
+  const formatTrendHtml = (value, digits = 0) => {
+    if (!Number.isFinite(value)) return '';
+    const dirClass = value > 0 ? 'up' : value < 0 ? 'down' : 'flat';
+    const symbol = value > 0 ? '▲' : value < 0 ? '▼' : '±';
+    return `<strong class="calc-marquee-trend ${dirClass}">${symbol}${Math.abs(value).toFixed(digits)}%</strong>`;
+  };
   if (summary.latestMonth) items.push(`전국 · <strong>${summary.latestMonth}</strong>`);
   if (Number.isFinite(summary.tradeVolume)) items.push(`거래량 <strong>${summary.tradeVolume.toLocaleString()}건</strong>`);
-  if (Number.isFinite(summary.tradeChange)) items.push(`거래량 <strong>${summary.tradeChange > 0 ? '▲' : summary.tradeChange < 0 ? '▼' : '±'}${Math.abs(summary.tradeChange).toFixed(0)}%</strong> 전월比`);
-  if (Number.isFinite(summary.priceChange)) items.push(`가격변동률 <strong>${summary.priceChange > 0 ? '▲' : summary.priceChange < 0 ? '▼' : '±'}${Math.abs(summary.priceChange).toFixed(2)}%</strong> 전월比`);
+  if (Number.isFinite(summary.tradeChange)) items.push(`거래량 ${formatTrendHtml(summary.tradeChange, 0)} 전월 대비`);
+  if (Number.isFinite(summary.priceChange)) items.push(`가격변동률 ${formatTrendHtml(summary.priceChange, 2)} 전월 대비`);
   if (Number.isFinite(summary.avgBuyPrice)) items.push(`평균 매매가(25평) <strong>${formatPrice(summary.avgBuyPrice)}</strong>`);
   return items.length ? items : ['전국 시장 데이터 준비 중'];
 }
@@ -387,8 +393,8 @@ function calcTradeChange(rows) {
 function renderChangeTag(pct) {
   if (pct === null) return '';
   const abs = Math.abs(pct).toFixed(2);
-  if (pct > 0)  return `<div class="db-change up">▲ ${abs}% 전월比</div>`;
-  if (pct < 0)  return `<div class="db-change down">▼ ${abs}% 전월比</div>`;
+  if (pct > 0)  return `<div class="db-change up">▲ ${abs}% 전월 대비</div>`;
+  if (pct < 0)  return `<div class="db-change down">▼ ${abs}% 전월 대비</div>`;
   return `<div class="db-change flat">— 전월 동일</div>`;
 }
 
@@ -563,13 +569,13 @@ function renderFacts() {
           <div class="db-therm-row">
             <span class="db-therm-key">거래량</span>
             <span class="db-therm-val">${tradeVal !== null ? tradeVal.toLocaleString() + '건' : '—'}</span>
-            <span class="db-therm-tag${tradeChange !== null && tradeChange > 0 ? ' up' : tradeChange !== null && tradeChange < 0 ? ' down' : ' flat'}">${fmtPct(tradeChange, 0)} 전월比</span>
+            <span class="db-therm-tag${tradeChange !== null && tradeChange > 0 ? ' up' : tradeChange !== null && tradeChange < 0 ? ' down' : ' flat'}">${fmtPct(tradeChange, 0)} 전월 대비</span>
             <span class="db-therm-sub">선택 지역 기준</span>
           </div>
           <div class="db-therm-row">
             <span class="db-therm-key">가격변동률</span>
             <span class="db-therm-val${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ''}">${fmtPct(indexChange)}</span>
-            <span class="db-therm-tag${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ' flat'}">전월比</span>
+            <span class="db-therm-tag${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ' flat'}">전월 대비</span>
             <span class="db-therm-sub">선택 지역 기준</span>
           </div>
         </div>
@@ -578,7 +584,7 @@ function renderFacts() {
           <div class="db-fact-card">
             <div class="db-fact-label">전세가율</div>
             <div class="db-fact-val">${ratio !== null ? ratio.toFixed(1) + '%' : '—'}</div>
-            ${ratioChange !== null ? `<div class="db-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월比</div>` : ''}
+            ${ratioChange !== null ? `<div class="db-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월 대비</div>` : ''}
           </div>
 
           <div class="db-fact-card">
