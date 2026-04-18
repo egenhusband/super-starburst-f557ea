@@ -165,7 +165,7 @@ exports.handler = async function() {
       meta: {
         source: 'REB',
         cachedAt: new Date().toISOString(),
-        ttlHours: 24,
+        ttlHours: 168,
       },
       summary: buildSummary(detail),
       detail,
@@ -177,8 +177,8 @@ exports.handler = async function() {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Cache-Control': 'public, max-age=300',
-        'CDN-Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=43200',
-        'Netlify-CDN-Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=43200',
+        'CDN-Cache-Control': `public, s-maxage=${CACHE_TTL_SECONDS}, stale-while-revalidate=${STALE_TTL_SECONDS}`,
+        'Netlify-CDN-Cache-Control': `public, s-maxage=${CACHE_TTL_SECONDS}, stale-while-revalidate=${STALE_TTL_SECONDS}`,
       },
       body: JSON.stringify(payload),
     };
@@ -193,3 +193,5 @@ exports.handler = async function() {
     };
   }
 };
+const CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
+const STALE_TTL_SECONDS = 24 * 60 * 60;
