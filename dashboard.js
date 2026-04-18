@@ -576,22 +576,25 @@ function renderFacts() {
         </div>
 
         <div class="db-regional-grid">
-          <div class="db-fact-card">
+          <div class="db-fact-card db-fact-card--price-pair">
+            <div class="db-price-pair-row">
+              <div class="db-price-pair-item">
+                <div class="db-fact-label">평균 매매가 (25평)</div>
+                <div class="db-fact-val">${formatPrice(latestPrice)}</div>
+                ${renderChangeTag(priceChange)}
+              </div>
+              <div class="db-price-pair-item">
+                <div class="db-fact-label">평균 전세가 (25평)</div>
+                <div class="db-fact-val">${formatPrice(latestJeonse)}</div>
+                ${renderChangeTag(jeonseChange)}
+              </div>
+            </div>
+          </div>
+
+          <div class="db-fact-card db-fact-card--ratio">
             <div class="db-fact-label">전세가율</div>
             <div class="db-fact-val">${ratio !== null ? ratio.toFixed(1) + '%' : '—'}</div>
             ${ratioChange !== null ? `<div class="db-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월 대비</div>` : ''}
-          </div>
-
-          <div class="db-fact-card">
-            <div class="db-fact-label">평균 매매가 (25평)</div>
-            <div class="db-fact-val">${formatPrice(latestPrice)}</div>
-            ${renderChangeTag(priceChange)}
-          </div>
-
-          <div class="db-fact-card">
-            <div class="db-fact-label">평균 전세가 (25평)</div>
-            <div class="db-fact-val">${formatPrice(latestJeonse)}</div>
-            ${renderChangeTag(jeonseChange)}
           </div>
         </div>
 

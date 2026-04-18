@@ -2446,11 +2446,35 @@
 }
 .db-regional-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
-.db-regional-grid .db-fact-card:last-child {
-  grid-column: 1 / -1;
+.db-fact-card--price-pair {
+  padding: 14px 16px;
+}
+.db-price-pair-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.db-price-pair-item {
+  min-width: 0;
+}
+.db-price-pair-item + .db-price-pair-item {
+  padding-left: 14px;
+  border-left: 1px solid rgba(255,255,255,0.08);
+}
+.db-fact-card--ratio {
+  padding: 12px 16px;
+}
+.db-fact-card--ratio .db-fact-label {
+  margin-bottom: 4px;
+}
+.db-fact-card--ratio .db-fact-val {
+  font-size: 14px;
+}
+.db-fact-card--ratio .db-change {
+  margin-top: 4px;
 }
 .db-fact-label {
   font-size: 11px;
