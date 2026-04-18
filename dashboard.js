@@ -554,11 +554,10 @@ function renderFacts() {
   });
 
   facts.innerHTML = `
-    <div class="db-facts-title">${selectedName} · 아파트 기준${latestMonth ? ` · ${latestMonth}` : ''}</div>
     <div class="db-facts-grid">
 
       <div class="db-fact-card db-fact-card--regional">
-        <div class="db-fact-label">지역 시장 요약</div>
+        <div class="db-fact-label">${selectedName} · 아파트 기준${latestMonth ? ` · ${latestMonth}` : ''}</div>
         <div class="db-fact-card db-fact-card--therm">
           <div class="db-fact-label">시장 온도계</div>
           <div class="db-therm-row">
