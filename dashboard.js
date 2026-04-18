@@ -231,11 +231,6 @@ function initDashboard() {
           <span>계산 흐름은 그대로 유지돼요</span>
         </div>
       </div>
-      <div class="db-header">
-        <div class="db-title">내 동네 부동산</div>
-        <div class="db-sub">지역을 선택하고 조회하면 최근 시장 현황을 보여드려요</div>
-      </div>
-
       <div class="db-region-grid">${regionBtns}</div>
 
       <div class="db-query-wrap" id="dbQueryWrap">
