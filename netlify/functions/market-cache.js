@@ -6,6 +6,7 @@ const START_MONTH_WINDOW = 14;
 const STAT = {
   avgPrice: 'A_2024_00188',
   avgJeonse: 'A_2024_00192',
+  jeonseSupply: 'A_2024_00077',
   priceIndex: 'A_2024_00178',
   tradeVolume: 'A_2024_00554',
 };
@@ -29,6 +30,27 @@ const TRADE_REGION_ID_MAP = {
   500018: 500016,
   500019: 500017,
   500020: 500019,
+};
+
+const JEONSE_SUPPLY_REGION_ID_MAP = {
+  500001: 500001,
+  500004: 500008,
+  500012: 500009,
+  500007: 500010,
+  500005: 500011,
+  500006: 500012,
+  500008: 500013,
+  500009: 500014,
+  500010: 500015,
+  500011: 500016,
+  500013: 500017,
+  500014: 500018,
+  500015: 500019,
+  500016: 500020,
+  500017: 500021,
+  500018: 500022,
+  500019: 500023,
+  500020: 500024,
 };
 
 function getStartDate(months) {
@@ -94,6 +116,39 @@ function filterTradeByRegion(rows, clsId) {
     .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
 }
 
+function filterJeonseSupplyByRegion(rows, clsId) {
+  const supplyClsId = String(JEONSE_SUPPLY_REGION_ID_MAP[clsId] || clsId);
+  return rows
+    .filter(row => String(row.CLS_ID) === supplyClsId && String(row.ITM_ID) === '100001')
+    .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
+}
+
+function getLatestCommonMonthId(rowGroups) {
+  const monthSets = rowGroups
+    .map(rows => new Set(getRecentValidRows(rows).map(row => row.WRTTIME_IDTFR_ID)))
+    .filter(set => set.size > 0);
+
+  if (monthSets.length !== rowGroups.length) return null;
+
+  const [firstSet, ...restSets] = monthSets;
+  const commonMonths = [...firstSet]
+    .filter(monthId => restSets.every(set => set.has(monthId)))
+    .sort();
+
+  return commonMonths[commonMonths.length - 1] || null;
+}
+
+function clampRowsToMonth(rows, monthId) {
+  if (!monthId) return rows;
+  return rows.filter(row => row.WRTTIME_IDTFR_ID <= monthId);
+}
+
+function getMonthDesc(rows, monthId) {
+  if (!monthId) return '';
+  const row = rows.find(entry => entry.WRTTIME_IDTFR_ID === monthId);
+  return row?.WRTTIME_DESC || '';
+}
+
 async function fetchStatPage(statblId, start, pIndex) {
   const params = new URLSearchParams({
     KEY,
@@ -132,20 +187,31 @@ async function fetchAllRows(statblId, start) {
 
 function buildSummary(detail) {
   const nationalPriceRows = filterByRegion(detail.priceData, 500001);
+  const nationalJeonseRows = filterByRegion(detail.jeonseData, 500001);
   const nationalIndexRows = filterByRegion(detail.indexData, 500001);
   const nationalTradeRows = filterTradeByRegion(detail.tradeData, 500001);
-  const validPriceRows = getRecentValidRows(nationalPriceRows, 0);
+  const nationalJeonseSupplyRows = filterJeonseSupplyByRegion(detail.jeonseSupplyData, 500001);
+  const latestCommonMonthId = getLatestCommonMonthId([
+    nationalPriceRows,
+    nationalJeonseRows,
+    nationalIndexRows,
+    nationalTradeRows,
+    nationalJeonseSupplyRows,
+  ]);
+  const validPriceRows = getRecentValidRows(clampRowsToMonth(nationalPriceRows, latestCommonMonthId), 0);
+  const validIndexRows = clampRowsToMonth(nationalIndexRows, latestCommonMonthId);
+  const validTradeRows = clampRowsToMonth(nationalTradeRows, latestCommonMonthId);
   const latestPriceRow = validPriceRows[validPriceRows.length - 1] || null;
-  const latestTradeRow = nationalTradeRows[nationalTradeRows.length - 1] || null;
+  const latestTradeRow = validTradeRows[validTradeRows.length - 1] || null;
 
   return {
     national: {
       regionName: '전국',
-      latestMonth: latestPriceRow?.WRTTIME_DESC || '',
+      latestMonth: getMonthDesc(validPriceRows, latestCommonMonthId) || latestPriceRow?.WRTTIME_DESC || '',
       avgBuyPrice: latestPriceRow ? parseNumericValue(latestPriceRow.DTA_VAL) : null,
-      priceChange: calcPriceChange(nationalIndexRows),
+      priceChange: calcPriceChange(validIndexRows),
       tradeVolume: latestTradeRow ? parseNumericValue(latestTradeRow.DTA_VAL) : null,
-      tradeChange: calcTradeChange(nationalTradeRows),
+      tradeChange: calcTradeChange(validTradeRows),
     }
   };
 }
@@ -153,14 +219,15 @@ function buildSummary(detail) {
 exports.handler = async function() {
   try {
     const start = getStartDate(START_MONTH_WINDOW);
-    const [priceData, jeonseData, indexData, tradeData] = await Promise.all([
+    const [priceData, jeonseData, jeonseSupplyData, indexData, tradeData] = await Promise.all([
       fetchAllRows(STAT.avgPrice, start),
       fetchAllRows(STAT.avgJeonse, start),
+      fetchAllRows(STAT.jeonseSupply, start),
       fetchAllRows(STAT.priceIndex, start),
       fetchAllRows(STAT.tradeVolume, start),
     ]);
 
-    const detail = { priceData, jeonseData, indexData, tradeData };
+    const detail = { priceData, jeonseData, jeonseSupplyData, indexData, tradeData };
     const payload = {
       meta: {
         source: 'REB',
