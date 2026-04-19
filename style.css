@@ -2483,6 +2483,11 @@
   font-size: 11px;
   color: var(--label3);
 }
+.db-ratio-inline--sub {
+  margin-top: 6px;
+  padding-top: 0;
+  border-top: 0;
+}
 .db-ratio-inline-value {
   font-size: 14px;
   font-weight: 600;

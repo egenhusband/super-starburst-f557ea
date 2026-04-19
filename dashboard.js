@@ -43,6 +43,27 @@ const TRADE_REGION_ID_MAP = {
   500020: 500019,
 };
 
+const JEONSE_SUPPLY_REGION_ID_MAP = {
+  500001: 500001,
+  500004: 500008,
+  500012: 500009,
+  500007: 500010,
+  500005: 500011,
+  500006: 500012,
+  500008: 500013,
+  500009: 500014,
+  500010: 500015,
+  500011: 500016,
+  500013: 500017,
+  500014: 500018,
+  500015: 500019,
+  500016: 500020,
+  500017: 500021,
+  500018: 500022,
+  500019: 500023,
+  500020: 500024,
+};
+
 const MARKET_CACHE_ENDPOINT = '/.netlify/functions/market-cache';
 
 let chart = null;
@@ -52,6 +73,7 @@ let chartMode         = 'buy';  // 'buy' | 'jeonse'
 let chartPeriod       = 6;      // 개월 (기본: 6개월)
 let allPriceData      = null;   // 캐시된 전체 데이터
 let allJeonseData     = null;
+let allJeonseSupplyData = null;
 let allIndexData      = null;
 let allTradeData      = null;
 let marketBundlePromise = null;
@@ -74,11 +96,11 @@ function setCache(key, data) {
 }
 
 function getMarketBundleCache() {
-  return getCache('market_bundle_v1');
+  return getCache('market_bundle_v2');
 }
 
 function setMarketBundleCache(data) {
-  setCache('market_bundle_v1', data);
+  setCache('market_bundle_v2', data);
 }
 
 function hydrateMarketBundle(bundle) {
@@ -194,6 +216,7 @@ function renderLoadingSkeleton() {
 function hydrateDashboardData(data) {
   allPriceData  = data.priceData;
   allJeonseData = data.jeonseData;
+  allJeonseSupplyData = data.jeonseSupplyData || [];
   allIndexData  = data.indexData;
   allTradeData  = data.tradeData;
 }
@@ -374,6 +397,33 @@ function filterTradeByRegion(rows, clsId) {
     .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
 }
 
+function filterJeonseSupplyByRegion(rows, clsId) {
+  const supplyClsId = String(JEONSE_SUPPLY_REGION_ID_MAP[clsId] || clsId);
+  return rows
+    .filter(r => String(r.CLS_ID) === supplyClsId && String(r.ITM_ID) === '100001')
+    .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
+}
+
+function getLatestCommonMonthId(rowGroups) {
+  const monthSets = rowGroups
+    .map(rows => new Set(getRecentValidRows(rows).map(row => row.WRTTIME_IDTFR_ID)))
+    .filter(set => set.size > 0);
+
+  if (monthSets.length !== rowGroups.length) return null;
+
+  const [firstSet, ...restSets] = monthSets;
+  const commonMonths = [...firstSet]
+    .filter(monthId => restSets.every(set => set.has(monthId)))
+    .sort();
+
+  return commonMonths[commonMonths.length - 1] || null;
+}
+
+function clampRowsToMonth(rows, monthId) {
+  if (!monthId) return rows;
+  return rows.filter(row => row.WRTTIME_IDTFR_ID <= monthId);
+}
+
 function calcTradeChange(rows) {
   if (rows.length < 2) return null;
   const currRow = rows[rows.length - 1];
@@ -485,17 +535,34 @@ function renderFacts() {
   const jeonseRows      = filterByRegion(allJeonseData, selectedClsId);
   const indexRows       = filterByRegion(allIndexData,  selectedClsId);
   const tradeRows       = filterTradeByRegion(allTradeData, selectedClsId);
-  const validPriceRows  = getRecentValidRows(priceRows, 0);
-  const validJeonseRows = getRecentValidRows(jeonseRows, 0);
+  const jeonseSupplyRows = filterJeonseSupplyByRegion(allJeonseSupplyData, selectedClsId);
+  const latestCommonMonthId = getLatestCommonMonthId([
+    priceRows,
+    jeonseRows,
+    indexRows,
+    tradeRows,
+    jeonseSupplyRows,
+  ]);
+  const priceRowsForDisplay = clampRowsToMonth(priceRows, latestCommonMonthId);
+  const jeonseRowsForDisplay = clampRowsToMonth(jeonseRows, latestCommonMonthId);
+  const indexRowsForDisplay = clampRowsToMonth(indexRows, latestCommonMonthId);
+  const tradeRowsForDisplay = clampRowsToMonth(tradeRows, latestCommonMonthId);
+  const jeonseSupplyRowsForDisplay = clampRowsToMonth(jeonseSupplyRows, latestCommonMonthId);
+  const validPriceRows  = getRecentValidRows(priceRowsForDisplay, 0);
+  const validJeonseRows = getRecentValidRows(jeonseRowsForDisplay, 0);
 
   const latestPrice  = validPriceRows.length  ? validPriceRows[validPriceRows.length - 1].DTA_VAL   : null;
   const latestJeonse = validJeonseRows.length ? validJeonseRows[validJeonseRows.length - 1].DTA_VAL : null;
-  const latestTrade  = tradeRows.length ? parseNumericValue(tradeRows[tradeRows.length - 1].DTA_VAL) : null;
+  const latestTrade  = tradeRowsForDisplay.length ? parseNumericValue(tradeRowsForDisplay[tradeRowsForDisplay.length - 1].DTA_VAL) : null;
+  const latestJeonseSupply = jeonseSupplyRowsForDisplay.length
+    ? parseNumericValue(jeonseSupplyRowsForDisplay[jeonseSupplyRowsForDisplay.length - 1].DTA_VAL)
+    : null;
 
-  const priceChange  = calcPriceChange(priceRows);
-  const jeonseChange = calcPriceChange(jeonseRows);
-  const tradeChange  = calcTradeChange(tradeRows);
-  const indexChange  = calcPriceChange(indexRows);
+  const priceChange  = calcPriceChange(priceRowsForDisplay);
+  const jeonseChange = calcPriceChange(jeonseRowsForDisplay);
+  const tradeChange  = calcTradeChange(tradeRowsForDisplay);
+  const indexChange  = calcPriceChange(indexRowsForDisplay);
+  const jeonseSupplyChange = calcPriceChange(jeonseSupplyRowsForDisplay);
 
   // 전국 가격변동률 (선택 지역이 전국이 아닐 때 비교용)
   const nationalIndexRows   = filterByRegion(allIndexData, 500001);
@@ -592,6 +659,11 @@ function renderFacts() {
               <span class="db-ratio-inline-label">전세가율</span>
               <span class="db-ratio-inline-value">${ratio !== null ? ratio.toFixed(1) + '%' : '—'}</span>
               ${ratioChange !== null ? `<span class="db-ratio-inline-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월 대비</span>` : ''}
+            </div>
+            <div class="db-ratio-inline db-ratio-inline--sub">
+              <span class="db-ratio-inline-label">전세수급</span>
+              <span class="db-ratio-inline-value">${latestJeonseSupply !== null ? latestJeonseSupply.toFixed(1) : '—'}</span>
+              ${jeonseSupplyChange !== null ? `<span class="db-ratio-inline-change ${jeonseSupplyChange > 0 ? 'up' : jeonseSupplyChange < 0 ? 'down' : 'flat'}">${jeonseSupplyChange > 0 ? '▲' : jeonseSupplyChange < 0 ? '▼' : '—'} ${Math.abs(jeonseSupplyChange).toFixed(2)}% 전월 대비</span>` : ''}
             </div>
           </div>
         </div>
