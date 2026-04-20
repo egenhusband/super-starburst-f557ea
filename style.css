@@ -2324,7 +2324,10 @@
   flex-direction: column;
   padding: 48px 20px max(env(safe-area-inset-bottom), 24px);
   overflow-y: auto;
+  overflow-x: hidden;
   gap: 20px;
+  width: 100%;
+  max-width: 100%;
 }
 .db-title {
   font-size: 26px;
@@ -2345,13 +2348,15 @@
   gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  margin-inline: -24px;
-  padding-inline: 24px;
+  margin-inline: -20px;
+  padding-inline: 20px;
   padding-top: 2px;
   padding-bottom: 6px;
   min-height: 48px;
+  max-width: calc(100% + 40px);
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
 }
 .db-region-grid::-webkit-scrollbar {
   display: none;
@@ -2424,6 +2429,8 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
 }
 .db-fact-card {
   background: var(--bg3);
@@ -2530,6 +2537,12 @@
   border: 1.5px solid var(--separator);
   border-radius: 14px;
   padding: 16px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+.db-chart-wrap canvas {
+  max-width: 100% !important;
 }
 .db-chart-wrap--embedded {
   margin-top: 2px;
