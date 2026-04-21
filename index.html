@@ -407,10 +407,17 @@
   }
 
   function showCalculator() {
-    if (activeScreen === 'calculator') return;
     const app = document.querySelector('.app');
     const screen = document.getElementById('dashboardScreen');
     if (!app || !screen) return;
+
+    if (activeScreen === 'calculator') {
+      clearScreenTransition(app);
+      screen.style.display = 'none';
+      app.classList.remove('screen-dashboard-active');
+      setCalculatorUiVisible(true);
+      return;
+    }
 
     clearScreenTransition(app);
     activeScreen = 'calculator';
