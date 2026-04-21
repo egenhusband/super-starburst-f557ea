@@ -39,6 +39,90 @@
     overflow: hidden;
   }
 
+  #dashboardScreen {
+    position: absolute;
+    inset: 0;
+    z-index: 90;
+    min-width: 0;
+    background: var(--bg);
+    opacity: 0;
+    transform: translate3d(0, 28px, 0) scale(0.985);
+    transform-origin: 50% 58%;
+    pointer-events: none;
+    will-change: opacity, transform;
+    transition:
+      opacity 380ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .calc-topbar,
+  .progress-wrap,
+  .slides,
+  .bottom-nav {
+    will-change: opacity, transform;
+    transition:
+      opacity 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .app.screen-transitioning {
+    pointer-events: none;
+  }
+
+  .app.screen-dashboard-active #dashboardScreen,
+  .app.screen-to-dashboard #dashboardScreen {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    pointer-events: auto;
+  }
+
+  .app.screen-from-dashboard .calc-topbar,
+  .app.screen-from-dashboard .progress-wrap,
+  .app.screen-from-dashboard .slides,
+  .app.screen-from-dashboard .bottom-nav {
+    opacity: 0;
+    transform: translate3d(0, -14px, 0) scale(0.985);
+  }
+
+  .app.screen-to-dashboard .calc-topbar,
+  .app.screen-to-dashboard .progress-wrap,
+  .app.screen-to-dashboard .slides,
+  .app.screen-to-dashboard .bottom-nav {
+    opacity: 0;
+    transform: translate3d(0, -12px, 0) scale(0.985);
+  }
+
+  .app.screen-to-calculator #dashboardScreen {
+    opacity: 0;
+    transform: translate3d(0, 30px, 0) scale(0.985);
+    pointer-events: none;
+  }
+
+  .calc-topbar-btn,
+  .db-back-btn {
+    transition:
+      opacity 180ms ease,
+      transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+      background 180ms ease,
+      border-color 180ms ease;
+  }
+
+  .calc-topbar-btn:active,
+  .db-back-btn:active {
+    transform: scale(0.975);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #dashboardScreen,
+    .calc-topbar,
+    .progress-wrap,
+    .slides,
+    .bottom-nav {
+      transition-duration: 1ms;
+      transform: none !important;
+    }
+  }
+
   .calc-topbar {
     display: flex;
     align-items: center;

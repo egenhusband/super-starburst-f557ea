@@ -334,6 +334,8 @@
 
 <script>
   let activeScreen = 'calculator';
+  let screenTransitionTimer = null;
+  const SCREEN_TRANSITION_MS = 460;
   const calculatorUiState = {
     bottomNavDisplay: 'flex',
     progressWrapDisplay: 'block',
@@ -346,28 +348,87 @@
     calculatorUiState.progressWrapDisplay = progressWrap?.style.display || 'block';
   }
 
+  function setCalculatorUiVisible(visible) {
+    const calcTopbar = document.getElementById('calcTopbar');
+    const slidesContainer = document.getElementById('slidesContainer');
+    const bottomNav = document.getElementById('bottomNav');
+    const progressWrap = document.getElementById('progressWrap');
+
+    if (calcTopbar) calcTopbar.style.display = visible ? 'flex' : 'none';
+    if (slidesContainer) slidesContainer.style.display = visible ? '' : 'none';
+    if (bottomNav) bottomNav.style.display = visible ? calculatorUiState.bottomNavDisplay : 'none';
+    if (progressWrap) progressWrap.style.display = visible ? calculatorUiState.progressWrapDisplay : 'none';
+  }
+
+  function clearScreenTransition(app) {
+    if (screenTransitionTimer) {
+      clearTimeout(screenTransitionTimer);
+      screenTransitionTimer = null;
+    }
+    app?.classList.remove(
+      'screen-transitioning',
+      'screen-from-calculator',
+      'screen-to-dashboard',
+      'screen-from-dashboard',
+      'screen-to-calculator'
+    );
+  }
+
   function showDashboard() {
+    if (activeScreen === 'dashboard') return;
+    const app = document.querySelector('.app');
+    const screen = document.getElementById('dashboardScreen');
+    if (!app || !screen) return;
+
+    clearScreenTransition(app);
     activeScreen = 'dashboard';
     rememberCalculatorUiState();
-    document.getElementById('dashboardScreen').style.display = 'block';
-    document.getElementById('calcTopbar').style.display = 'none';
-    document.getElementById('slidesContainer').style.display = 'none';
-    document.getElementById('bottomNav').style.display = 'none';
-    document.getElementById('progressWrap').style.display = 'none';
+    screen.style.display = 'block';
+    setCalculatorUiVisible(true);
+
     if (typeof initDashboard === 'function') {
-      const screen = document.getElementById('dashboardScreen');
       if (screen && screen.innerHTML.trim() === '') initDashboard();
     }
     if (typeof loadDashboardData === 'function') loadDashboardData();
+
+    app.classList.remove('screen-dashboard-active');
+    app.classList.add('screen-transitioning', 'screen-from-calculator');
+    requestAnimationFrame(() => {
+      app.classList.remove('screen-from-calculator');
+      app.classList.add('screen-to-dashboard');
+    });
+
+    screenTransitionTimer = setTimeout(() => {
+      setCalculatorUiVisible(false);
+      app.classList.remove('screen-transitioning', 'screen-to-dashboard');
+      app.classList.add('screen-dashboard-active');
+      screenTransitionTimer = null;
+    }, SCREEN_TRANSITION_MS);
   }
 
   function showCalculator() {
+    if (activeScreen === 'calculator') return;
+    const app = document.querySelector('.app');
+    const screen = document.getElementById('dashboardScreen');
+    if (!app || !screen) return;
+
+    clearScreenTransition(app);
     activeScreen = 'calculator';
-    document.getElementById('dashboardScreen').style.display = 'none';
-    document.getElementById('calcTopbar').style.display = 'flex';
-    document.getElementById('slidesContainer').style.display = '';
-    document.getElementById('bottomNav').style.display = calculatorUiState.bottomNavDisplay;
-    document.getElementById('progressWrap').style.display = calculatorUiState.progressWrapDisplay;
+    screen.style.display = 'block';
+    setCalculatorUiVisible(true);
+
+    app.classList.remove('screen-dashboard-active');
+    app.classList.add('screen-transitioning', 'screen-from-dashboard');
+    requestAnimationFrame(() => {
+      app.classList.remove('screen-from-dashboard');
+      app.classList.add('screen-to-calculator');
+    });
+
+    screenTransitionTimer = setTimeout(() => {
+      screen.style.display = 'none';
+      app.classList.remove('screen-transitioning', 'screen-to-calculator');
+      screenTransitionTimer = null;
+    }, SCREEN_TRANSITION_MS);
   }
 </script>
 <script src="calculator.js"></script>
