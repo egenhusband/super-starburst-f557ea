@@ -1,7 +1,16 @@
 exports.handler = async function(event) {
+  const key = process.env.REB_API_KEY;
+  if (!key) {
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: 'REB_API_KEY is not configured.' }),
+    };
+  }
+
   const p = event.queryStringParameters || {};
   const params = new URLSearchParams({
-    KEY: '011e9c482bc2432198b0ac0a8cec2f1b',
+    KEY: key,
     Type: 'json',
     pIndex: p.pIndex || '1',
     pSize:  p.pSize  || '500',

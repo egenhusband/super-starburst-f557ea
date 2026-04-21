@@ -1,3 +1,8 @@
+#!/usr/bin/env node
+
+const fs = require('fs/promises');
+const path = require('path');
+
 const KEY = process.env.REB_API_KEY;
 const BASE_URL = 'https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do';
 const PAGE_SIZE = 1000;
@@ -161,9 +166,9 @@ async function fetchStatPage(statblId, start, pIndex) {
   });
 
   const res = await fetch(`${BASE_URL}?${params}`);
-  if (!res.ok) throw new Error(`REB API 호출 실패: ${statblId}`);
+  if (!res.ok) throw new Error(`REB API call failed: ${statblId}`);
   const data = await res.json();
-  if (!data?.SttsApiTblData) throw new Error(`REB API 데이터 오류: ${statblId}`);
+  if (!data?.SttsApiTblData) throw new Error(`REB API data error: ${statblId}`);
   return data;
 }
 
@@ -216,60 +221,43 @@ function buildSummary(detail) {
   };
 }
 
-exports.handler = async function() {
-  try {
-    if (!KEY) {
-      return {
-        statusCode: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-        body: JSON.stringify({ error: 'REB_API_KEY is not configured.' }),
-      };
-    }
-
-    const start = getStartDate(START_MONTH_WINDOW);
-    const [priceData, jeonseData, jeonseSupplyData, indexData, tradeData] = await Promise.all([
-      fetchAllRows(STAT.avgPrice, start),
-      fetchAllRows(STAT.avgJeonse, start),
-      fetchAllRows(STAT.jeonseSupply, start),
-      fetchAllRows(STAT.priceIndex, start),
-      fetchAllRows(STAT.tradeVolume, start),
-    ]);
-
-    const detail = { priceData, jeonseData, jeonseSupplyData, indexData, tradeData };
-    const payload = {
-      meta: {
-        source: 'REB',
-        cachedAt: new Date().toISOString(),
-        ttlHours: 168,
-      },
-      summary: buildSummary(detail),
-      detail,
-    };
-
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age=300',
-        'CDN-Cache-Control': `public, s-maxage=${CACHE_TTL_SECONDS}, stale-while-revalidate=${STALE_TTL_SECONDS}`,
-        'Netlify-CDN-Cache-Control': `public, durable, s-maxage=${CACHE_TTL_SECONDS}, stale-while-revalidate=${STALE_TTL_SECONDS}`,
-      },
-      body: JSON.stringify(payload),
-    };
-  } catch (error) {
-    return {
-      statusCode: 502,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify({ error: error.message }),
-    };
+async function main() {
+  if (!KEY) {
+    throw new Error('REB_API_KEY is required.');
   }
-};
-const CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
-const STALE_TTL_SECONDS = 24 * 60 * 60;
+
+  const start = getStartDate(START_MONTH_WINDOW);
+  console.log(`Updating market dashboard data from ${start}...`);
+
+  const [priceData, jeonseData, jeonseSupplyData, indexData, tradeData] = await Promise.all([
+    fetchAllRows(STAT.avgPrice, start),
+    fetchAllRows(STAT.avgJeonse, start),
+    fetchAllRows(STAT.jeonseSupply, start),
+    fetchAllRows(STAT.priceIndex, start),
+    fetchAllRows(STAT.tradeVolume, start),
+  ]);
+
+  const detail = { priceData, jeonseData, jeonseSupplyData, indexData, tradeData };
+  const payload = {
+    meta: {
+      source: 'REB',
+      generatedAt: new Date().toISOString(),
+      ttlHours: 168,
+      startMonth: start,
+    },
+    summary: buildSummary(detail),
+    detail,
+  };
+
+  const outputPath = path.join(process.cwd(), 'data', 'market-dashboard.json');
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await fs.writeFile(outputPath, `${JSON.stringify(payload)}\n`, 'utf8');
+
+  console.log(`Wrote ${outputPath}`);
+  console.log(`Rows: price=${priceData.length}, jeonse=${jeonseData.length}, supply=${jeonseSupplyData.length}, index=${indexData.length}, trade=${tradeData.length}`);
+}
+
+main().catch(error => {
+  console.error(error);
+  process.exit(1);
+});

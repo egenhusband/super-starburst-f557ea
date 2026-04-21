@@ -64,6 +64,7 @@ const JEONSE_SUPPLY_REGION_ID_MAP = {
   500020: 500024,
 };
 
+const MARKET_DATA_URL = '/data/market-dashboard.json';
 const MARKET_CACHE_ENDPOINT = '/.netlify/functions/market-cache';
 
 let chart = null;
@@ -96,11 +97,11 @@ function setCache(key, data) {
 }
 
 function getMarketBundleCache() {
-  return getCache('market_bundle_v2');
+  return getCache('market_bundle_static_v1');
 }
 
 function setMarketBundleCache(data) {
-  setCache('market_bundle_v2', data);
+  setCache('market_bundle_static_v1', data);
 }
 
 function hydrateMarketBundle(bundle) {
@@ -150,9 +151,18 @@ async function fetchMarketBundle() {
     return cached;
   }
 
-  const res = await fetch(MARKET_CACHE_ENDPOINT);
-  if (!res.ok) throw new Error('시장 캐시를 불러오지 못했어요.');
-  const bundle = await res.json();
+  let bundle = null;
+  try {
+    const staticRes = await fetch(MARKET_DATA_URL);
+    if (!staticRes.ok) throw new Error('정적 시장 데이터를 불러오지 못했어요.');
+    bundle = await staticRes.json();
+  } catch (staticError) {
+    console.warn('[market] static data fallback:', staticError);
+    const res = await fetch(MARKET_CACHE_ENDPOINT);
+    if (!res.ok) throw new Error('시장 캐시를 불러오지 못했어요.');
+    bundle = await res.json();
+  }
+
   setMarketBundleCache(bundle);
   renderCalculatorMarquee(bundle);
   return bundle;
