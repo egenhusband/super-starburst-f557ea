@@ -1334,9 +1334,7 @@
         + prefCardHtml(uid,'0.2','신생아 출산가구','-0.2%p',false,c,true,'bogeum-family-' + uid,'data-optional-excl="true"')
         + prefCardHtml(uid,'0.5','다자녀가구 2자녀','-0.5%p',false,c,false,'')
         + prefCardHtml(uid,'0.7','다자녀가구 3자녀 이상','-0.7%p',false,c,false,'')
-        + prefCardHtml(uid,'0.7','사회적 배려층 한부모가구','-0.7%p',false,c,false,'')
-        + prefCardHtml(uid,'0.7','사회적 배려층 장애인가구','-0.7%p',false,c,false,'')
-        + prefCardHtml(uid,'0.7','사회적 배려층 다문화가구','-0.7%p',false,c,false,'')
+        + prefCardHtml(uid,'0.7','사회적 배려층 (한부모·장애인·다문화)','-0.7%p',false,c,false,'')
         + prefCardHtml(uid,'0.2','미분양관리지역 미분양 아파트','-0.2%p',false,c,false,'')
         + prefCardHtml(uid,'0.1','녹색건축물','-0.1%p',false,c,false,'')
         + prefCardHtml(uid,'1.0','전세사기피해자','-1.0%p',false,c,false,'')
@@ -1398,16 +1396,48 @@
   }
 
   // ── 카드 클릭 핸들러 ──
+  function isBogeumjariPrefSection(uid) {
+    const section = document.getElementById('tabs-' + uid)?.closest('[data-color]');
+    return section?.dataset.color === 'green';
+  }
+
+  function getBogeumjariRegularPrefTotal(uid) {
+    let total = 0;
+    const prefList = document.getElementById('pref-' + uid);
+    if (prefList) {
+      prefList.querySelectorAll('.rate-pref-card.selected-green').forEach(function(c) {
+        if (c.dataset.prefExtra !== 'electronic') total += parseFloat(c.dataset.pref || 0);
+      });
+    }
+    return Math.round(total * 100) / 100;
+  }
+
   function togglePrefCard(card, uid, colorCls, isExcl) {
     if (isExcl) {
       const group = card.dataset.excl;
       const isOptionalExcl = card.dataset.optionalExcl === 'true';
       const wasSelected = card.classList.contains('selected-' + colorCls);
+      if (isBogeumjariPrefSection(uid) && !wasSelected) {
+        const addVal = card.dataset.prefExtra === 'electronic' ? 0 : parseFloat(card.dataset.pref || 0);
+        if (Math.round((getBogeumjariRegularPrefTotal(uid) + addVal) * 100) / 100 > 1.0) {
+          showPrefToast();
+          return;
+        }
+      }
       document.querySelectorAll('[data-excl="' + group + '"]').forEach(function(c) {
         c.classList.remove('selected-blue','selected-green','selected-nb');
       });
       if (!isOptionalExcl || !wasSelected) card.classList.add('selected-' + colorCls);
     } else {
+      const isBogeumjari = isBogeumjariPrefSection(uid);
+      if (isBogeumjari) {
+        const isCurrentlySelected = card.classList.contains('selected-' + colorCls);
+        const addVal = card.dataset.prefExtra === 'electronic' ? 0 : parseFloat(card.dataset.pref || 0);
+        if (!isCurrentlySelected && Math.round((getBogeumjariRegularPrefTotal(uid) + addVal) * 100) / 100 > 1.0) {
+          showPrefToast();
+          return;
+        }
+      }
       // 디딤돌 전용 상한 체크 (surcharge 요소 존재 여부로 판별)
       const isDidimdol = !!document.getElementById('surcharge-' + uid);
       if (isDidimdol) {
