@@ -1296,13 +1296,13 @@
   }
 
   // ── 우대금리 카드 HTML 헬퍼 ──
-  function prefCardHtml(uid, pref, label, val, checked, colorCls, isExcl, exclGroup) {
+  function prefCardHtml(uid, pref, label, val, checked, colorCls, isExcl, exclGroup, extraAttrs) {
     const selClass = checked ? ' selected-' + colorCls : '';
     const checkSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
     const dataAttrs = isExcl
       ? 'data-excl="' + exclGroup + '" data-pref="' + pref + '"'
       : 'data-pref="' + pref + '"';
-    return '<div class="rate-pref-card' + selClass + '" ' + dataAttrs + ' onclick="togglePrefCard(this,\'' + uid + '\',\'' + colorCls + '\',' + (isExcl?'true':'false') + ')">'
+    return '<div class="rate-pref-card' + selClass + '" ' + dataAttrs + (extraAttrs ? ' ' + extraAttrs : '') + ' onclick="togglePrefCard(this,\'' + uid + '\',\'' + colorCls + '\',' + (isExcl?'true':'false') + ')">'
       + '<div class="rate-pref-card-check">' + checkSvg + '</div>'
       + '<span class="rate-pref-card-label">' + label + '</span>'
       + '<span class="rate-pref-card-val">' + val + '</span>'
@@ -1328,13 +1328,20 @@
 
     if (product === 'bogeumjari') {
       return '<div class="rate-pref-list" id="pref-' + uid + '">'
-        + prefCardHtml(uid,'0.7','사회적 배려층 (한부모·장애인·다문화·3자녀↑)','-0.7%p',false,c,false,'')
-        + prefCardHtml(uid,'0.2','신혼가구','-0.2%p',isNewlywed,c,false,'')
-        + prefCardHtml(uid,'0.1','아낌e 전자계약','-0.1%p',false,c,false,'')
-        + prefCardHtml(uid,'0.1','서민형 안심전환대출','-0.1%p',false,c,false,'')
-        + prefCardHtml(uid,'0.2','기타 (미분양 등)','-0.2%p',false,c,false,'')
+        + prefCardHtml(uid,'0.1','전자약정 및 전자등기','-0.1%p',false,c,false,'','data-pref-extra="electronic"')
+        + prefCardHtml(uid,'0.1','저소득청년','-0.1%p',false,c,false,'')
+        + prefCardHtml(uid,'0.3','신혼가구','-0.3%p',isNewlywed,c,true,'bogeum-family-' + uid,'data-optional-excl="true"')
+        + prefCardHtml(uid,'0.2','신생아 출산가구','-0.2%p',false,c,true,'bogeum-family-' + uid,'data-optional-excl="true"')
+        + prefCardHtml(uid,'0.5','다자녀가구 2자녀','-0.5%p',false,c,false,'')
+        + prefCardHtml(uid,'0.7','다자녀가구 3자녀 이상','-0.7%p',false,c,false,'')
+        + prefCardHtml(uid,'0.7','사회적 배려층 한부모가구','-0.7%p',false,c,false,'')
+        + prefCardHtml(uid,'0.7','사회적 배려층 장애인가구','-0.7%p',false,c,false,'')
+        + prefCardHtml(uid,'0.7','사회적 배려층 다문화가구','-0.7%p',false,c,false,'')
+        + prefCardHtml(uid,'0.2','미분양관리지역 미분양 아파트','-0.2%p',false,c,false,'')
+        + prefCardHtml(uid,'0.1','녹색건축물','-0.1%p',false,c,false,'')
+        + prefCardHtml(uid,'1.0','전세사기피해자','-1.0%p',false,c,false,'')
         + '</div>'
-        + '<div class="rate-pref-group-label">최대 1.0%p 한도 · 최종금리 연 1.2% 이상</div>';
+        + '<div class="rate-pref-group-label">일반 우대 최대 1.0%p · 전자약정/전자등기 0.1%p 별도 중복 가능 · 최종금리 연 1.2% 이상</div>';
     }
 
     if (product === 'didimdol') {
@@ -1394,10 +1401,12 @@
   function togglePrefCard(card, uid, colorCls, isExcl) {
     if (isExcl) {
       const group = card.dataset.excl;
+      const isOptionalExcl = card.dataset.optionalExcl === 'true';
+      const wasSelected = card.classList.contains('selected-' + colorCls);
       document.querySelectorAll('[data-excl="' + group + '"]').forEach(function(c) {
         c.classList.remove('selected-blue','selected-green','selected-nb');
       });
-      card.classList.add('selected-' + colorCls);
+      if (!isOptionalExcl || !wasSelected) card.classList.add('selected-' + colorCls);
     } else {
       // 디딤돌 전용 상한 체크 (surcharge 요소 존재 여부로 판별)
       const isDidimdol = !!document.getElementById('surcharge-' + uid);
@@ -1674,6 +1683,7 @@
 
     // 카드형 우대금리 합산
     let prefTotal = 0;
+    let prefExtraTotal = 0;
 
     // 중복불가 카드 (excl 그룹)
     const exclList = document.getElementById('pref-excl-' + uid);
@@ -1686,7 +1696,9 @@
     const prefList = document.getElementById('pref-' + uid);
     if (prefList) {
       prefList.querySelectorAll('.rate-pref-card.selected-blue,.rate-pref-card.selected-green,.rate-pref-card.selected-nb').forEach(card => {
-        prefTotal += parseFloat(card.dataset.pref || 0);
+        const cardPref = parseFloat(card.dataset.pref || 0);
+        if (card.dataset.prefExtra === 'electronic') prefExtraTotal += cardPref;
+        else prefTotal += cardPref;
       });
       const selectEl = prefList.querySelector('[data-pref-select]');
       if (selectEl) prefTotal += parseFloat(selectEl.value || 0);
@@ -1694,13 +1706,22 @@
 
     // 상품별 우대금리 상한 적용
     const noteEl = document.getElementById('mc-note-' + uid);
-    const isBogeumjari = noteEl?.textContent?.includes('보금자리') || document.getElementById('tab-annuity-' + uid)?.classList.contains('active-green');
+    const calcSectionForProduct = document.getElementById('tabs-' + uid)?.closest('[data-color]');
+    const isBogeumjari = calcSectionForProduct?.dataset.color === 'green'
+      || noteEl?.textContent?.includes('보금자리')
+      || document.getElementById('tab-annuity-' + uid)?.classList.contains('active-green');
 
     // 기한에 따른 기본금리 갱신 — DOM에서 읽기
     const baseEl   = document.getElementById('rs-base-' + uid);
     const curBase  = parseFloat(baseEl?.textContent) || 3.0;
 
     prefTotal = Math.round(prefTotal * 100) / 100;
+    prefExtraTotal = Math.round(prefExtraTotal * 100) / 100;
+
+    if (isBogeumjari) {
+      prefTotal = Math.min(prefTotal, 1.0);
+      prefTotal = Math.round((prefTotal + prefExtraTotal) * 100) / 100;
+    }
 
     // 디딤돌 우대금리 상한 적용 (일반 0.5%p, 다자녀 0.7%p)
     if (document.getElementById('surcharge-' + uid)) {
@@ -2139,7 +2160,7 @@
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
-        + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val green">4.05~4.45%</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">기본 금리</span><span class="info-pill-val green">4.45~4.75%</span></div>'
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val green">' + formatLimit(bFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
@@ -2512,8 +2533,8 @@
           <div class="result-group">
             <div class="rate-limit-row">
               <div class="info-pill">
-                <span class="info-pill-label">적용 금리</span>
-                <span class="info-pill-val green">4.05~4.45%</span>
+                <span class="info-pill-label">기본 금리</span>
+                <span class="info-pill-val green">4.45~4.75%</span>
               </div>
               <div class="info-pill">
                 <span class="info-pill-label">예상 한도</span>
@@ -2622,8 +2643,8 @@
         <div class="result-group">
           <div class="rate-limit-row">
             <div class="info-pill">
-              <span class="info-pill-label">적용 금리</span>
-              <span class="info-pill-val green">4.05~4.45%</span>
+              <span class="info-pill-label">기본 금리</span>
+              <span class="info-pill-val green">4.45~4.75%</span>
             </div>
             <div class="info-pill">
               <span class="info-pill-label">예상 한도</span>
