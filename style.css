@@ -2933,6 +2933,23 @@
 .db-therm-chip.flat {
   color: var(--label3);
 }
+.db-summary-report {
+  margin-top: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025));
+}
+.db-summary-report p {
+  margin: 8px 0 0;
+  color: var(--label2);
+  font-size: 12px;
+  line-height: 1.65;
+  letter-spacing: -0.15px;
+}
+.db-summary-report-stream {
+  display: inline;
+}
 .db-context-section {
   margin-top: 10px;
 }
@@ -3029,6 +3046,30 @@
   color: var(--label3);
   font-size: 11px;
   line-height: 1.45;
+}
+.db-stream-space {
+  white-space: pre;
+}
+.db-stream-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(7px);
+  filter: blur(5px);
+  animation: dbStreamReveal 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--stream-delay, 0ms);
+  will-change: transform, opacity, filter;
+}
+@keyframes dbStreamReveal {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+    filter: blur(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
 }
 .db-context-section--rank {
   margin-top: 14px;

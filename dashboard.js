@@ -504,6 +504,38 @@ function escapeHtml(text) {
     .replace(/'/g, '&#39;');
 }
 
+function renderStreamingWords(text, className, startDelay = 0) {
+  const tokens = String(text).split(/(\s+)/).filter(token => token.length > 0);
+  let delay = startDelay;
+
+  return `
+    <span class="${className}" aria-label="${escapeHtml(text)}">
+      ${tokens.map(token => {
+        if (/^\s+$/.test(token)) {
+          return `<span class="db-stream-space">${token.replace(/ /g, '&nbsp;')}</span>`;
+        }
+
+        const html = `<span class="db-stream-word" style="--stream-delay:${delay}ms">${escapeHtml(token)}</span>`;
+        delay += 38;
+        return html;
+      }).join('')}
+    </span>
+  `;
+}
+
+function buildSummaryReport({ selectedName, indexChange, aptTrade, priceChange, ratio }) {
+  const indexText = formatSignedPct(indexChange, 2);
+  const priceText = formatSignedPct(priceChange, 2);
+  const medianText = formatSignedPct(aptTrade?.signals?.medianChangePct, 1);
+  const tradeCount = Number(aptTrade?.tradeCount || 0);
+
+  if (!aptTrade) {
+    return `${selectedName}은 가격 지표 기준 ${indexText} 흐름입니다. 실거래 요약 데이터가 준비되면 중간 거래가와 거래 건수를 함께 비교할 수 있습니다.`;
+  }
+
+  return `${selectedName}은 가격 지표 ${indexText}, 평균 매매가 ${priceText}, 실거래 중간값 ${medianText} 흐름입니다. ${formatTradeMonth(aptTrade.latestDealMonth)} 실거래는 ${tradeCount.toLocaleString()}건이며 전세가율은 ${ratio !== null ? `${ratio.toFixed(1)}%` : '확인 중'}입니다.`;
+}
+
 function formatTradePrice(value) {
   const price = Number(value);
   if (!Number.isFinite(price)) return '—';
@@ -671,6 +703,13 @@ function renderFacts() {
 
   const aptTrade = aptTradeSummary?.sido?.[String(selectedClsId)] || null;
   const aptTradeHtml = renderAptTradeCards(aptTrade);
+  const summaryReport = buildSummaryReport({
+    selectedName,
+    indexChange,
+    aptTrade,
+    priceChange,
+    ratio,
+  });
   const marketTone = indexChange === null
     ? '흐름 확인 중'
     : indexChange > 0.12
@@ -694,6 +733,11 @@ function renderFacts() {
             <span class="db-therm-chip ${signalClass(indexChange)}">가격 ${fmtPct(indexChange)}</span>
             ${aptTrade ? `<span class="db-therm-chip ${signalClass(aptTrade.signals?.medianChangePct)}">실거래 중간값 ${fmtPct(aptTrade.signals?.medianChangePct, 1)}</span>` : ''}
           </div>
+        </div>
+
+        <div class="db-summary-report">
+          <div class="db-fact-label">요약 리포트</div>
+          <p>${renderStreamingWords(summaryReport, 'db-summary-report-stream', 40)}</p>
         </div>
 
         ${aptTradeHtml}
