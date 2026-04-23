@@ -504,80 +504,6 @@ function escapeHtml(text) {
     .replace(/'/g, '&#39;');
 }
 
-function renderStreamingWords(text, className, startDelay = 0) {
-  const tokens = String(text).split(/(\s+)/).filter(token => token.length > 0);
-  let delay = startDelay;
-
-  return `
-    <span class="${className}" aria-label="${escapeHtml(text)}">
-      ${tokens.map(token => {
-        if (/^\s+$/.test(token)) {
-          return `<span class="db-stream-space">${token.replace(/ /g, '&nbsp;')}</span>`;
-        }
-
-        const html = `<span class="db-stream-word" style="--stream-delay:${delay}ms">${escapeHtml(token)}</span>`;
-        delay += 42;
-        return html;
-      }).join('')}
-    </span>
-  `;
-}
-
-function buildMarketGuide({ selectedName, tradeVal, tradeChange, indexChange, latestPrice, nationalPrice }) {
-  if (tradeVal === null || indexChange === null || latestPrice === null) {
-    return {
-      title: '시장 읽는 법',
-      summary: '최근 수치가 충분하지 않아 지금은 방향을 단정하기보다 추이를 조금 더 지켜보는 편이 안전해요.',
-      detail: '거래량과 가격변동률이 2~3개월 연속 같은 방향인지 함께 확인해 보세요.',
-      caution: '이 안내는 참고용 요약이며, 투자 수익이나 가격 상승을 보장하지 않아요.'
-    };
-  }
-
-  let title = '시장 읽는 법';
-  let summary = '';
-
-  if (indexChange >= 0.12 && tradeChange !== null && tradeChange >= 5) {
-    title = '매수 관심이 붙는 흐름';
-    summary = `${selectedName}은 지난달보다 가격 흐름과 거래 움직임이 함께 강해진 편이에요. 관심 지역으로 볼 수 있지만, 단기 과열인지도 같이 확인해야 해요.`;
-  } else if (indexChange >= 0.12) {
-    title = '가격이 먼저 움직이는 흐름';
-    summary = `${selectedName}은 지난달보다 가격 흐름이 강해졌지만 거래가 같이 받쳐주는지는 더 확인이 필요해요. 소수 단지 움직임이 반영됐을 가능성도 있어요.`;
-  } else if (indexChange <= -0.12 && tradeChange !== null && tradeChange <= -5) {
-    title = '관망세가 짙은 흐름';
-    summary = `${selectedName}은 지난달보다 가격 흐름과 거래 움직임이 함께 약해진 편이에요. 서두르기보다 매물과 실거래를 더 비교해보는 쪽이 안전해요.`;
-  } else if (indexChange <= -0.12) {
-    title = '가격 조정 신호가 보이는 흐름';
-    summary = `${selectedName}은 지난달보다 가격 흐름이 다소 약해졌어요. 다만 한 달 수치만으로 추세 전환이라고 단정하기는 어려워요.`;
-  } else if (tradeChange !== null && tradeChange >= 10) {
-    title = '거래가 먼저 살아나는 흐름';
-    summary = `${selectedName}은 거래량이 지난달보다 늘었지만 가격 흐름은 아직 큰 폭으로 움직이지 않았어요. 분위기 회복 초입인지 관찰할 구간에 가까워요.`;
-  } else if (tradeChange !== null && tradeChange <= -10) {
-    title = '거래가 줄며 숨 고르는 흐름';
-    summary = `${selectedName}은 가격 흐름보다 거래가 먼저 줄어든 모습이에요. 실제 매수세가 약해지는 구간인지 추가 확인이 필요해요.`;
-  } else {
-    title = '뚜렷한 한 방향은 아닌 흐름';
-    summary = `${selectedName}은 최근 한 달 기준으로 급한 상승장이나 급한 하락장으로 보긴 어려워요. 한 달 수치보다 몇 달 흐름을 함께 보는 편이 좋아요.`;
-  }
-
-  let detail = `현재 평균 매매가(25평)는 ${formatPrice(latestPrice)} 수준으로 보이고, 거래량은 ${tradeVal.toLocaleString()}건이에요.`;
-  if (nationalPrice !== null) {
-    if (latestPrice >= nationalPrice * 1.4) {
-      detail += ' 전국 평균보다 높은 가격대라 자금 계획과 대출 가능 금액을 더 보수적으로 보는 편이 좋아요.';
-    } else if (latestPrice <= nationalPrice * 0.8) {
-      detail += ' 전국 평균보다 낮은 가격대라 접근성은 있을 수 있지만, 개별 입지 차이는 꼭 따로 봐야 해요.';
-    } else {
-      detail += ' 전국 평균과 비교해 크게 벗어나지 않는 가격대예요.';
-    }
-  }
-
-  return {
-    title,
-    summary,
-    detail,
-    caution: '이 문구는 거래량·가격변동률·평균 매매가를 단순 해석한 참고용 안내예요. 투자 판단이나 미래 가격 상승을 보장하지 않으며, 실제 매수 전에는 단지별 실거래가와 대출 조건을 꼭 함께 확인해 주세요.'
-  };
-}
-
 function formatTradePrice(value) {
   const price = Number(value);
   if (!Number.isFinite(price)) return '—';
@@ -620,7 +546,9 @@ function renderAptTradeCards(aptTrade) {
 
   const countChange = aptTrade.signals?.countChangePct;
   const medianChange = aptTrade.signals?.medianChangePct;
-  const recentDeals = Array.isArray(aptTrade.recentDeals) ? aptTrade.recentDeals.slice(0, 5) : [];
+  const popularComplexes = Array.isArray(aptTrade.popularComplexes)
+    ? aptTrade.popularComplexes.slice(0, 5)
+    : [];
 
   return `
     <div class="db-actual-grid">
@@ -644,22 +572,21 @@ function renderAptTradeCards(aptTrade) {
       </div>
 
       <div class="db-actual-card">
-        <div class="db-fact-label">최근 거래 단지</div>
+        <div class="db-fact-label">거래 많은 단지 · ${formatTradeMonth(aptTrade.latestDealMonth)}</div>
         <div class="db-deal-list">
-          ${recentDeals.length ? recentDeals.map(deal => `
+          ${popularComplexes.length ? popularComplexes.map(complex => `
             <div class="db-deal-item">
               <div class="db-deal-head">
-                <strong>${escapeHtml(deal.aptName || '단지명 없음')}</strong>
-                <span>${formatTradePrice(deal.price)}</span>
+                <strong>${escapeHtml(complex.aptName || '단지명 없음')}</strong>
+                <span>${Number(complex.tradeCount || 0).toLocaleString()}건</span>
               </div>
               <div class="db-deal-meta">
-                ${escapeHtml([deal.sigunguName, deal.umdName].filter(Boolean).join(' '))}
-                ${deal.area ? ` · ${Number(deal.area).toFixed(2)}㎡` : ''}
-                ${deal.floor !== null && deal.floor !== undefined ? ` · ${deal.floor}층` : ''}
-                ${deal.dealDate ? ` · ${deal.dealDate}` : ''}
+                ${escapeHtml([complex.sigunguName, complex.umdName].filter(Boolean).join(' '))}
+                ${complex.medianPrice ? ` · 중간 ${formatTradePrice(complex.medianPrice)}` : ''}
+                ${complex.latestDealDate ? ` · 최근 ${complex.latestDealDate}` : ''}
               </div>
             </div>
-          `).join('') : '<div class="db-actual-empty">최근 거래 내역이 아직 없어요.</div>'}
+          `).join('') : '<div class="db-actual-empty">거래 많은 단지 데이터가 아직 없어요.</div>'}
         </div>
       </div>
     </div>
@@ -693,22 +620,18 @@ function renderFacts() {
 
   const latestPrice  = validPriceRows.length  ? validPriceRows[validPriceRows.length - 1].DTA_VAL   : null;
   const latestJeonse = validJeonseRows.length ? validJeonseRows[validJeonseRows.length - 1].DTA_VAL : null;
-  const latestTrade  = tradeRowsForDisplay.length ? parseNumericValue(tradeRowsForDisplay[tradeRowsForDisplay.length - 1].DTA_VAL) : null;
   const latestJeonseSupply = jeonseSupplyRowsForDisplay.length
     ? parseNumericValue(jeonseSupplyRowsForDisplay[jeonseSupplyRowsForDisplay.length - 1].DTA_VAL)
     : null;
 
   const priceChange  = calcPriceChange(priceRowsForDisplay);
   const jeonseChange = calcPriceChange(jeonseRowsForDisplay);
-  const tradeChange  = calcTradeChange(tradeRowsForDisplay);
   const indexChange  = calcPriceChange(indexRowsForDisplay);
   const jeonseSupplyChange = calcPriceChange(jeonseSupplyRowsForDisplay);
 
   // 전국 가격변동률 (선택 지역이 전국이 아닐 때 비교용)
   const nationalIndexRows   = filterByRegion(allIndexData, 500001);
   const nationalIndexChange = calcPriceChange(nationalIndexRows);
-  const nationalPriceRows   = filterByRegion(allPriceData, 500001);
-  const validNationalPriceRows = getRecentValidRows(nationalPriceRows, 0);
 
   // 상위/하위 2개 지역 (전국 제외, 지수 기준)
   const regionChanges = REGION_MAP
@@ -738,10 +661,6 @@ function renderFacts() {
   const regionalGap = (indexChange !== null && nationalIndexChange !== null)
     ? indexChange - nationalIndexChange
     : null;
-  const latestNationalPrice = validNationalPriceRows.length
-    ? parseNumericValue(validNationalPriceRows[validNationalPriceRows.length - 1].DTA_VAL)
-    : null;
-
   const fmtPct = (v, digits = 2) => {
     if (v === null || v === undefined) return '—';
     const abs = Math.abs(v).toFixed(digits);
@@ -750,17 +669,15 @@ function renderFacts() {
     return `±0%`;
   };
 
-  const tradeVal = latestTrade !== null ? parseInt(latestTrade, 10) : null;
   const aptTrade = aptTradeSummary?.sido?.[String(selectedClsId)] || null;
-  const marketGuide = buildMarketGuide({
-    selectedName,
-    tradeVal,
-    tradeChange,
-    indexChange,
-    latestPrice: currP,
-    nationalPrice: latestNationalPrice,
-  });
   const aptTradeHtml = renderAptTradeCards(aptTrade);
+  const marketTone = indexChange === null
+    ? '흐름 확인 중'
+    : indexChange > 0.12
+      ? '가격 상승 흐름'
+      : indexChange < -0.12
+        ? '가격 하락 흐름'
+        : '보합 흐름';
 
   facts.innerHTML = `
     <div class="db-facts-grid">
@@ -769,32 +686,14 @@ function renderFacts() {
         <div class="db-fact-label">${selectedName} · 아파트 기준${latestMonth ? ` · ${latestMonth}` : ''}</div>
         <div class="db-fact-card db-fact-card--therm">
           <div class="db-fact-label">시장 온도계</div>
-          <div class="db-therm-row">
-            <span class="db-therm-key">거래량</span>
-            <span class="db-therm-val">${tradeVal !== null ? tradeVal.toLocaleString() + '건' : '—'}</span>
-            <span class="db-therm-tag${tradeChange !== null && tradeChange > 0 ? ' up' : tradeChange !== null && tradeChange < 0 ? ' down' : ' flat'}">${fmtPct(tradeChange, 0)} 전월 대비</span>
-            <span class="db-therm-sub">선택 지역 기준</span>
+          <div class="db-therm-summary">
+            <strong>${marketTone}</strong>
+            <span>${selectedName} 선택 지역 기준</span>
           </div>
-          <div class="db-therm-row">
-            <span class="db-therm-key">가격변동률</span>
-            <span class="db-therm-val${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ''}">${fmtPct(indexChange)}</span>
-            <span class="db-therm-tag${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ' flat'}">전월 대비</span>
-            <span class="db-therm-sub">선택 지역 기준</span>
+          <div class="db-therm-chip-row">
+            <span class="db-therm-chip ${signalClass(indexChange)}">가격 ${fmtPct(indexChange)}</span>
+            ${aptTrade ? `<span class="db-therm-chip ${signalClass(aptTrade.signals?.medianChangePct)}">실거래 중간값 ${fmtPct(aptTrade.signals?.medianChangePct, 1)}</span>` : ''}
           </div>
-          ${aptTrade ? `
-          <div class="db-therm-support">
-            <div class="db-context-title">실거래 보조 신호</div>
-            <div class="db-therm-row">
-              <span class="db-therm-key">실거래 건수</span>
-              <span class="db-therm-tag${aptTrade.signals?.countChangePct > 0 ? ' up' : aptTrade.signals?.countChangePct < 0 ? ' down' : ' flat'}">${fmtPct(aptTrade.signals?.countChangePct, 1)}</span>
-              <span class="db-therm-sub">국토부 실거래 · ${formatTradeMonth(aptTrade.latestDealMonth)}</span>
-            </div>
-            <div class="db-therm-row">
-              <span class="db-therm-key">중간값</span>
-              <span class="db-therm-tag${aptTrade.signals?.medianChangePct > 0 ? ' up' : aptTrade.signals?.medianChangePct < 0 ? ' down' : ' flat'}">${fmtPct(aptTrade.signals?.medianChangePct, 1)}</span>
-              <span class="db-therm-sub">전월 대비</span>
-            </div>
-          </div>` : ''}
         </div>
 
         ${aptTradeHtml}
@@ -824,13 +723,6 @@ function renderFacts() {
               ${jeonseSupplyChange !== null ? `<span class="db-ratio-inline-change ${jeonseSupplyChange > 0 ? 'up' : jeonseSupplyChange < 0 ? 'down' : 'flat'}">${jeonseSupplyChange > 0 ? '▲' : jeonseSupplyChange < 0 ? '▼' : '—'} ${Math.abs(jeonseSupplyChange).toFixed(2)}% 전월 대비</span>` : ''}
             </div>
           </div>
-        </div>
-
-        <div class="db-market-guide">
-          <div class="db-market-guide-title">${marketGuide.title}</div>
-          <div class="db-market-guide-summary">${renderStreamingWords(marketGuide.summary, 'db-market-guide-stream', 40)}</div>
-          <div class="db-market-guide-detail">${renderStreamingWords(marketGuide.detail, 'db-market-guide-stream', 220)}</div>
-          <div class="db-market-guide-caution">${marketGuide.caution}</div>
         </div>
 
         <div class="db-chart-wrap db-chart-wrap--embedded">

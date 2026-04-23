@@ -9,6 +9,7 @@ const PAGE_SIZE = 1000;
 const MONTH_WINDOW = Number(process.env.MOLIT_MONTH_WINDOW || 3);
 const CONCURRENCY = Number(process.env.MOLIT_CONCURRENCY || 8);
 const RECENT_DEAL_LIMIT = 12;
+const POPULAR_COMPLEX_LIMIT = 12;
 
 function getRecentMonths(count) {
   const now = new Date();
@@ -180,6 +181,10 @@ function summarizeRegion(regionName, deals, months, summaryMonth) {
     if (a.dealDate !== b.dealDate) return b.dealDate.localeCompare(a.dealDate);
     return b.price - a.price;
   });
+  const popularComplexes = getPopularComplexes(
+    deals.filter(deal => deal.dealMonth === latestWithData?.month),
+    POPULAR_COMPLEX_LIMIT,
+  );
 
   return {
     regionName,
@@ -191,6 +196,7 @@ function summarizeRegion(regionName, deals, months, summaryMonth) {
     latestDealMonth: latestWithData?.month || '',
     latestDealDate: sortedDeals[0]?.dealDate || '',
     recentDeals: sortedDeals.slice(0, RECENT_DEAL_LIMIT),
+    popularComplexes,
     monthly,
     signals: {
       countChangePct: pctChange(latestWithData?.count, prev?.count),
@@ -198,6 +204,52 @@ function summarizeRegion(regionName, deals, months, summaryMonth) {
       pricePerPyeongChangePct: pctChange(latestWithData?.medianPricePerPyeong, prev?.medianPricePerPyeong),
     },
   };
+}
+
+function getPopularComplexes(deals, limit) {
+  const groups = new Map();
+
+  for (const deal of deals) {
+    if (!deal.aptName) continue;
+    const key = [deal.sigunguCode, deal.umdName, deal.aptName].join('|');
+    const existing = groups.get(key) || {
+      aptName: deal.aptName,
+      sigunguCode: deal.sigunguCode,
+      sigunguName: deal.sigunguName,
+      umdName: deal.umdName,
+      tradeCount: 0,
+      prices: [],
+      areas: [],
+      latestDealDate: '',
+    };
+
+    existing.tradeCount += 1;
+    if (Number.isFinite(deal.price)) existing.prices.push(deal.price);
+    if (Number.isFinite(deal.area)) existing.areas.push(deal.area);
+    if (!existing.latestDealDate || deal.dealDate > existing.latestDealDate) {
+      existing.latestDealDate = deal.dealDate;
+    }
+    groups.set(key, existing);
+  }
+
+  return [...groups.values()]
+    .map(group => ({
+      aptName: group.aptName,
+      sigunguCode: group.sigunguCode,
+      sigunguName: group.sigunguName,
+      umdName: group.umdName,
+      tradeCount: group.tradeCount,
+      medianPrice: median(group.prices),
+      avgPrice: average(group.prices),
+      avgArea: average(group.areas),
+      latestDealDate: group.latestDealDate,
+    }))
+    .sort((a, b) => {
+      if (a.tradeCount !== b.tradeCount) return b.tradeCount - a.tradeCount;
+      if (a.latestDealDate !== b.latestDealDate) return b.latestDealDate.localeCompare(a.latestDealDate);
+      return (b.medianPrice || 0) - (a.medianPrice || 0);
+    })
+    .slice(0, limit);
 }
 
 async function main() {

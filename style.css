@@ -2887,46 +2887,54 @@
   font-size: 11px;
   color: var(--label3);
 }
-.db-context-section {
+.db-therm-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin-top: 10px;
 }
-.db-market-guide {
-  margin-top: 14px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
-}
-.db-market-guide-title {
-  font-size: 13px;
-  font-weight: 700;
+.db-therm-summary strong {
   color: var(--label1);
-  letter-spacing: -0.2px;
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: -0.55px;
 }
-.db-market-guide-summary,
-.db-market-guide-detail,
-.db-market-guide-caution {
-  margin-top: 8px;
+.db-therm-summary span {
+  color: var(--label3);
   font-size: 12px;
-  line-height: 1.6;
-  letter-spacing: -0.15px;
+  line-height: 1.45;
 }
-.db-market-guide-summary {
-  color: var(--label1);
+.db-therm-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
 }
-.db-market-guide-detail {
+.db-therm-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.065);
   color: var(--label2);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: -0.1px;
 }
-.db-market-guide-caution {
+.db-therm-chip.up {
+  background: rgba(255,69,58,0.12);
+  color: var(--rise);
+}
+.db-therm-chip.down {
+  background: rgba(10,132,255,0.12);
+  color: var(--fall);
+}
+.db-therm-chip.flat {
   color: var(--label3);
 }
-.db-market-guide-stream {
-  display: inline;
-}
-.db-therm-support {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255,255,255,0.08);
+.db-context-section {
+  margin-top: 10px;
 }
 .db-actual-grid {
   display: grid;
@@ -3021,30 +3029,6 @@
   color: var(--label3);
   font-size: 11px;
   line-height: 1.45;
-}
-.db-stream-space {
-  white-space: pre;
-}
-.db-stream-word {
-  display: inline-block;
-  opacity: 0;
-  transform: translateY(7px);
-  filter: blur(5px);
-  animation: dbStreamReveal 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-  animation-delay: var(--stream-delay, 0ms);
-  will-change: transform, opacity, filter;
-}
-@keyframes dbStreamReveal {
-  from {
-    opacity: 0;
-    transform: translateY(7px);
-    filter: blur(5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-  }
 }
 .db-context-section--rank {
   margin-top: 14px;
