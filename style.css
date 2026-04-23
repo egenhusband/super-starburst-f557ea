@@ -2923,6 +2923,105 @@
 .db-market-guide-stream {
   display: inline;
 }
+.db-therm-support {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.db-actual-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.db-actual-card {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025));
+}
+.db-actual-card--empty {
+  color: var(--label3);
+}
+.db-actual-main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+.db-actual-main > div {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.14);
+}
+.db-actual-k {
+  display: block;
+  font-size: 11px;
+  color: var(--label3);
+  margin-bottom: 5px;
+}
+.db-actual-main strong {
+  display: block;
+  font-size: 18px;
+  color: var(--label1);
+  letter-spacing: -0.5px;
+}
+.db-actual-main em {
+  display: block;
+  margin-top: 5px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+}
+.db-actual-main em.up { color: var(--rise); }
+.db-actual-main em.down { color: var(--fall); }
+.db-actual-main em.flat { color: var(--label3); }
+.db-actual-sub,
+.db-actual-empty {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--label3);
+}
+.db-deal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.db-deal-item {
+  padding: 11px 12px;
+  border-radius: 13px;
+  background: rgba(0,0,0,0.14);
+}
+.db-deal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.db-deal-head strong {
+  min-width: 0;
+  color: var(--label1);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.25px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.db-deal-head span {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.db-deal-meta {
+  margin-top: 5px;
+  color: var(--label3);
+  font-size: 11px;
+  line-height: 1.45;
+}
 .db-stream-space {
   white-space: pre;
 }

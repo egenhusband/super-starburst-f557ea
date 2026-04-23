@@ -65,6 +65,7 @@ const JEONSE_SUPPLY_REGION_ID_MAP = {
 };
 
 const MARKET_DATA_URL = '/data/market-dashboard.json';
+const APT_TRADES_DATA_URL = '/data/apt-trades-summary.json';
 const MARKET_CACHE_ENDPOINT = '/.netlify/functions/market-cache';
 
 let chart = null;
@@ -77,17 +78,20 @@ let allJeonseData     = null;
 let allJeonseSupplyData = null;
 let allIndexData      = null;
 let allTradeData      = null;
+let aptTradeSummary   = null;
 let marketBundlePromise = null;
+let aptTradesPromise = null;
 
 // ── 캐시 ─────────────────────────────────────────────
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+const APT_TRADE_CACHE_TTL = 24 * 60 * 60 * 1000;
 
-function getCache(key) {
+function getCache(key, ttl = CACHE_TTL) {
   try {
     const raw = localStorage.getItem('db_' + key);
     if (!raw) return null;
     const { ts, data } = JSON.parse(raw);
-    if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem('db_' + key); return null; }
+    if (Date.now() - ts > ttl) { localStorage.removeItem('db_' + key); return null; }
     return data;
   } catch { return null; }
 }
@@ -102,6 +106,14 @@ function getMarketBundleCache() {
 
 function setMarketBundleCache(data) {
   setCache('market_bundle_static_v1', data);
+}
+
+function getAptTradesCache() {
+  return getCache('apt_trades_summary_v1', APT_TRADE_CACHE_TTL);
+}
+
+function setAptTradesCache(data) {
+  setCache('apt_trades_summary_v1', data);
 }
 
 function hydrateMarketBundle(bundle) {
@@ -168,6 +180,17 @@ async function fetchMarketBundle() {
   return bundle;
 }
 
+async function fetchAptTradesSummary() {
+  const cached = getAptTradesCache();
+  if (cached) return cached;
+
+  const res = await fetch(APT_TRADES_DATA_URL);
+  if (!res.ok) throw new Error('실거래 데이터를 불러오지 못했어요.');
+  const data = await res.json();
+  setAptTradesCache(data);
+  return data;
+}
+
 function preloadMarketBundle() {
   if (!marketBundlePromise) {
     marketBundlePromise = fetchMarketBundle().catch(err => {
@@ -176,6 +199,16 @@ function preloadMarketBundle() {
     });
   }
   return marketBundlePromise;
+}
+
+function preloadAptTrades() {
+  if (!aptTradesPromise) {
+    aptTradesPromise = fetchAptTradesSummary().catch(err => {
+      aptTradesPromise = null;
+      throw err;
+    });
+  }
+  return aptTradesPromise;
 }
 
 function hasDashboardData() {
@@ -297,7 +330,12 @@ function initDashboard() {
   const cached = getMarketBundleCache();
   if (cached) {
     hydrateMarketBundle(cached);
+    aptTradeSummary = getAptTradesCache();
     showDashboardData();
+    preloadAptTrades().then(data => {
+      aptTradeSummary = data;
+      if (hasDashboardData()) showDashboardData();
+    }).catch(() => {});
   } else {
     updateQueryUi();
   }
@@ -345,8 +383,12 @@ async function loadDashboardData() {
   }
 
   try {
-    const bundle = await preloadMarketBundle();
+    const [bundle, aptTrades] = await Promise.all([
+      preloadMarketBundle(),
+      preloadAptTrades().catch(() => null),
+    ]);
     hydrateMarketBundle(bundle);
+    aptTradeSummary = aptTrades;
 
     showDashboardData();
   } catch (e) {
@@ -536,6 +578,94 @@ function buildMarketGuide({ selectedName, tradeVal, tradeChange, indexChange, la
   };
 }
 
+function formatTradePrice(value) {
+  const price = Number(value);
+  if (!Number.isFinite(price)) return '—';
+  const eok = Math.floor(price / 10000);
+  const man = price % 10000;
+  if (eok > 0 && man > 0) return `${eok}억 ${man.toLocaleString()}만원`;
+  if (eok > 0) return `${eok}억원`;
+  return `${price.toLocaleString()}만원`;
+}
+
+function formatTradeMonth(month) {
+  if (!month || String(month).length !== 6) return '';
+  return `${String(month).slice(0, 4)}.${String(month).slice(4, 6)}`;
+}
+
+function formatSignedPct(value, digits = 1) {
+  if (!Number.isFinite(value)) return '—';
+  const abs = Math.abs(value).toFixed(digits);
+  if (value > 0) return `▲${abs}%`;
+  if (value < 0) return `▼${abs}%`;
+  return '±0%';
+}
+
+function signalClass(value) {
+  if (!Number.isFinite(value)) return 'flat';
+  if (value > 0) return 'up';
+  if (value < 0) return 'down';
+  return 'flat';
+}
+
+function renderAptTradeCards(aptTrade) {
+  if (!aptTrade) {
+    return `
+      <div class="db-actual-card db-actual-card--empty">
+        <div class="db-fact-label">국토부 실거래</div>
+        <div class="db-actual-empty">실거래 요약 데이터 준비 중</div>
+      </div>
+    `;
+  }
+
+  const countChange = aptTrade.signals?.countChangePct;
+  const medianChange = aptTrade.signals?.medianChangePct;
+  const recentDeals = Array.isArray(aptTrade.recentDeals) ? aptTrade.recentDeals.slice(0, 5) : [];
+
+  return `
+    <div class="db-actual-grid">
+      <div class="db-actual-card">
+        <div class="db-fact-label">국토부 실거래 체감 · ${formatTradeMonth(aptTrade.latestDealMonth)}</div>
+        <div class="db-actual-main">
+          <div>
+            <span class="db-actual-k">중간 거래가</span>
+            <strong>${formatTradePrice(aptTrade.medianPrice)}</strong>
+            <em class="${signalClass(medianChange)}">${formatSignedPct(medianChange)} 전월 대비</em>
+          </div>
+          <div>
+            <span class="db-actual-k">거래 건수</span>
+            <strong>${Number(aptTrade.tradeCount || 0).toLocaleString()}건</strong>
+            <em class="${signalClass(countChange)}">${formatSignedPct(countChange)} 전월 대비</em>
+          </div>
+        </div>
+        <div class="db-actual-sub">
+          최근 거래일 ${aptTrade.latestDealDate || '—'} · 최근 ${aptTrade.totalTradeCount?.toLocaleString?.() || 0}건 기준
+        </div>
+      </div>
+
+      <div class="db-actual-card">
+        <div class="db-fact-label">최근 거래 단지</div>
+        <div class="db-deal-list">
+          ${recentDeals.length ? recentDeals.map(deal => `
+            <div class="db-deal-item">
+              <div class="db-deal-head">
+                <strong>${escapeHtml(deal.aptName || '단지명 없음')}</strong>
+                <span>${formatTradePrice(deal.price)}</span>
+              </div>
+              <div class="db-deal-meta">
+                ${escapeHtml([deal.sigunguName, deal.umdName].filter(Boolean).join(' '))}
+                ${deal.area ? ` · ${Number(deal.area).toFixed(2)}㎡` : ''}
+                ${deal.floor !== null && deal.floor !== undefined ? ` · ${deal.floor}층` : ''}
+                ${deal.dealDate ? ` · ${deal.dealDate}` : ''}
+              </div>
+            </div>
+          `).join('') : '<div class="db-actual-empty">최근 거래 내역이 아직 없어요.</div>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 // ── 팩트 카드 렌더 ───────────────────────────────────
 function renderFacts() {
   const facts = document.getElementById('dbFacts');
@@ -621,6 +751,7 @@ function renderFacts() {
   };
 
   const tradeVal = latestTrade !== null ? parseInt(latestTrade, 10) : null;
+  const aptTrade = aptTradeSummary?.sido?.[String(selectedClsId)] || null;
   const marketGuide = buildMarketGuide({
     selectedName,
     tradeVal,
@@ -629,6 +760,7 @@ function renderFacts() {
     latestPrice: currP,
     nationalPrice: latestNationalPrice,
   });
+  const aptTradeHtml = renderAptTradeCards(aptTrade);
 
   facts.innerHTML = `
     <div class="db-facts-grid">
@@ -649,7 +781,23 @@ function renderFacts() {
             <span class="db-therm-tag${indexChange !== null && indexChange > 0 ? ' up' : indexChange !== null && indexChange < 0 ? ' down' : ' flat'}">전월 대비</span>
             <span class="db-therm-sub">선택 지역 기준</span>
           </div>
+          ${aptTrade ? `
+          <div class="db-therm-support">
+            <div class="db-context-title">실거래 보조 신호</div>
+            <div class="db-therm-row">
+              <span class="db-therm-key">실거래 건수</span>
+              <span class="db-therm-tag${aptTrade.signals?.countChangePct > 0 ? ' up' : aptTrade.signals?.countChangePct < 0 ? ' down' : ' flat'}">${fmtPct(aptTrade.signals?.countChangePct, 1)}</span>
+              <span class="db-therm-sub">국토부 실거래 · ${formatTradeMonth(aptTrade.latestDealMonth)}</span>
+            </div>
+            <div class="db-therm-row">
+              <span class="db-therm-key">중간값</span>
+              <span class="db-therm-tag${aptTrade.signals?.medianChangePct > 0 ? ' up' : aptTrade.signals?.medianChangePct < 0 ? ' down' : ' flat'}">${fmtPct(aptTrade.signals?.medianChangePct, 1)}</span>
+              <span class="db-therm-sub">전월 대비</span>
+            </div>
+          </div>` : ''}
         </div>
+
+        ${aptTradeHtml}
 
         <div class="db-regional-grid">
           <div class="db-fact-card db-fact-card--price-pair">
