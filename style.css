@@ -2445,6 +2445,13 @@
 .db-region-grid::-webkit-scrollbar {
   display: none;
 }
+.db-region-status {
+  margin-top: -4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--label2);
+  letter-spacing: -0.15px;
+}
 .db-region-btn {
   display: inline-flex;
   align-items: center;
@@ -2511,27 +2518,22 @@
 
 .db-facts-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
   min-width: 0;
   max-width: 100%;
+}
+.db-facts-meta {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--label3);
+  margin-bottom: -2px;
 }
 .db-fact-card {
   background: var(--bg3);
   border: 1.5px solid var(--separator);
   border-radius: 14px;
   padding: 14px 16px;
-}
-.db-fact-card--regional {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.db-regional-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
 }
 .db-fact-card--price-pair {
   padding: 14px 16px 12px;
@@ -2629,7 +2631,8 @@
   max-width: 100% !important;
 }
 .db-chart-wrap--embedded {
-  margin-top: 2px;
+  grid-column: 1 / -1;
+  margin-top: 0;
 }
 .db-chart-top {
   display: flex;
@@ -2818,9 +2821,6 @@
 
 /* 시장 온도계 카드 */
 .db-fact-card--therm {
-  grid-column: auto;
-}
-.db-fact-card--context {
   grid-column: 1 / -1;
 }
 .db-topbar {
@@ -2865,7 +2865,7 @@
 .db-therm-key {
   font-size: 11px;
   color: var(--label3);
-  min-width: 58px;
+  min-width: 88px;
   flex-shrink: 0;
 }
 .db-therm-val {
@@ -2935,12 +2935,10 @@
 }
 .db-summary-report {
   margin-top: 10px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025));
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
 }
-.db-summary-report p {
+.db-summary-report-conclusion {
   margin: 8px 0 0;
   color: var(--label2);
   font-size: 12px;
@@ -2950,19 +2948,19 @@
 .db-summary-report-stream {
   display: inline;
 }
-.db-context-section {
-  margin-top: 10px;
-}
 .db-actual-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
+  grid-column: 1 / -1;
 }
 .db-actual-card {
+  min-width: 0;
   padding: 14px;
   border-radius: 16px;
   border: 1px solid rgba(255,255,255,0.08);
   background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.025));
+  overflow: hidden;
 }
 .db-actual-card--empty {
   color: var(--label3);
@@ -3001,6 +2999,28 @@
 .db-actual-main em.up { color: var(--rise); }
 .db-actual-main em.down { color: var(--fall); }
 .db-actual-main em.flat { color: var(--label3); }
+.db-actual-inline-label {
+  display: block;
+  font-size: 11px;
+  color: var(--label3);
+  margin-bottom: 5px;
+}
+.db-actual-main .db-actual-inline-label + strong {
+  display: block;
+  color: var(--label1);
+  font-size: 15px;
+  letter-spacing: -0.3px;
+}
+.db-actual-main .db-actual-inline-label + strong + em {
+  display: block;
+  margin-top: 4px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+}
+.db-actual-main .db-actual-inline-label + strong + em.up { color: var(--rise); }
+.db-actual-main .db-actual-inline-label + strong + em.down { color: var(--fall); }
+.db-actual-main .db-actual-inline-label + strong + em.flat { color: var(--label3); }
 .db-actual-sub,
 .db-actual-empty {
   margin-top: 10px;
@@ -3009,15 +3029,51 @@
   color: var(--label3);
 }
 .db-deal-list {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin-top: 10px;
 }
+.db-deal-scope-tabs {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-top: 10px;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.db-deal-scope-tabs::-webkit-scrollbar {
+  display: none;
+}
+.db-deal-scope-tab {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.03);
+  color: var(--label3);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.db-deal-scope-tab.active {
+  border-color: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.08);
+  color: var(--label1);
+}
 .db-deal-item {
+  min-width: 0;
   padding: 11px 12px;
   border-radius: 13px;
   background: rgba(0,0,0,0.14);
+  overflow: hidden;
 }
 .db-deal-head {
   display: flex;
@@ -3026,6 +3082,7 @@
   gap: 10px;
 }
 .db-deal-head strong {
+  flex: 1 1 auto;
   min-width: 0;
   color: var(--label1);
   font-size: 13px;
@@ -3035,17 +3092,30 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.db-deal-rank {
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
 .db-deal-head span {
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
   color: var(--accent);
   font-size: 13px;
   font-weight: 700;
 }
 .db-deal-meta {
+  min-width: 0;
   margin-top: 5px;
   color: var(--label3);
   font-size: 11px;
   line-height: 1.45;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 .db-stream-space {
   white-space: pre;
@@ -3070,20 +3140,6 @@
     transform: translateY(0);
     filter: blur(0);
   }
-}
-.db-context-section--rank {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255,255,255,0.08);
-}
-.db-context-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--label2);
-  letter-spacing: -0.2px;
-}
-.db-therm-regions {
-  align-items: center;
 }
 .db-therm-region {
   font-size: 11px;

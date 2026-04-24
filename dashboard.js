@@ -66,6 +66,7 @@ const JEONSE_SUPPLY_REGION_ID_MAP = {
 
 const MARKET_DATA_URL = '/data/market-dashboard.json';
 const APT_TRADES_DATA_URL = '/data/apt-trades-summary.json';
+const APT_TRADES_DATA_VERSION = '20260424c';
 const MARKET_CACHE_ENDPOINT = '/.netlify/functions/market-cache';
 
 let chart = null;
@@ -81,10 +82,12 @@ let allTradeData      = null;
 let aptTradeSummary   = null;
 let marketBundlePromise = null;
 let aptTradesPromise = null;
+let selectedDealCityByRegion = {};
 
 // ── 캐시 ─────────────────────────────────────────────
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 const APT_TRADE_CACHE_TTL = 24 * 60 * 60 * 1000;
+const APT_TRADE_CACHE_KEY = 'apt_trades_summary_v4';
 
 function getCache(key, ttl = CACHE_TTL) {
   try {
@@ -109,11 +112,11 @@ function setMarketBundleCache(data) {
 }
 
 function getAptTradesCache() {
-  return getCache('apt_trades_summary_v1', APT_TRADE_CACHE_TTL);
+  return getCache(APT_TRADE_CACHE_KEY, APT_TRADE_CACHE_TTL);
 }
 
 function setAptTradesCache(data) {
-  setCache('apt_trades_summary_v1', data);
+  setCache(APT_TRADE_CACHE_KEY, data);
 }
 
 function hydrateMarketBundle(bundle) {
@@ -132,9 +135,9 @@ function buildNationalMarqueeItems(summary) {
   };
   if (summary.latestMonth) items.push(`전국 · <strong>${summary.latestMonth}</strong>`);
   if (Number.isFinite(summary.tradeVolume)) items.push(`거래량 <strong>${summary.tradeVolume.toLocaleString()}건</strong>`);
-  if (Number.isFinite(summary.tradeChange)) items.push(`거래량 ${formatTrendHtml(summary.tradeChange, 0)} 전월 대비`);
-  if (Number.isFinite(summary.priceChange)) items.push(`가격변동률 ${formatTrendHtml(summary.priceChange, 2)} 전월 대비`);
-  if (Number.isFinite(summary.avgBuyPrice)) items.push(`평균 매매가(25평) <strong>${formatPrice(summary.avgBuyPrice)}</strong>`);
+  if (Number.isFinite(summary.tradeChange)) items.push(`거래량 ${formatTrendHtml(summary.tradeChange, 0)} 지난달보다`);
+  if (Number.isFinite(summary.priceChange)) items.push(`최근 가격 변화 ${formatTrendHtml(summary.priceChange, 2)} 지난달보다`);
+  if (Number.isFinite(summary.avgBuyPrice)) items.push(`지역 평균 가격 <strong>${formatPrice(summary.avgBuyPrice)}</strong>`);
   return items.length ? items : ['전국 시장 데이터 준비 중'];
 }
 
@@ -184,7 +187,7 @@ async function fetchAptTradesSummary() {
   const cached = getAptTradesCache();
   if (cached) return cached;
 
-  const res = await fetch(APT_TRADES_DATA_URL);
+  const res = await fetch(`${APT_TRADES_DATA_URL}?v=${APT_TRADES_DATA_VERSION}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('실거래 데이터를 불러오지 못했어요.');
   const data = await res.json();
   setAptTradesCache(data);
@@ -298,6 +301,7 @@ function initDashboard() {
         </div>
       </div>
       <div class="db-region-grid">${regionBtns}</div>
+      <div class="db-region-status" id="dbRegionStatus" style="display:none"></div>
 
       <div class="db-query-wrap" id="dbQueryWrap">
         <button class="db-query-btn" id="dbQueryBtn" onclick="handleQuery()">시장 데이터 불러오기</button>
@@ -524,16 +528,55 @@ function renderStreamingWords(text, className, startDelay = 0) {
 }
 
 function buildSummaryReport({ selectedName, indexChange, aptTrade, priceChange, ratio }) {
-  const indexText = formatSignedPct(indexChange, 2);
-  const priceText = formatSignedPct(priceChange, 2);
-  const medianText = formatSignedPct(aptTrade?.signals?.medianChangePct, 1);
-  const tradeCount = Number(aptTrade?.tradeCount || 0);
+  const medianChange = aptTrade?.signals?.medianChangePct;
+  const countChange = aptTrade?.signals?.countChangePct;
 
   if (!aptTrade) {
-    return `${selectedName}은 가격 지표 기준 ${indexText} 흐름입니다. 실거래 요약 데이터가 준비되면 중간 거래가와 거래 건수를 함께 비교할 수 있습니다.`;
+    return `${selectedName}은 아직 실제 거래 데이터가 충분하지 않아 방향을 단정하기 어려운 구간입니다. 지금은 지역 평균 가격 흐름을 먼저 보고, 실제 거래 데이터가 쌓이면 체감 가격과 최근 거래 수를 함께 보는 편이 좋습니다.`;
   }
 
-  return `${selectedName}은 가격 지표 ${indexText}, 평균 매매가 ${priceText}, 실거래 중간값 ${medianText} 흐름입니다. ${formatTradeMonth(aptTrade.latestDealMonth)} 실거래는 ${tradeCount.toLocaleString()}건이며 전세가율은 ${ratio !== null ? `${ratio.toFixed(1)}%` : '확인 중'}입니다.`;
+  if (Number.isFinite(medianChange) && Number.isFinite(countChange) && medianChange >= 1 && countChange >= 8) {
+    return `${selectedName}은 실제 거래가 조금씩 살아나는 구간에 가깝습니다. 지역 평균 가격보다 실제 거래 체감 가격과 최근 거래 수가 같이 오르면 일부 호가가 아니라 매수 움직임이 붙는 신호로 볼 수 있습니다. 다만 단기 급등으로 보긴 이르니 거래가 많았던 단지 TOP5 흐름을 같이 확인하는 편이 안전합니다.`;
+  }
+
+  if (Number.isFinite(priceChange) && Number.isFinite(medianChange) && priceChange >= 0.2 && medianChange <= 0) {
+    return `${selectedName}은 지역 분위기 가격은 버티지만 실제 거래 체감은 아직 강하지 않은 구간입니다. 이런 때는 시장 전체가 회복했다기보다 일부 높은 호가나 특정 거래 영향이 섞였을 가능성을 같이 봐야 합니다. 지금은 평균 가격보다 최근 실제 거래가 꾸준히 이어지는지 확인하는 편이 더 중요합니다.`;
+  }
+
+  if (Number.isFinite(countChange) && countChange <= -8 && Number.isFinite(indexChange) && indexChange >= 0) {
+    return `${selectedName}은 가격은 크게 밀리지 않지만 거래가 줄어든 잠김 장세에 가깝습니다. 규제나 매물 부족 영향으로 거래가 적으면 한두 건 가격이 더 크게 보일 수 있습니다. 이런 구간에서는 가격 숫자보다 최근 거래 수와 거래가 많았던 단지 흐름을 함께 보는 게 더 현실적입니다.`;
+  }
+
+  if (Number.isFinite(indexChange) && indexChange <= -0.12 && (!Number.isFinite(countChange) || countChange <= 0)) {
+    return `${selectedName}은 아직 적극적으로 매수세가 붙는 장이라기보다 관망 구간에 가깝습니다. 지역 평균 가격과 실제 거래 체감 가격이 함께 약하면 시장 체감도 완전히 살아났다고 보기 어렵습니다. 초보자라면 지금은 급하게 판단하기보다 최근 거래가 줄어드는지부터 보는 편이 좋습니다.`;
+  }
+
+  if (Number.isFinite(ratio) && ratio >= 60) {
+    return `${selectedName}은 실거주 수요가 어느 정도 버티는 흐름으로 볼 수 있습니다. 매매 대비 전세 비율이 높으면 시장이 급하게 흔들릴 가능성이 상대적으로 낮아질 수 있습니다. 다만 이것만으로 상승장이라고 보긴 어렵기 때문에 지역 평균 가격과 실제 거래 체감 가격을 같이 보는 편이 맞습니다.`;
+  }
+
+  return `${selectedName}은 지금 한쪽으로 강하게 움직인다기보다 방향을 확인하는 구간입니다. 지역 평균 가격은 시장 분위기를, 실제 거래 체감 가격은 최근 거래 감각을 보여주기 때문에 두 값이 같은 방향인지 같이 봐야 해석이 쉬워집니다. 초보자라면 지금은 거래가 많았던 단지 TOP5에서 실제 가격 흐름이 이어지는지 보는 편이 좋습니다.`;
+}
+
+function buildNationalPositionLine({ selectedName, selectedClsId, nationalIndexChange, regionalGap, nationalPriceGap }) {
+  if (selectedClsId === 500001) {
+    return `전국 시장 흐름 기준 · 최근 가격 변화 ${Number.isFinite(nationalIndexChange) ? formatSignedPct(nationalIndexChange, 2) : '확인 중'}`;
+  }
+
+  if (!Number.isFinite(regionalGap)) {
+    return `${selectedName} · 전국과 비교할 데이터 준비 중`;
+  }
+
+  let position = '전국과 비슷한 흐름';
+  if (regionalGap >= 0.08) position = '전국보다 강한 흐름';
+  else if (regionalGap <= -0.08) position = '전국보다 약한 흐름';
+
+  const gapText = `최근 가격 변화 ${regionalGap > 0 ? '+' : regionalGap < 0 ? '' : '±'}${Math.abs(regionalGap).toFixed(2)}%p`;
+  const priceText = Number.isFinite(nationalPriceGap)
+    ? `전국 평균 가격 대비 ${nationalPriceGap > 0 ? '+' : nationalPriceGap < 0 ? '' : '±'}${Math.abs(nationalPriceGap).toFixed(1)}%`
+    : '전국 평균 가격 비교 중';
+
+  return `${selectedName} · ${position} · ${gapText} · ${priceText}`;
 }
 
 function formatTradePrice(value) {
@@ -566,7 +609,95 @@ function signalClass(value) {
   return 'flat';
 }
 
-function renderAptTradeCards(aptTrade) {
+function getSelectedDealCity(regionId, aptTrade) {
+  const scopes = Array.isArray(aptTrade?.cityScopes) ? aptTrade.cityScopes : [];
+  const current = selectedDealCityByRegion[regionId] || 'all';
+  if (current === 'all') return 'all';
+  return scopes.some(scope => scope.name === current) ? current : 'all';
+}
+
+function setDealCity(regionId, cityName) {
+  selectedDealCityByRegion[regionId] = cityName;
+  const aptTrade = aptTradeSummary?.sido?.[String(regionId)] || null;
+  const target = document.getElementById('dbTopDealsCard');
+  if (!target) {
+    renderFacts();
+    return;
+  }
+  target.outerHTML = renderTopDealsCard({ regionId, aptTrade });
+}
+
+function renderTopDealsCard({ regionId, aptTrade }) {
+  if (!aptTrade) {
+    return `
+      <div class="db-actual-card db-actual-card--empty" id="dbTopDealsCard">
+        <div class="db-fact-label">거래 많은 단지 TOP5</div>
+        <div class="db-actual-empty">거래 많은 단지 데이터가 아직 없어요.</div>
+      </div>
+    `;
+  }
+
+  const selectedDealCity = getSelectedDealCity(regionId, aptTrade);
+  const cityScopes = Array.isArray(aptTrade.cityScopes) ? aptTrade.cityScopes : [];
+  const activeScope = selectedDealCity === 'all'
+    ? null
+    : cityScopes.find(scope => scope.name === selectedDealCity) || null;
+  const popularComplexes = Array.isArray(activeScope?.popularComplexes)
+    ? activeScope.popularComplexes.slice(0, 5)
+    : Array.isArray(aptTrade.popularComplexes)
+      ? aptTrade.popularComplexes.slice(0, 5)
+      : [];
+  const scopeTabs = [
+    { name: 'all', label: '전체' },
+    ...cityScopes.map(scope => ({ name: scope.name, label: scope.name })),
+  ];
+  const showCityTabs = regionId !== 500001 && scopeTabs.length > 1;
+
+  return `
+    <div class="db-actual-card" id="dbTopDealsCard">
+      <div class="db-fact-label">거래 많은 단지 TOP5 · ${formatTradeMonth(aptTrade.latestDealMonth)}</div>
+      ${showCityTabs ? `
+      <div class="db-deal-scope-tabs">
+        ${scopeTabs.map(tab => `
+          <button
+            class="db-deal-scope-tab${(tab.name === 'all' ? selectedDealCity === 'all' : selectedDealCity === tab.name) ? ' active' : ''}"
+            type="button"
+            onclick="setDealCity(${regionId}, '${tab.name}')"
+          >${tab.label}</button>
+        `).join('')}
+      </div>` : ''}
+      <div class="db-deal-list">
+        ${popularComplexes.length ? popularComplexes.map((complex, index) => `
+          <div class="db-deal-item">
+            <div class="db-deal-head">
+              <strong><span class="db-deal-rank">TOP ${index + 1}</span>${escapeHtml(complex.aptName || '단지명 없음')}</strong>
+              <span>${Number(complex.tradeCount || 0).toLocaleString()}건</span>
+            </div>
+            <div class="db-deal-meta">
+              ${escapeHtml([complex.sigunguName, complex.umdName].filter(Boolean).join(' '))}
+              ${complex.latestTradePrice ? ` · 최근 실거래가 ${formatTradePrice(complex.latestTradePrice)}` : ''}
+              ${complex.latestTradeArea ? ` · ${Number(complex.latestTradeArea).toFixed(2)}㎡` : ''}
+              ${complex.latestDealDate ? ` · 최근 ${complex.latestDealDate}` : ''}
+            </div>
+          </div>
+        `).join('') : '<div class="db-actual-empty">거래 많은 단지 데이터가 아직 없어요.</div>'}
+      </div>
+    </div>
+  `;
+}
+
+function renderAptTradeCards({
+  regionId,
+  aptTrade,
+  latestPrice,
+  latestJeonse,
+  priceChange,
+  jeonseChange,
+  ratio,
+  ratioChange,
+  latestJeonseSupply,
+  jeonseSupplyChange,
+}) {
   if (!aptTrade) {
     return `
       <div class="db-actual-card db-actual-card--empty">
@@ -578,49 +709,48 @@ function renderAptTradeCards(aptTrade) {
 
   const countChange = aptTrade.signals?.countChangePct;
   const medianChange = aptTrade.signals?.medianChangePct;
-  const popularComplexes = Array.isArray(aptTrade.popularComplexes)
-    ? aptTrade.popularComplexes.slice(0, 5)
-    : [];
 
   return `
     <div class="db-actual-grid">
       <div class="db-actual-card">
-        <div class="db-fact-label">국토부 실거래 체감 · ${formatTradeMonth(aptTrade.latestDealMonth)}</div>
+        <div class="db-fact-label">최근 실제 거래 흐름 · ${formatTradeMonth(aptTrade.latestDealMonth)}</div>
         <div class="db-actual-main">
           <div>
-            <span class="db-actual-k">중간 거래가</span>
-            <strong>${formatTradePrice(aptTrade.medianPrice)}</strong>
-            <em class="${signalClass(medianChange)}">${formatSignedPct(medianChange)} 전월 대비</em>
+            <span class="db-actual-k">지역 평균 가격</span>
+            <strong>${formatPrice(latestPrice)}</strong>
+            <em class="${signalClass(priceChange)}">${formatSignedPct(priceChange, 2)} 지난달보다</em>
           </div>
           <div>
-            <span class="db-actual-k">거래 건수</span>
+            <span class="db-actual-k">실거래 체감 가격</span>
+            <strong>${formatTradePrice(aptTrade.medianPrice)}</strong>
+            <em class="${signalClass(medianChange)}">${formatSignedPct(medianChange)} 지난달보다</em>
+          </div>
+          <div>
+            <span class="db-actual-k">지역 평균 전세 가격</span>
+            <strong>${formatPrice(latestJeonse)}</strong>
+            <em class="${signalClass(jeonseChange)}">${formatSignedPct(jeonseChange, 2)} 지난달보다</em>
+          </div>
+          <div>
+            <span class="db-actual-k">최근 거래 수</span>
             <strong>${Number(aptTrade.tradeCount || 0).toLocaleString()}건</strong>
-            <em class="${signalClass(countChange)}">${formatSignedPct(countChange)} 전월 대비</em>
+            <em class="${signalClass(countChange)}">${formatSignedPct(countChange)} 지난달보다</em>
+          </div>
+          <div>
+            <span class="db-actual-inline-label">매매 대비 전세 비율</span>
+            <strong>${ratio !== null ? `${ratio.toFixed(1)}%` : '—'}</strong>
+            ${ratioChange !== null ? `<em class="${signalClass(ratioChange)}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p</em>` : ''}
+          </div>
+          <div>
+            <span class="db-actual-inline-label">전세 수요 분위기</span>
+            <strong>${latestJeonseSupply !== null ? latestJeonseSupply.toFixed(1) : '—'}</strong>
+            ${jeonseSupplyChange !== null ? `<em class="${signalClass(jeonseSupplyChange)}">${formatSignedPct(jeonseSupplyChange, 2)}</em>` : ''}
           </div>
         </div>
         <div class="db-actual-sub">
-          최근 거래일 ${aptTrade.latestDealDate || '—'} · 최근 ${aptTrade.totalTradeCount?.toLocaleString?.() || 0}건 기준
+          가장 최근 거래일 ${aptTrade.latestDealDate || '—'} · 최근 ${aptTrade.totalTradeCount?.toLocaleString?.() || 0}건 기준
         </div>
       </div>
-
-      <div class="db-actual-card">
-        <div class="db-fact-label">거래 많은 단지 · ${formatTradeMonth(aptTrade.latestDealMonth)}</div>
-        <div class="db-deal-list">
-          ${popularComplexes.length ? popularComplexes.map(complex => `
-            <div class="db-deal-item">
-              <div class="db-deal-head">
-                <strong>${escapeHtml(complex.aptName || '단지명 없음')}</strong>
-                <span>${Number(complex.tradeCount || 0).toLocaleString()}건</span>
-              </div>
-              <div class="db-deal-meta">
-                ${escapeHtml([complex.sigunguName, complex.umdName].filter(Boolean).join(' '))}
-                ${complex.medianPrice ? ` · 중간 ${formatTradePrice(complex.medianPrice)}` : ''}
-                ${complex.latestDealDate ? ` · 최근 ${complex.latestDealDate}` : ''}
-              </div>
-            </div>
-          `).join('') : '<div class="db-actual-empty">거래 많은 단지 데이터가 아직 없어요.</div>'}
-        </div>
-      </div>
+      ${renderTopDealsCard({ regionId, aptTrade })}
     </div>
   `;
 }
@@ -664,19 +794,8 @@ function renderFacts() {
   // 전국 가격변동률 (선택 지역이 전국이 아닐 때 비교용)
   const nationalIndexRows   = filterByRegion(allIndexData, 500001);
   const nationalIndexChange = calcPriceChange(nationalIndexRows);
-
-  // 상위/하위 2개 지역 (전국 제외, 지수 기준)
-  const regionChanges = REGION_MAP
-    .filter(r => r.id !== 500001)
-    .map(r => {
-      const rows   = filterByRegion(allIndexData, r.id);
-      const change = calcPriceChange(rows);
-      return { name: r.name, change };
-    })
-    .filter(r => r.change !== null)
-    .sort((a, b) => b.change - a.change);
-  const top2    = regionChanges.slice(0, 2);
-  const bottom2 = regionChanges.slice(-2).reverse();
+  const nationalPriceRows   = filterByRegion(allPriceData, 500001);
+  const validNationalPriceRows = getRecentValidRows(nationalPriceRows, 0);
 
   // 전세가율
   const currP    = parseNumericValue(latestPrice);
@@ -693,6 +812,13 @@ function renderFacts() {
   const regionalGap = (indexChange !== null && nationalIndexChange !== null)
     ? indexChange - nationalIndexChange
     : null;
+  const latestNationalPrice = validNationalPriceRows.length
+    ? parseNumericValue(validNationalPriceRows[validNationalPriceRows.length - 1].DTA_VAL)
+    : null;
+  const nationalPriceGap = (currP !== null && latestNationalPrice !== null && latestNationalPrice !== 0)
+    ? ((currP - latestNationalPrice) / latestNationalPrice) * 100
+    : null;
+  const regionStatus = document.getElementById('dbRegionStatus');
   const fmtPct = (v, digits = 2) => {
     if (v === null || v === undefined) return '—';
     const abs = Math.abs(v).toFixed(digits);
@@ -702,7 +828,18 @@ function renderFacts() {
   };
 
   const aptTrade = aptTradeSummary?.sido?.[String(selectedClsId)] || null;
-  const aptTradeHtml = renderAptTradeCards(aptTrade);
+  const aptTradeHtml = renderAptTradeCards({
+    regionId: selectedClsId,
+    aptTrade,
+    latestPrice,
+    latestJeonse,
+    priceChange,
+    jeonseChange,
+    ratio,
+    ratioChange,
+    latestJeonseSupply,
+    jeonseSupplyChange,
+  });
   const summaryReport = buildSummaryReport({
     selectedName,
     indexChange,
@@ -718,96 +855,53 @@ function renderFacts() {
         ? '가격 하락 흐름'
         : '보합 흐름';
 
+  if (regionStatus) {
+    regionStatus.textContent = buildNationalPositionLine({
+      selectedName,
+      selectedClsId,
+      nationalIndexChange,
+      regionalGap,
+      nationalPriceGap,
+    });
+    regionStatus.style.display = 'block';
+  }
+
   facts.innerHTML = `
     <div class="db-facts-grid">
+      <div class="db-facts-meta">${selectedName} · 아파트 기준${latestMonth ? ` · ${latestMonth}` : ''}</div>
 
-      <div class="db-fact-card db-fact-card--regional">
-        <div class="db-fact-label">${selectedName} · 아파트 기준${latestMonth ? ` · ${latestMonth}` : ''}</div>
-        <div class="db-fact-card db-fact-card--therm">
-          <div class="db-fact-label">시장 온도계</div>
-          <div class="db-therm-summary">
-            <strong>${marketTone}</strong>
-            <span>${selectedName} 선택 지역 기준</span>
-          </div>
-          <div class="db-therm-chip-row">
-            <span class="db-therm-chip ${signalClass(indexChange)}">가격 ${fmtPct(indexChange)}</span>
-            ${aptTrade ? `<span class="db-therm-chip ${signalClass(aptTrade.signals?.medianChangePct)}">실거래 중간값 ${fmtPct(aptTrade.signals?.medianChangePct, 1)}</span>` : ''}
-          </div>
+      <div class="db-fact-card db-fact-card--therm">
+        <div class="db-fact-label">지금 시장 분위기</div>
+        <div class="db-therm-summary">
+          <strong>${marketTone}</strong>
+          <span>${selectedName} 선택 지역 기준</span>
         </div>
-
+        <div class="db-therm-chip-row">
+          <span class="db-therm-chip ${signalClass(indexChange)}">최근 가격 변화 ${fmtPct(indexChange)}</span>
+          ${aptTrade ? `<span class="db-therm-chip ${signalClass(aptTrade.signals?.medianChangePct)}">실거래 체감 ${fmtPct(aptTrade.signals?.medianChangePct, 1)}</span>` : ''}
+        </div>
         <div class="db-summary-report">
-          <div class="db-fact-label">요약 리포트</div>
-          <p>${renderStreamingWords(summaryReport, 'db-summary-report-stream', 40)}</p>
-        </div>
-
-        ${aptTradeHtml}
-
-        <div class="db-regional-grid">
-          <div class="db-fact-card db-fact-card--price-pair">
-            <div class="db-price-pair-row">
-              <div class="db-price-pair-item">
-                <div class="db-fact-label">평균 매매가 (25평)</div>
-                <div class="db-fact-val">${formatPrice(latestPrice)}</div>
-                ${renderChangeTag(priceChange)}
-              </div>
-              <div class="db-price-pair-item">
-                <div class="db-fact-label">평균 전세가 (25평)</div>
-                <div class="db-fact-val">${formatPrice(latestJeonse)}</div>
-                ${renderChangeTag(jeonseChange)}
-              </div>
-            </div>
-            <div class="db-ratio-inline">
-              <span class="db-ratio-inline-label">전세가율</span>
-              <span class="db-ratio-inline-value">${ratio !== null ? ratio.toFixed(1) + '%' : '—'}</span>
-              ${ratioChange !== null ? `<span class="db-ratio-inline-change ${ratioChange > 0 ? 'up' : ratioChange < 0 ? 'down' : 'flat'}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p 전월 대비</span>` : ''}
-            </div>
-            <div class="db-ratio-inline db-ratio-inline--sub">
-              <span class="db-ratio-inline-label">전세수급</span>
-              <span class="db-ratio-inline-value">${latestJeonseSupply !== null ? latestJeonseSupply.toFixed(1) : '—'}</span>
-              ${jeonseSupplyChange !== null ? `<span class="db-ratio-inline-change ${jeonseSupplyChange > 0 ? 'up' : jeonseSupplyChange < 0 ? 'down' : 'flat'}">${jeonseSupplyChange > 0 ? '▲' : jeonseSupplyChange < 0 ? '▼' : '—'} ${Math.abs(jeonseSupplyChange).toFixed(2)}% 전월 대비</span>` : ''}
-            </div>
-          </div>
-        </div>
-
-        <div class="db-chart-wrap db-chart-wrap--embedded">
-          <div class="db-chart-top">
-            <div class="db-chart-tabs">
-              <button class="db-chart-tab active" onclick="switchChartMode('buy', this)">매매</button>
-              <button class="db-chart-tab" onclick="switchChartMode('jeonse', this)">전세</button>
-            </div>
-            <div class="db-period-tabs">
-              <button class="db-period-tab" onclick="switchPeriod(3, this)">3개월</button>
-              <button class="db-period-tab active" onclick="switchPeriod(6, this)">6개월</button>
-              <button class="db-period-tab" onclick="switchPeriod(12, this)">1년</button>
-            </div>
-          </div>
-          <canvas id="dbChart"></canvas>
-          <div class="db-chart-unit">평균 평당가 (만원/평) · 한국부동산원</div>
+          <div class="db-fact-label">쉽게 보는 해석</div>
+          <p class="db-summary-report-conclusion">${renderStreamingWords(summaryReport, 'db-summary-report-stream', 40)}</p>
         </div>
       </div>
 
-      <div class="db-fact-card db-fact-card--context">
-        <div class="db-fact-label">전국 비교</div>
-        <div class="db-context-section">
-          <div class="db-context-title">전국 기준 요약</div>
-          <div class="db-therm-row">
-            <span class="db-therm-key">전국 변동률</span>
-            <span class="db-therm-val${nationalIndexChange !== null && nationalIndexChange > 0 ? ' up' : nationalIndexChange !== null && nationalIndexChange < 0 ? ' down' : ''}">${fmtPct(nationalIndexChange)}</span>
-            <span class="db-therm-sub">${selectedName} ${selectedClsId === 500001 ? '기준' : `대비 ${fmtPct(regionalGap)}`}</span>
+      ${aptTradeHtml}
+
+      <div class="db-chart-wrap db-chart-wrap--embedded">
+        <div class="db-chart-top">
+          <div class="db-chart-tabs">
+            <button class="db-chart-tab active" onclick="switchChartMode('buy', this)">매매</button>
+            <button class="db-chart-tab" onclick="switchChartMode('jeonse', this)">전세</button>
+          </div>
+          <div class="db-period-tabs">
+            <button class="db-period-tab" onclick="switchPeriod(3, this)">3개월</button>
+            <button class="db-period-tab active" onclick="switchPeriod(6, this)">6개월</button>
+            <button class="db-period-tab" onclick="switchPeriod(12, this)">1년</button>
           </div>
         </div>
-        ${regionChanges.length >= 4 ? `
-        <div class="db-context-section db-context-section--rank">
-          <div class="db-context-title">전국 시도 흐름</div>
-          <div class="db-therm-row db-therm-regions">
-            <span class="db-therm-key">상위</span>
-            ${top2.map(r => `<span class="db-therm-region up">${r.name} ${fmtPct(r.change)}</span>`).join('')}
-          </div>
-          <div class="db-therm-row db-therm-regions">
-            <span class="db-therm-key">하위</span>
-            ${bottom2.map(r => `<span class="db-therm-region down">${r.name} ${fmtPct(r.change)}</span>`).join('')}
-          </div>
-        </div>` : ''}
+        <canvas id="dbChart"></canvas>
+        <div class="db-chart-unit">평균 가격 흐름 · 한국부동산원</div>
       </div>
 
     </div>

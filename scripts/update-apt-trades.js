@@ -185,6 +185,10 @@ function summarizeRegion(regionName, deals, months, summaryMonth) {
     deals.filter(deal => deal.dealMonth === latestWithData?.month),
     POPULAR_COMPLEX_LIMIT,
   );
+  const cityScopes = getCityScopes(
+    deals.filter(deal => deal.dealMonth === latestWithData?.month),
+    POPULAR_COMPLEX_LIMIT,
+  );
 
   return {
     regionName,
@@ -197,6 +201,7 @@ function summarizeRegion(regionName, deals, months, summaryMonth) {
     latestDealDate: sortedDeals[0]?.dealDate || '',
     recentDeals: sortedDeals.slice(0, RECENT_DEAL_LIMIT),
     popularComplexes,
+    cityScopes,
     monthly,
     signals: {
       countChangePct: pctChange(latestWithData?.count, prev?.count),
@@ -204,6 +209,34 @@ function summarizeRegion(regionName, deals, months, summaryMonth) {
       pricePerPyeongChangePct: pctChange(latestWithData?.medianPricePerPyeong, prev?.medianPricePerPyeong),
     },
   };
+}
+
+function getCityLabel(deal) {
+  const sigunguName = String(deal.sigunguName || '').trim();
+  const cityMatch = sigunguName.match(/([가-힣]+시)/);
+  if (cityMatch) return cityMatch[1];
+  const districtMatch = sigunguName.match(/([가-힣]+구)/);
+  return districtMatch ? districtMatch[1] : null;
+}
+
+function getCityScopes(deals, complexLimit) {
+  const grouped = new Map();
+
+  for (const deal of deals) {
+    const cityName = getCityLabel(deal);
+    if (!cityName) continue;
+    const existing = grouped.get(cityName) || [];
+    existing.push(deal);
+    grouped.set(cityName, existing);
+  }
+
+  return [...grouped.entries()]
+    .map(([name, cityDeals]) => ({
+      name,
+      tradeCount: cityDeals.length,
+      popularComplexes: getPopularComplexes(cityDeals, complexLimit),
+    }))
+    .sort((a, b) => b.tradeCount - a.tradeCount);
 }
 
 function getPopularComplexes(deals, limit) {
@@ -221,6 +254,8 @@ function getPopularComplexes(deals, limit) {
       prices: [],
       areas: [],
       latestDealDate: '',
+      latestTradePrice: null,
+      latestTradeArea: null,
     };
 
     existing.tradeCount += 1;
@@ -228,6 +263,11 @@ function getPopularComplexes(deals, limit) {
     if (Number.isFinite(deal.area)) existing.areas.push(deal.area);
     if (!existing.latestDealDate || deal.dealDate > existing.latestDealDate) {
       existing.latestDealDate = deal.dealDate;
+      existing.latestTradePrice = deal.price;
+      existing.latestTradeArea = deal.area;
+    } else if (deal.dealDate === existing.latestDealDate && Number.isFinite(deal.price)) {
+      existing.latestTradePrice = deal.price;
+      existing.latestTradeArea = deal.area;
     }
     groups.set(key, existing);
   }
@@ -243,6 +283,8 @@ function getPopularComplexes(deals, limit) {
       avgPrice: average(group.prices),
       avgArea: average(group.areas),
       latestDealDate: group.latestDealDate,
+      latestTradePrice: group.latestTradePrice,
+      latestTradeArea: group.latestTradeArea,
     }))
     .sort((a, b) => {
       if (a.tradeCount !== b.tradeCount) return b.tradeCount - a.tradeCount;
