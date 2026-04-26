@@ -1895,6 +1895,145 @@
     scheduleShowCount[uid] = 12;
     renderSchedule(uid);
   }
+
+  const ROOM_DEDUCTION_AMOUNTS = {
+    seoul: 0.55,
+    metro: 0.48,
+    city: 0.28,
+    other: 0.25
+  };
+
+  const ROOM_DEDUCTION_LABELS = {
+    seoul: '서울',
+    metro: '수도권·세종·용인·화성·김포',
+    city: '광역시·안산·광주 등',
+    other: '기타 지역'
+  };
+
+  function formatRoomDeductionAmount(eok) {
+    if (eok < 1) return Math.round(eok * 10000).toLocaleString() + '만원';
+    return formatLimit(eok);
+  }
+
+  function getDefaultRoomRegionKey(region) {
+    if (region === '규제지역') return 'seoul';
+    if (region === '수도권') return 'metro';
+    return 'other';
+  }
+
+  function isRoomDeductionMetroScope(regionKey) {
+    return regionKey === 'seoul' || regionKey === 'metro';
+  }
+
+  function getRoomDeductionState(product, baseLimit, income, price, house, region, regionKey, desiredOn) {
+    const key = regionKey || getDefaultRoomRegionKey(region);
+    const rawDeduction = Math.min(ROOM_DEDUCTION_AMOUNTS[key] || 0, price * 0.5);
+    const lowIncomeHome = income <= 4000 && price <= 3;
+    let checked = false;
+    let locked = true;
+    let note = '';
+
+    if (product === 'didimdol') {
+      const mandatory = isRoomDeductionMetroScope(key) && !lowIncomeHome;
+      checked = mandatory;
+      locked = true;
+      note = mandatory
+        ? '수도권 소재 아파트 구입은 방공제 의무 적용 대상입니다. 주택유형은 아파트 기준으로 계산합니다.'
+        : lowIncomeHome
+          ? '연소득 4천만원 이하 가구가 3억원 이하 주택을 구입하는 예외 대상으로 방공제를 적용하지 않습니다.'
+          : '지방 또는 비수도권 분류는 디딤돌 관리방안의 방공제 의무 적용 대상에서 제외됩니다.';
+    } else if (product === 'newborn') {
+      const forced = price > 6;
+      locked = forced;
+      checked = forced ? true : !!desiredOn;
+      note = forced
+        ? '주택가격 6억원 초과 구간은 방공제를 적용한 예상 한도로 표시합니다.'
+        : '생애최초 또는 HF 보증 가능 구간은 방공제 면제 가능성이 있어 토글로 한도 차이를 확인할 수 있습니다.';
+    }
+
+    const deduction = checked ? rawDeduction : 0;
+    return {
+      key,
+      checked,
+      locked,
+      rawDeduction,
+      deduction,
+      finalLimit: Math.max(0, baseLimit - deduction),
+      note
+    };
+  }
+
+  function roomDeductionHtml(uid, product, state, baseLimit, price, income, house, region) {
+    if (product !== 'didimdol' && product !== 'newborn') return '';
+    const colorCls = product === 'newborn' ? 'nb' : 'blue';
+    const opts = Object.keys(ROOM_DEDUCTION_LABELS).map(function(key) {
+      return '<option value="' + key + '"' + (state.key === key ? ' selected' : '') + '>'
+        + ROOM_DEDUCTION_LABELS[key] + ' · ' + formatRoomDeductionAmount(ROOM_DEDUCTION_AMOUNTS[key]) + '</option>';
+    }).join('');
+    return '<div class="room-deduction-box" id="room-box-' + uid + '" data-room-card="true" data-product="' + product
+      + '" data-base-limit="' + baseLimit + '" data-price="' + price + '" data-income="' + income
+      + '" data-house="' + house + '" data-region="' + region + '">'
+      + '<div class="room-deduction-head">'
+      + '<div><div class="room-deduction-title">방공제 반영</div><div class="room-deduction-sub">임대차 없음 · 아파트 1개 방 기준</div></div>'
+      + '<label class="room-toggle ' + colorCls + '"><input id="room-toggle-' + uid + '" type="checkbox" onchange="updateRoomDeduction(\'' + uid + '\')" '
+      + (state.checked ? 'checked ' : '') + (state.locked ? 'disabled ' : '') + '><span class="room-toggle-track"></span></label>'
+      + '</div>'
+      + '<select class="room-deduction-select" id="room-region-' + uid + '" onchange="updateRoomDeduction(\'' + uid + '\')">' + opts + '</select>'
+      + '<div class="room-deduction-row"><span>방공제 차감 전</span><span id="room-base-' + uid + '">' + formatLimit(baseLimit) + '</span></div>'
+      + '<div class="room-deduction-row"><span>방공제 금액</span><span id="room-deduct-' + uid + '">'
+      + (state.deduction > 0 ? '-' + formatRoomDeductionAmount(state.deduction) : '미적용') + '</span></div>'
+      + '<div class="room-deduction-row final ' + colorCls + '"><span>차감 후 예상 한도</span><span id="room-final-' + uid + '">' + formatLimit(state.finalLimit) + '</span></div>'
+      + '<div class="room-deduction-note" id="room-note-' + uid + '">' + state.note + '</div>'
+      + '</div>';
+  }
+
+  function applyRoomLimitToRate(uid, finalLimit) {
+    const amtEl = document.getElementById('mc-amt-' + uid);
+    if (!amtEl) return;
+    amtEl.dataset.principal = String(finalLimit * 100000000);
+    recalcRate(uid);
+  }
+
+  function updateRoomDeduction(uid) {
+    const box = document.getElementById('room-box-' + uid);
+    if (!box) return;
+    const toggle = document.getElementById('room-toggle-' + uid);
+    const regionEl = document.getElementById('room-region-' + uid);
+    const state = getRoomDeductionState(
+      box.dataset.product,
+      parseFloat(box.dataset.baseLimit || 0),
+      parseFloat(box.dataset.income || 0),
+      parseFloat(box.dataset.price || 0),
+      box.dataset.house,
+      box.dataset.region,
+      regionEl ? regionEl.value : null,
+      toggle ? toggle.checked : false
+    );
+
+    if (toggle) {
+      toggle.disabled = state.locked;
+      toggle.checked = state.checked;
+    }
+
+    const deductEl = document.getElementById('room-deduct-' + uid);
+    const finalEl = document.getElementById('room-final-' + uid);
+    const noteEl = document.getElementById('room-note-' + uid);
+    if (deductEl) deductEl.textContent = state.deduction > 0 ? '-' + formatRoomDeductionAmount(state.deduction) : '미적용';
+    if (finalEl) finalEl.textContent = formatLimit(state.finalLimit);
+    if (noteEl) noteEl.textContent = state.note;
+
+    const card = box.closest('.limit-detail-card');
+    const amountEl = card ? card.querySelector('[data-room-final-amount]') : null;
+    if (amountEl) amountEl.textContent = formatLimit(state.finalLimit);
+    document.querySelectorAll('[data-room-sync="' + box.dataset.product + '"]').forEach(function(el) {
+      el.textContent = formatLimit(state.finalLimit);
+    });
+
+    applyRoomLimitToRate(uid, state.finalLimit);
+    const dtiUid = box.dataset.product === 'newborn' ? 'nb_dti' : 'blue_dti';
+    if (document.getElementById('dti-card-' + dtiUid)) recalcDti(dtiUid);
+  }
+
   function limitCardHtml(colorCls, ltvLimit, maxLimit, finalLimit, price, household, house, children, region, income) {
     const ltvApplied    = ltvLimit <= maxLimit;
     const appliedCls    = ltvApplied    ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
@@ -1905,16 +2044,16 @@
       ? `LTV ${Math.round(ltvLimit/price*100)}% 기준 적용 · 주택가격 <em>${price}억 × ${Math.round(ltvLimit/price*100)}%</em> = <em>${formatLimit(ltvLimit)}</em>`
       : `상품 한도 기준 적용 · <em>${houseLabel}</em> 가구 최대 한도 <em>${formatLimit(maxLimit)}</em>`;
 
-    const annualRate   = colorCls === 'blue' ? getDidimdolBaseRate(income, household, 30) : BOGEUM_RATES[30];
-    const loanYears    = 30;
-    const principalWon = finalLimit * 100000000;
     const uid          = colorCls + '_' + Math.random().toString(36).slice(2, 7);
     const product      = colorCls === 'blue' ? 'didimdol' : 'bogeumjari';
+    const roomState    = product === 'didimdol' ? getRoomDeductionState(product, finalLimit, income, price, house, region) : null;
+    const displayLimit = roomState ? roomState.finalLimit : finalLimit;
+    const principalWon = displayLimit * 100000000;
 
     return `
         <div class="limit-detail-card ${colorCls}-top">
           <div class="limit-detail-label">예상 대출 한도</div>
-          <div class="limit-detail-amount ${colorCls}">${formatLimit(finalLimit)}</div>
+          <div class="limit-detail-amount ${colorCls}" data-room-final-amount>${formatLimit(displayLimit)}</div>
           <div class="limit-breakdown">
             <div class="limit-breakdown-item">
               <span class="breakdown-label">LTV ${Math.round(ltvLimit/price*100)}% 적용</span>
@@ -1927,6 +2066,7 @@
           </div>
           <div class="limit-applied-note">${reasonText}</div>
           <div class="limit-reason">LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 개인별 신용 및 소득에 따라 달라질 수 있습니다. 보다 자세한 산정내역은 한국주택금융공사에서 꼭 확인이 필요합니다.</div>
+          ${roomState ? roomDeductionHtml(uid, product, roomState, finalLimit, price, income, house, region) : ''}
           ${colorCls === 'green' && house === '생애최초' && region !== '규제지역' && region !== '수도권' ? `
           <div class="ltv80-notice">
             <div class="ltv80-notice-icon">⚠️</div>
@@ -1974,12 +2114,14 @@
       ? 'LTV ' + ltvLabel + ' 기준 · 주택가격 <em>' + price + '억 × ' + ltvLabel + '</em> = <em>' + formatLimit(ltvLimit) + '</em>'
       : '상품 한도 기준 · 최대 <em>' + formatLimit(maxLimit) + '</em>';
 
-    const principalWon = finalLimit * 100000000;
     const uid = 'nb_' + Math.random().toString(36).slice(2, 7);
+    const roomState = getRoomDeductionState('newborn', finalLimit, income, price, house, region);
+    const displayLimit = roomState.finalLimit;
+    const principalWon = displayLimit * 100000000;
 
     return '<div class="limit-detail-card" style="border-top:3px solid #ff6b9d">'
       + '<div class="limit-detail-label">예상 대출 한도</div>'
-      + '<div class="limit-detail-amount" style="color:#ff6b9d">' + formatLimit(finalLimit) + '</div>'
+      + '<div class="limit-detail-amount" style="color:#ff6b9d" data-room-final-amount>' + formatLimit(displayLimit) + '</div>'
       + '<div class="limit-breakdown">'
       + '<div class="limit-breakdown-item">'
       + '<span class="breakdown-label">LTV ' + ltvLabel + ' 적용</span>'
@@ -1992,6 +2134,7 @@
       + '</div>'
       + '<div class="limit-applied-note">' + reasonText + '</div>'
       + '<div class="limit-reason">LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 개인별 신용 및 소득에 따라 달라질 수 있습니다. 보다 자세한 산정내역은 기금e든든에서 꼭 확인이 필요합니다.</div>'
+      + roomDeductionHtml(uid, 'newborn', roomState, finalLimit, price, income, house, region)
       + rateCalcHtml(uid, 'newborn', income, principalWon, household, house, region, 'nb')
       + '</div>';
   }
@@ -2093,6 +2236,8 @@
     var dIncomeLimit = o.dIncomeLimit, dPriceLimit = o.dPriceLimit;
     var bLtvLimit = o.bLtvLimit, bMaxLimit = o.bMaxLimit, bFinalLimit = o.bFinalLimit, bIncomeLimit = o.bIncomeLimit;
     var rateInfo = nbRate || getNewbornRate(income);
+    var nbDisplayLimit = getRoomDeductionState('newborn', nbFinalLimit, income, price, house, region).finalLimit;
+    var dDisplayLimit = getRoomDeductionState('didimdol', dFinalLimit, income, price, house, region).finalLimit;
 
     var tabs = [];
     if (newbornOk)    tabs.push('newborn');
@@ -2115,8 +2260,8 @@
     }
 
     var tabsHtml = '<div class="result-tabs" id="tabs3-wrap">';
-    if (newbornOk)    tabsHtml += makeTabBtn('newborn',    '금리 최저', '신생아 디딤돌',  formatLimit(nbFinalLimit), 'nb');
-    if (didimdolOk)   tabsHtml += makeTabBtn('didimdol',   newbornOk ? '차선책' : '금리 낮음', '디딤돌 대출', formatLimit(dFinalLimit), 'blue');
+    if (newbornOk)    tabsHtml += makeTabBtn('newborn',    '금리 최저', '신생아 디딤돌',  '<span data-room-sync="newborn">' + formatLimit(nbDisplayLimit) + '</span>', 'nb');
+    if (didimdolOk)   tabsHtml += makeTabBtn('didimdol',   newbornOk ? '차선책' : '금리 낮음', '디딤돌 대출', '<span data-room-sync="didimdol">' + formatLimit(dDisplayLimit) + '</span>', 'blue');
     if (bogeumjariOk) tabsHtml += makeTabBtn('bogeumjari', (newbornOk || didimdolOk) ? '한도 우위' : '추천', '보금자리론', formatLimit(bFinalLimit), 'green');
     tabsHtml += '</div>';
 
@@ -2129,7 +2274,7 @@
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
         + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val" style="color:#ff6b9d">' + rateInfo.min + '~' + rateInfo.max + '%</span></div>'
-        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val" style="color:#ff6b9d">' + formatLimit(nbFinalLimit) + '</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val" style="color:#ff6b9d" data-room-sync="newborn">' + formatLimit(nbDisplayLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30, income, household, region)
@@ -2163,7 +2308,7 @@
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
         + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val blue">' + getDidimdolRateLabel(household, house) + '</span></div>'
-        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue">' + formatLimit(dFinalLimit) + '</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue" data-room-sync="didimdol">' + formatLimit(dDisplayLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income)
@@ -2362,7 +2507,8 @@
     if (annualIncome <= 0) return;
 
     // mc-amt에서 현재 월납입액 읽기 (recalcRate/selectRepayTab이 이미 계산해둠)
-    const rateSection = document.querySelector('.rate-calc-section[data-color="green"]');
+    const cardColor = uid.startsWith('blue_') ? 'blue' : uid.startsWith('nb_') ? 'nb' : 'green';
+    const rateSection = document.querySelector('.rate-calc-section[data-color="' + cardColor + '"]');
     if (!rateSection) return;
     const card = rateSection.closest('.limit-detail-card');
     if (!card) return;
@@ -2452,6 +2598,7 @@
     const dLtvRate    = getFundLtvRate(region, house, 'didimdol');
     const dLtvLimit   = price * dLtvRate;
     const dFinalLimit = Math.min(dLtvLimit, dMaxLimit);
+    const dDisplayLimit = getRoomDeductionState('didimdol', dFinalLimit, income, price, house, region).finalLimit;
 
     // 보금자리론 자격
     const bHouseOk = house !== '1주택이상';
@@ -2509,7 +2656,7 @@
           <button class="result-tab active-blue" onclick="switchTab('didimdol')">
             <span class="result-tab-badge blue">금리 최저</span>
             <span class="result-tab-name">디딤돌 대출</span>
-            <span class="result-tab-limit">${formatLimit(dFinalLimit)}</span>
+            <span class="result-tab-limit"><span data-room-sync="didimdol">${formatLimit(dDisplayLimit)}</span></span>
           </button>
           <button class="result-tab" onclick="switchTab('bogeumjari')">
             <span class="result-tab-badge green">한도 우위</span>
@@ -2531,7 +2678,7 @@
               </div>
               <div class="info-pill">
                 <span class="info-pill-label">예상 한도</span>
-                <span class="info-pill-val blue">${formatLimit(dFinalLimit)}</span>
+                <span class="info-pill-val blue" data-room-sync="didimdol">${formatLimit(dDisplayLimit)}</span>
               </div>
             </div>
           </div>
@@ -2622,7 +2769,7 @@
             </div>
             <div class="info-pill">
               <span class="info-pill-label">예상 한도</span>
-              <span class="info-pill-val blue">${formatLimit(dFinalLimit)}</span>
+              <span class="info-pill-val blue" data-room-sync="didimdol">${formatLimit(dDisplayLimit)}</span>
             </div>
           </div>
         </div>

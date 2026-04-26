@@ -616,15 +616,60 @@ function getSelectedDealCity(regionId, aptTrade) {
   return scopes.some(scope => scope.name === current) ? current : 'all';
 }
 
+function centerActiveDealScopeTab(behavior = 'auto') {
+  const tabRow = document.querySelector('#dbTopDealsCard .db-deal-scope-tabs');
+  const activeTab = tabRow?.querySelector('.db-deal-scope-tab.active');
+  if (!tabRow || !activeTab) return;
+
+  const targetLeft = activeTab.offsetLeft - ((tabRow.clientWidth - activeTab.offsetWidth) / 2);
+  const maxScrollLeft = Math.max(0, tabRow.scrollWidth - tabRow.clientWidth);
+  const nextScrollLeft = Math.min(Math.max(0, targetLeft), maxScrollLeft);
+  tabRow.scrollTo({ left: nextScrollLeft, behavior });
+}
+
+function syncActiveDealScopeTab({ previousScrollLeft = 0, smooth = false } = {}) {
+  const tabRow = document.querySelector('#dbTopDealsCard .db-deal-scope-tabs');
+  const activeTab = tabRow?.querySelector('.db-deal-scope-tab.active');
+  if (!tabRow || !activeTab) return;
+
+  tabRow.scrollLeft = previousScrollLeft;
+  const viewportLeft = tabRow.scrollLeft;
+  const viewportRight = viewportLeft + tabRow.clientWidth;
+  const tabLeft = activeTab.offsetLeft;
+  const tabRight = tabLeft + activeTab.offsetWidth;
+  const edgePadding = 20;
+  const minVisibleLeft = viewportLeft + edgePadding;
+  const maxVisibleRight = viewportRight - edgePadding;
+  let nextScrollLeft = null;
+
+  if (tabLeft < minVisibleLeft) {
+    nextScrollLeft = Math.max(0, tabLeft - edgePadding);
+  } else if (tabRight > maxVisibleRight) {
+    nextScrollLeft = Math.max(0, tabRight - tabRow.clientWidth + edgePadding);
+  }
+
+  if (nextScrollLeft !== null) {
+    const maxScrollLeft = Math.max(0, tabRow.scrollWidth - tabRow.clientWidth);
+    requestAnimationFrame(() => {
+      tabRow.scrollTo({
+        left: Math.min(nextScrollLeft, maxScrollLeft),
+        behavior: smooth ? 'smooth' : 'auto',
+      });
+    });
+  }
+}
+
 function setDealCity(regionId, cityName) {
   selectedDealCityByRegion[regionId] = cityName;
   const aptTrade = aptTradeSummary?.sido?.[String(regionId)] || null;
   const target = document.getElementById('dbTopDealsCard');
+  const previousScrollLeft = target?.querySelector('.db-deal-scope-tabs')?.scrollLeft || 0;
   if (!target) {
     renderFacts();
     return;
   }
   target.outerHTML = renderTopDealsCard({ regionId, aptTrade });
+  syncActiveDealScopeTab({ previousScrollLeft, smooth: true });
 }
 
 function renderTopDealsCard({ regionId, aptTrade }) {
@@ -906,6 +951,7 @@ function renderFacts() {
 
     </div>
   `;
+  syncActiveDealScopeTab();
 }
 
 // ── 차트 모드/기간 전환 ──────────────────────────────
