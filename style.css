@@ -2742,6 +2742,22 @@
   grid-column: 1 / -1;
   margin-top: 0;
 }
+.db-chart-copy {
+  margin-bottom: 14px;
+}
+.db-chart-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--label1);
+  letter-spacing: -0.25px;
+}
+.db-chart-desc {
+  margin: 6px 0 0;
+  color: var(--label3);
+  font-size: 11px;
+  line-height: 1.55;
+  letter-spacing: -0.1px;
+}
 .db-chart-top {
   display: flex;
   justify-content: space-between;

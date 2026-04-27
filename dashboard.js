@@ -934,6 +934,10 @@ function renderFacts() {
       ${aptTradeHtml}
 
       <div class="db-chart-wrap db-chart-wrap--embedded">
+        <div class="db-chart-copy">
+          <div class="db-chart-title">평균 가격 흐름</div>
+          <p class="db-chart-desc">지역 평균 가격의 최근 방향을 보여줍니다. 실거래 흐름과 같이 보면 판단이 쉬워집니다.</p>
+        </div>
         <div class="db-chart-top">
           <div class="db-chart-tabs">
             <button class="db-chart-tab active" onclick="switchChartMode('buy', this)">매매</button>
