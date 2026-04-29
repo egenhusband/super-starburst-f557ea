@@ -1268,8 +1268,48 @@
 
   // ══ 기금대출 금리 테이블 ══
 
-  // 보금자리론 기한별 기본금리
-  const BOGEUM_RATES = { 10:4.45, 15:4.55, 20:4.60, 30:4.65, 40:4.70, 50:4.75 };
+  // 보금자리론 기한별 기본금리 (아낌e 기준)
+  // 2026-04-29 현재는 4월 공시 금리가 적용 중이며,
+  // 2026-05-01부터는 4/24 발표된 5월 금리가 적용됩니다.
+  const BOGEUM_RATE_SCHEDULE = [
+    {
+      effectiveFrom: '2026-04-01',
+      label: '2026년 4월 1일 기준',
+      rates: { 10:4.45, 15:4.55, 20:4.60, 30:4.65, 40:4.70, 50:4.75 }
+    },
+    {
+      effectiveFrom: '2026-05-01',
+      label: '2026년 5월 1일 기준',
+      rates: { 10:4.60, 15:4.70, 20:4.75, 30:4.80, 40:4.85, 50:4.90 }
+    }
+  ];
+
+  function getCurrentBogeumRateSet(now = new Date()) {
+    const todayKey = Number(String(now.getFullYear())
+      + String(now.getMonth() + 1).padStart(2, '0')
+      + String(now.getDate()).padStart(2, '0'));
+    let active = BOGEUM_RATE_SCHEDULE[0];
+    BOGEUM_RATE_SCHEDULE.forEach(entry => {
+      const effectiveKey = Number(entry.effectiveFrom.replace(/-/g, ''));
+      if (todayKey >= effectiveKey) active = entry;
+    });
+    return active;
+  }
+
+  function getBogeumBaseRate(years, now = new Date()) {
+    const rateSet = getCurrentBogeumRateSet(now);
+    return rateSet.rates[years] || rateSet.rates[30];
+  }
+
+  function getBogeumRegulationSurcharge(region) {
+    return region === '규제지역' ? 0.1 : 0;
+  }
+
+  function getBogeumRateLabel(now = new Date()) {
+    const minRate = getBogeumBaseRate(10, now);
+    const maxRate = getBogeumBaseRate(50, now);
+    return `${minRate.toFixed(2)}~${maxRate.toFixed(2)}%`;
+  }
 
   // 디딤돌 소득·기한별 기본금리 — 일반/생애최초 (신혼 아님)
   const DIDIMDOL_RATES_GENERAL = [
@@ -1339,7 +1379,7 @@
         + prefCardHtml(uid,'0.1','녹색건축물','-0.1%p',false,c,false,'')
         + prefCardHtml(uid,'1.0','전세사기피해자','-1.0%p',false,c,false,'')
         + '</div>'
-        + '<div class="rate-pref-group-label">일반 우대 최대 1.0%p · 전자약정/전자등기 0.1%p 별도 중복 가능 · 최종금리 연 1.2% 이상</div>';
+        + '<div class="rate-pref-group-label">표시 기본금리는 아낌e 기준 · 규제지역 선택 시 0.1%p 가산 · 비대면(u) 및 대면(t) 방식은 추가 0.1%p 가산 · 일반 우대 최대 1.0%p · 전자약정/전자등기 0.1%p 별도 중복 가능 · 최종금리 연 1.2% 이상</div>';
     }
 
     if (product === 'didimdol') {
@@ -1533,20 +1573,22 @@
     // 기본금리 계산
     let baseRate;
     if (isBogeumjari) {
-      baseRate = BOGEUM_RATES[defaultYear];
+      baseRate = getBogeumBaseRate(defaultYear);
     } else if (isDidimdol) {
       baseRate = getDidimdolBaseRate(income, household, defaultYear);
     } else {
       baseRate = getNewbornRate(income, defaultYear).rate;
     }
     baseRate = Math.round(baseRate * 100) / 100;
+    const initSurcharge = isBogeumjari ? getBogeumRegulationSurcharge(region) : 0;
+    const initFinalRate = Math.round((baseRate + initSurcharge) * 100) / 100;
 
-    const initAmt = calcMonthly(principal, baseRate, 'annuity', defaultYear);
+    const initAmt = calcMonthly(principal, initFinalRate, 'annuity', defaultYear);
 
     const chevronSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
 
     return `
-      <div class="rate-calc-section" data-color="${colorCls}" data-uid="${uid}">
+      <div class="rate-calc-section" data-color="${colorCls}" data-uid="${uid}" data-product="${product}" data-region="${region}">
         <div class="rate-dropdown-box" id="yr-box-${uid}">
           <span class="rate-dropdown-label">대출기한</span>
           <div class="rate-dropdown-right">
@@ -1568,10 +1610,10 @@
             <span class="rs-label">우대금리</span>
             <span class="rs-val" id="rs-pref-${uid}">0.00%p</span>
           </div>
-          ${isDidimdol ? `<div class="rate-summary-row"><span class="rs-label">가산금리</span><span class="rs-val" id="rs-surcharge-${uid}">+0.00%p</span></div>` : ''}
+          ${(isDidimdol || isBogeumjari) ? `<div class="rate-summary-row"><span class="rs-label">가산금리</span><span class="rs-val" id="rs-surcharge-${uid}">+${initSurcharge.toFixed(2)}%p</span></div>` : ''}
           <div class="rate-summary-row rs-final">
             <span class="rs-label">적용금리</span>
-            <span class="rs-val" id="rs-final-${uid}" style="color:${accentColor}">${baseRate.toFixed(2)}%</span>
+            <span class="rs-val" id="rs-final-${uid}" style="color:${accentColor}">${initFinalRate.toFixed(2)}%</span>
           </div>
         </div>
         <div class="repay-method-tabs" id="tabs-${uid}">
@@ -1583,7 +1625,7 @@
           <span class="monthly-result-label">첫 달 월 납입액</span>
           <span class="monthly-result-amount" id="mc-amt-${uid}" data-principal="${principal}" style="color:${accentColor};text-align:right">${formatWon(initAmt)}</span>
         </div>
-        <div class="monthly-result-note" id="mc-note-${uid}" style="text-align:right">기본금리 ${baseRate.toFixed(2)}% · ${defaultYear}년 만기 · 원리금균등 · 1회차 기준</div>
+        <div class="monthly-result-note" id="mc-note-${uid}" style="text-align:right">적용금리 ${initFinalRate.toFixed(2)}% · ${defaultYear}년 만기 · 원리금균등 · 1회차 기준</div>
         <button class="sch-open-btn" onclick="openScheduleSheet('${uid}','${colorCls}')" style="color:${accentColor}">
           전체 상환 스케줄 보기 →
         </button>
@@ -1765,12 +1807,16 @@
       prefTotal = Math.round(prefTotal * 100) / 100;
     }
 
-    // 가산금리 (디딤돌 전용)
+    // 가산금리
     const surchargeWrap = document.getElementById('surcharge-' + uid);
     let surcharge = 0;
     if (surchargeWrap) {
       const selSurcharge = surchargeWrap.querySelector('.rate-surcharge-card.selected-blue');
       if (selSurcharge) surcharge = parseFloat(selSurcharge.dataset.surcharge || 0);
+    }
+    if (isBogeumjari) {
+      const sectionRegion = calcSectionForProduct?.dataset.region || '';
+      surcharge += getBogeumRegulationSurcharge(sectionRegion);
     }
     surcharge = Math.round(surcharge * 100) / 100;
 
@@ -1854,7 +1900,7 @@
 
     let newBase;
     if (product === 'bogeumjari') {
-      newBase = BOGEUM_RATES[years] || 4.05;
+      newBase = getBogeumBaseRate(years);
     } else if (product === 'didimdol') {
       newBase = getDidimdolBaseRate(income, household, years);
     } else {
@@ -2335,12 +2381,12 @@
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
-        + '<div class="info-pill"><span class="info-pill-label">기본 금리</span><span class="info-pill-val green">4.45~4.75%</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">기본 금리</span><span class="info-pill-val green">' + getBogeumRateLabel() + '</span></div>'
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val green">' + formatLimit(bFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)
-        + bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, BOGEUM_RATES[30], 30, otherLoanInterest)
+        + bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, getBogeumBaseRate(30) + getBogeumRegulationSurcharge(region), 30, otherLoanInterest)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -2711,7 +2757,7 @@
             <div class="rate-limit-row">
               <div class="info-pill">
                 <span class="info-pill-label">기본 금리</span>
-                <span class="info-pill-val green">4.45~4.75%</span>
+                <span class="info-pill-val green">${getBogeumRateLabel()}</span>
               </div>
               <div class="info-pill">
                 <span class="info-pill-label">예상 한도</span>
@@ -2721,7 +2767,7 @@
           </div>
           <div class="result-spacer-sm"></div>
           ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)}
-          ${bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, BOGEUM_RATES[30], 30, otherLoanInterest)}
+          ${bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, getBogeumBaseRate(30) + getBogeumRegulationSurcharge(region), 30, otherLoanInterest)}
           <div class="result-spacer"></div>
           <div class="group-label">충족 조건</div>
           <div class="result-group">
@@ -2821,7 +2867,7 @@
           <div class="rate-limit-row">
             <div class="info-pill">
               <span class="info-pill-label">기본 금리</span>
-              <span class="info-pill-val green">4.45~4.75%</span>
+              <span class="info-pill-val green">${getBogeumRateLabel()}</span>
             </div>
             <div class="info-pill">
               <span class="info-pill-label">예상 한도</span>
@@ -2831,7 +2877,7 @@
         </div>
         <div class="result-spacer-sm"></div>
         ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)}
-        ${bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, BOGEUM_RATES[30], 30, otherLoanInterest)}
+        ${bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, getBogeumBaseRate(30) + getBogeumRegulationSurcharge(region), 30, otherLoanInterest)}
         <div class="result-spacer"></div>
         <div class="group-label">자격 검토</div>
         <div class="result-group">

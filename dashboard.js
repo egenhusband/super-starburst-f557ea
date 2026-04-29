@@ -68,6 +68,8 @@ const MARKET_DATA_URL = '/data/market-dashboard.json';
 const APT_TRADES_DATA_URL = '/data/apt-trades-summary.json';
 const APT_TRADES_DATA_VERSION = '20260424c';
 const MARKET_CACHE_ENDPOINT = '/.netlify/functions/market-cache';
+const KAKAO_MAP_APP_KEY = 'd8d6691b19d2ac9e50014fd9ebc79367';
+const GEO_CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
 
 let chart = null;
 let selectedClsId     = 500001; // 기본값: 전국
@@ -83,6 +85,12 @@ let aptTradeSummary   = null;
 let marketBundlePromise = null;
 let aptTradesPromise = null;
 let selectedDealCityByRegion = {};
+let kakaoMapsSdkPromise = null;
+let topComplexInsightSeq = 0;
+let regionSwapSeq = 0;
+let pendingRegionStageEnter = false;
+const topComplexInsightCache = new Map();
+let dealCitySwapSeq = 0;
 
 // ── 캐시 ─────────────────────────────────────────────
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
@@ -117,6 +125,300 @@ function getAptTradesCache() {
 
 function setAptTradesCache(data) {
   setCache(APT_TRADE_CACHE_KEY, data);
+}
+
+function getGeoCache(key) {
+  return getCache(`geo_${key}`, GEO_CACHE_TTL);
+}
+
+function setGeoCache(key, data) {
+  setCache(`geo_${key}`, data);
+}
+
+function normalizePlaceToken(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[()[\]{}.,\-_/]/g, '');
+}
+
+function formatDistance(distance) {
+  const meters = Number(distance);
+  if (!Number.isFinite(meters)) return '거리 확인 중';
+  if (meters >= 1000) return `${(meters / 1000).toFixed(1)}km`;
+  return `${Math.round(meters)}m`;
+}
+
+function getTopComplexCacheKey(complex) {
+  if (!complex) return '';
+  return [complex.sigunguCode, complex.umdName, complex.aptName, complex.latestDealDate].filter(Boolean).join('|');
+}
+
+function getComplexTradeFocus(complex, aptTrade) {
+  if (!complex || !aptTrade?.tradeCount) return null;
+  return Number(((complex.tradeCount / aptTrade.tradeCount) * 100).toFixed(1));
+}
+
+function getComplexPriceGap(complex, aptTrade) {
+  if (!complex || !Number.isFinite(complex.medianPrice) || !Number.isFinite(aptTrade?.medianPrice) || aptTrade.medianPrice === 0) {
+    return null;
+  }
+  return Number((((complex.medianPrice - aptTrade.medianPrice) / aptTrade.medianPrice) * 100).toFixed(1));
+}
+
+function loadKakaoMapsSdk() {
+  if (window.kakao?.maps?.services) return Promise.resolve(window.kakao);
+  if (kakaoMapsSdkPromise) return kakaoMapsSdkPromise;
+
+  kakaoMapsSdkPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-kakao-maps-sdk="1"]');
+    const finishLoad = () => {
+      if (!window.kakao?.maps?.load) {
+        reject(new Error('Kakao Maps SDK unavailable'));
+        return;
+      }
+      window.kakao.maps.load(() => {
+        if (window.kakao?.maps?.services) resolve(window.kakao);
+        else reject(new Error('Kakao Maps services unavailable'));
+      });
+    };
+
+    if (existing) {
+      if (window.kakao?.maps?.services) {
+        resolve(window.kakao);
+      } else {
+        existing.addEventListener('load', finishLoad, { once: true });
+        existing.addEventListener('error', () => reject(new Error('Kakao Maps SDK load failed')), { once: true });
+      }
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey=${KAKAO_MAP_APP_KEY}&libraries=services`;
+    script.async = true;
+    script.dataset.kakaoMapsSdk = '1';
+    script.onload = finishLoad;
+    script.onerror = () => reject(new Error('Kakao Maps SDK load failed'));
+    document.head.appendChild(script);
+  }).catch(error => {
+    kakaoMapsSdkPromise = null;
+    throw error;
+  });
+
+  return kakaoMapsSdkPromise;
+}
+
+function searchComplexLocation(complex) {
+  if (!complex?.aptName) return Promise.resolve(null);
+  const query = [complex.sigunguName, complex.umdName, complex.aptName].filter(Boolean).join(' ');
+  const cacheKey = `place_${query}`;
+  const cached = getGeoCache(cacheKey);
+  if (cached) return Promise.resolve(cached);
+
+  return loadKakaoMapsSdk().then(kakao => new Promise(resolve => {
+    const places = new kakao.maps.services.Places();
+    places.keywordSearch(query, (result, status) => {
+      if (status !== kakao.maps.services.Status.OK || !Array.isArray(result) || !result.length) {
+        resolve(null);
+        return;
+      }
+
+      const aptNameNorm = normalizePlaceToken(complex.aptName);
+      const umdNorm = normalizePlaceToken(complex.umdName);
+      const sigunguNorm = normalizePlaceToken(complex.sigunguName);
+      const match = result.find(place => {
+        const placeNameNorm = normalizePlaceToken(place.place_name);
+        const addressNorm = normalizePlaceToken(place.address_name || place.road_address_name || '');
+        return placeNameNorm.includes(aptNameNorm) && (!umdNorm || addressNorm.includes(umdNorm) || addressNorm.includes(sigunguNorm));
+      }) || result[0];
+
+      const normalized = {
+        x: Number(match.x),
+        y: Number(match.y),
+        placeName: match.place_name || complex.aptName,
+        addressName: match.road_address_name || match.address_name || '',
+      };
+      setGeoCache(cacheKey, normalized);
+      resolve(normalized);
+    }, { size: 5 });
+  }));
+}
+
+function searchNearestStation(location) {
+  if (!location || !Number.isFinite(location.x) || !Number.isFinite(location.y)) return Promise.resolve(null);
+  const cacheKey = `station_${location.y.toFixed(6)}_${location.x.toFixed(6)}`;
+  const cached = getGeoCache(cacheKey);
+  if (cached) return Promise.resolve(cached);
+
+  return loadKakaoMapsSdk().then(kakao => new Promise(resolve => {
+    const places = new kakao.maps.services.Places();
+    places.categorySearch('SW8', (result, status) => {
+      if (status !== kakao.maps.services.Status.OK || !Array.isArray(result) || !result.length) {
+        resolve(null);
+        return;
+      }
+
+      const station = {
+        placeName: result[0].place_name || '',
+        distance: Number(result[0].distance),
+        addressName: result[0].road_address_name || result[0].address_name || '',
+      };
+      setGeoCache(cacheKey, station);
+      resolve(station);
+    }, {
+      x: location.x,
+      y: location.y,
+      radius: 2000,
+      size: 3,
+      sort: kakao.maps.services.SortBy.DISTANCE,
+    });
+  }));
+}
+
+function searchNearestElementarySchool(location) {
+  if (!location || !Number.isFinite(location.x) || !Number.isFinite(location.y)) return Promise.resolve(null);
+  const cacheKey = `school_${location.y.toFixed(6)}_${location.x.toFixed(6)}`;
+  const cached = getGeoCache(cacheKey);
+  if (cached) return Promise.resolve(cached);
+
+  return loadKakaoMapsSdk().then(kakao => new Promise(resolve => {
+    const places = new kakao.maps.services.Places();
+    places.categorySearch('SC4', (result, status) => {
+      if (status !== kakao.maps.services.Status.OK || !Array.isArray(result) || !result.length) {
+        resolve(null);
+        return;
+      }
+
+      const elementary = result.find(place => String(place.place_name || '').includes('초등학교')) || result[0];
+      const school = {
+        placeName: elementary.place_name || '',
+        distance: Number(elementary.distance),
+        addressName: elementary.road_address_name || elementary.address_name || '',
+      };
+      setGeoCache(cacheKey, school);
+      resolve(school);
+    }, {
+      x: location.x,
+      y: location.y,
+      radius: 2000,
+      size: 15,
+      sort: kakao.maps.services.SortBy.DISTANCE,
+    });
+  }));
+}
+
+function buildTopComplexInsightCopy({ complex, aptTrade, station, school }) {
+  const tradeFocus = getComplexTradeFocus(complex, aptTrade);
+  const priceGap = getComplexPriceGap(complex, aptTrade);
+  const area = Number(complex?.avgArea);
+
+  const reasons = [];
+  if (station?.distance <= 600) reasons.push(`가까운 지하철역이 ${formatDistance(station.distance)} 거리로 붙어 있어 접근성이 좋은 편`);
+  else if (station?.distance <= 1200) reasons.push(`지하철 접근이 가능한 거리권이라 이동 편의 기대가 있는 편`);
+  if (school?.distance <= 500) reasons.push(`가까운 초등학교가 ${formatDistance(school.distance)} 거리로 붙어 있어 가족 단위 실수요가 보기 쉬운 편`);
+
+  if (Number.isFinite(tradeFocus) && tradeFocus >= 8) reasons.push(`같은 지역 거래 중 ${tradeFocus}%가 이 단지에 몰릴 만큼 거래 집중도가 높음`);
+  else if (Number.isFinite(tradeFocus) && tradeFocus >= 4) reasons.push(`지역 안에서 반복 거래가 이어진 단지로 관심이 유지된 편`);
+
+  if (Number.isFinite(priceGap)) {
+    if (priceGap <= -8) reasons.push('지역 체감 가격보다 진입 가격대가 낮아 비교적 접근성이 있었을 가능성');
+    else if (priceGap >= 8) reasons.push('지역 중앙값보다 높은 가격대에서도 거래가 이어져 선호도가 유지된 편');
+    else reasons.push('지역 중앙값과 비슷한 가격대라 실수요 비교 대상으로 많이 선택됐을 가능성');
+  }
+
+  if (Number.isFinite(area)) {
+    if (area >= 80 && area < 100) reasons.push(`${Math.round(area)}㎡ 안팎의 대중적 면적대 중심 거래`);
+    else if (area >= 59 && area < 80) reasons.push(`${Math.round(area)}㎡대 실수요 면적에 거래가 모인 편`);
+    else if (area < 59) reasons.push(`${Math.round(area)}㎡대 소형 면적 중심으로 회전이 빨랐던 편`);
+  }
+
+  return reasons.slice(0, 3);
+}
+
+function buildTopComplexInsightPayload({ aptTrade, complex, station = null, school = null }) {
+  const tradeFocus = getComplexTradeFocus(complex, aptTrade);
+  const reasons = buildTopComplexInsightCopy({ complex, aptTrade, station, school });
+  const primaryArea = Number.isFinite(Number(complex?.avgArea)) ? formatAreaToPyeong(complex.avgArea) : '확인 중';
+  return {
+    locationText: [complex?.sigunguName, complex?.umdName].filter(Boolean).join(' ') || '위치 확인 중',
+    stationText: station?.placeName
+      ? `${station.placeName} · 직선 ${formatDistance(station.distance)}`
+      : '준비중',
+    schoolText: school?.placeName
+      ? `${school.placeName} · 직선 ${formatDistance(school.distance)}`
+      : '준비중',
+    focusText: Number.isFinite(tradeFocus) ? `${tradeFocus}%` : '확인 중',
+    primaryAreaText: primaryArea,
+    reasons: reasons.length ? reasons : ['현재는 거래량과 가격 패턴을 중심으로 참고 해석을 제공합니다.'],
+    hasStation: Boolean(station?.placeName),
+    hasSchool: Boolean(school?.placeName),
+  };
+}
+
+function renderTopComplexInsight(target, payload) {
+  if (!target || !payload) return;
+  target.innerHTML = `
+    <div class="db-deal-insight-head">
+      <strong>왜 거래가 몰렸는지 보는 신호</strong>
+      <span>TOP1 기준</span>
+    </div>
+    <div class="db-deal-insight-grid">
+      <div>
+        <span class="db-deal-insight-k">위치</span>
+        <strong>${escapeHtml(payload.locationText)}</strong>
+      </div>
+      <div>
+        <span class="db-deal-insight-k">주로 거래된 평형</span>
+        <strong>${payload.primaryAreaText}</strong>
+      </div>
+      <div>
+        <span class="db-deal-insight-k">${payload.hasStation ? '지하철역' : '준비중'}</span>
+        <strong>${escapeHtml(payload.stationText)}</strong>
+      </div>
+      <div>
+        <span class="db-deal-insight-k">${payload.hasSchool ? '근처 초등학교' : '준비중'}</span>
+        <strong>${escapeHtml(payload.schoolText)}</strong>
+      </div>
+    </div>
+    <ul class="db-deal-insight-list">
+      ${payload.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}
+    </ul>
+    <p class="db-deal-insight-note">이 해석은 최근 실거래와 지도 검색 결과를 바탕으로 한 참고 정보이며, 학군·세대수·개발계획·실제 도보 동선은 반영하지 않습니다.</p>
+  `;
+}
+
+async function hydrateTopComplexInsight({ aptTrade, complex, allowNetwork = false }) {
+  const target = document.getElementById('dbTopComplexInsight');
+  if (!target || !aptTrade || !complex) return;
+
+  const requestId = ++topComplexInsightSeq;
+  const cacheKey = getTopComplexCacheKey(complex);
+  const cached = topComplexInsightCache.get(cacheKey);
+  if (cached) {
+    renderTopComplexInsight(target, cached);
+    return;
+  }
+
+  const fallbackPayload = buildTopComplexInsightPayload({ aptTrade, complex, station: null });
+  renderTopComplexInsight(target, fallbackPayload);
+
+  if (!allowNetwork) return;
+
+  try {
+    const location = await searchComplexLocation(complex);
+    const [station, school] = location
+      ? await Promise.all([searchNearestStation(location), searchNearestElementarySchool(location)])
+      : [null, null];
+    if (requestId !== topComplexInsightSeq) return;
+
+    const payload = buildTopComplexInsightPayload({ aptTrade, complex, station, school });
+    topComplexInsightCache.set(cacheKey, payload);
+    renderTopComplexInsight(target, payload);
+  } catch (error) {
+    if (requestId !== topComplexInsightSeq) return;
+    console.warn('[deal insight]', error);
+    renderTopComplexInsight(target, fallbackPayload);
+  }
 }
 
 function hydrateMarketBundle(bundle) {
@@ -280,12 +582,38 @@ function showDashboardData() {
   animateDashboardContent();
 }
 
+function bindDashboardStickyShell() {
+  const wrap = document.querySelector('#dashboardScreen .db-wrap');
+  const shell = document.querySelector('#dashboardScreen .db-sticky-shell');
+  if (!wrap || !shell) return;
+
+  let ticking = false;
+  const updateFloatingState = () => {
+    ticking = false;
+    shell.classList.toggle('is-floating', wrap.scrollTop > 20);
+  };
+
+  wrap.addEventListener('scroll', () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(updateFloatingState);
+  }, { passive: true });
+
+  updateFloatingState();
+}
+
 // ── 대시보드 초기화 ──────────────────────────────────
 function initDashboard() {
   const screen = document.getElementById('dashboardScreen');
+  const visibleRegions = REGION_MAP.filter(r => r.id !== 500001);
+  const defaultRegion = visibleRegions[0] || REGION_MAP[0];
+  if (selectedClsId === 500001 && defaultRegion) {
+    selectedClsId = defaultRegion.id;
+    selectedName = defaultRegion.name;
+  }
 
-  const regionBtns = REGION_MAP.map(r => `
-    <button class="db-region-btn${r.id === 500001 ? ' active' : ''}"
+  const regionBtns = visibleRegions.map(r => `
+    <button class="db-region-btn${r.id === selectedClsId ? ' active' : ''}"
       data-id="${r.id}" data-name="${r.name}"
       onclick="selectRegion(${r.id}, '${r.name}')">
       ${r.name}
@@ -293,16 +621,16 @@ function initDashboard() {
 
   screen.innerHTML = `
     <div class="db-wrap">
-      <div class="db-topbar">
-        <button class="db-back-btn" type="button" onclick="showCalculator()">← 계산기로 돌아가기</button>
-        <div class="db-topbar-copy">
-          <strong>시장 상세 보기</strong>
-          <span>계산 흐름은 그대로 유지돼요</span>
+      <div class="db-sticky-shell">
+        <div class="db-topbar">
+          <button class="db-back-btn" type="button" onclick="showCalculator()">← 계산기로 돌아가기</button>
+          <div class="db-topbar-copy">
+            <strong>시장 상세 보기</strong>
+            <span>계산 흐름은 그대로 유지돼요</span>
+          </div>
         </div>
+        <div class="db-region-grid">${regionBtns}</div>
       </div>
-      <div class="db-region-grid">${regionBtns}</div>
-      <div class="db-region-status" id="dbRegionStatus" style="display:none"></div>
-
       <div class="db-query-wrap" id="dbQueryWrap">
         <button class="db-query-btn" id="dbQueryBtn" onclick="handleQuery()">시장 데이터 불러오기</button>
       </div>
@@ -324,6 +652,7 @@ function initDashboard() {
       </div>
     </div>
   `;
+  bindDashboardStickyShell();
 
   if (!window.Chart) {
     const s = document.createElement('script');
@@ -356,7 +685,23 @@ function selectRegion(clsId, name) {
   });
 
   if (hasDashboardData()) {
-    showDashboardData();
+    const swapId = ++regionSwapSeq;
+    const currentStage = document.querySelector('#dbFacts .db-region-stage');
+
+    if (!currentStage || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      pendingRegionStageEnter = true;
+      showDashboardData();
+      return;
+    }
+
+    currentStage.classList.remove('db-region-stage-enter');
+    currentStage.classList.add('db-region-stage-exit');
+
+    window.setTimeout(() => {
+      if (swapId !== regionSwapSeq) return;
+      pendingRegionStageEnter = true;
+      showDashboardData();
+    }, 180);
   }
 }
 
@@ -509,16 +854,12 @@ function escapeHtml(text) {
 }
 
 function renderStreamingWords(text, className, startDelay = 0) {
-  const tokens = String(text).split(/(\s+)/).filter(token => token.length > 0);
+  const tokens = String(text).trim().split(/\s+/).filter(token => token.length > 0);
   let delay = startDelay;
 
   return `
     <span class="${className}" aria-label="${escapeHtml(text)}">
       ${tokens.map(token => {
-        if (/^\s+$/.test(token)) {
-          return `<span class="db-stream-space">${token.replace(/ /g, '&nbsp;')}</span>`;
-        }
-
         const html = `<span class="db-stream-word" style="--stream-delay:${delay}ms">${escapeHtml(token)}</span>`;
         delay += 38;
         return html;
@@ -594,6 +935,12 @@ function formatTradeMonth(month) {
   return `${String(month).slice(0, 4)}.${String(month).slice(4, 6)}`;
 }
 
+function formatAreaToPyeong(area) {
+  const numeric = Number(area);
+  if (!Number.isFinite(numeric) || numeric <= 0) return '';
+  return `${(numeric / 3.3058).toFixed(1)}평`;
+}
+
 function formatSignedPct(value, digits = 1) {
   if (!Number.isFinite(value)) return '—';
   const abs = Math.abs(value).toFixed(digits);
@@ -611,9 +958,9 @@ function signalClass(value) {
 
 function getSelectedDealCity(regionId, aptTrade) {
   const scopes = Array.isArray(aptTrade?.cityScopes) ? aptTrade.cityScopes : [];
-  const current = selectedDealCityByRegion[regionId] || 'all';
-  if (current === 'all') return 'all';
-  return scopes.some(scope => scope.name === current) ? current : 'all';
+  if (!scopes.length) return 'all';
+  const current = selectedDealCityByRegion[regionId] || scopes[0]?.name || 'all';
+  return scopes.some(scope => scope.name === current) ? current : (scopes[0]?.name || 'all');
 }
 
 function centerActiveDealScopeTab(behavior = 'auto') {
@@ -668,8 +1015,28 @@ function setDealCity(regionId, cityName) {
     renderFacts();
     return;
   }
-  target.outerHTML = renderTopDealsCard({ regionId, aptTrade });
-  syncActiveDealScopeTab({ previousScrollLeft, smooth: true });
+  const swapId = ++dealCitySwapSeq;
+  target.querySelectorAll('.db-deal-list-card').forEach((card, index) => {
+    card.style.setProperty('--deal-exit-delay', `${index * 24}ms`);
+    card.classList.remove('db-deal-list-card-enter');
+    card.classList.add('db-deal-list-card-exit');
+  });
+
+  window.setTimeout(() => {
+    if (swapId !== dealCitySwapSeq) return;
+    const liveTarget = document.getElementById('dbTopDealsCard');
+    if (!liveTarget) return;
+    liveTarget.outerHTML = renderTopDealsCard({ regionId, aptTrade });
+    syncActiveDealScopeTab({ previousScrollLeft, smooth: true });
+    const selectedDealCity = getSelectedDealCity(regionId, aptTrade);
+    const activeScope = selectedDealCity === 'all'
+      ? null
+      : (Array.isArray(aptTrade?.cityScopes) ? aptTrade.cityScopes.find(scope => scope.name === selectedDealCity) || null : null);
+    const leadComplex = Array.isArray(activeScope?.popularComplexes) && activeScope.popularComplexes.length
+      ? activeScope.popularComplexes[0]
+      : Array.isArray(aptTrade?.popularComplexes) ? aptTrade.popularComplexes[0] : null;
+    hydrateTopComplexInsight({ aptTrade, complex: leadComplex || null, allowNetwork: true });
+  }, 180);
 }
 
 function renderTopDealsCard({ regionId, aptTrade }) {
@@ -692,40 +1059,54 @@ function renderTopDealsCard({ regionId, aptTrade }) {
     : Array.isArray(aptTrade.popularComplexes)
       ? aptTrade.popularComplexes.slice(0, 5)
       : [];
-  const scopeTabs = [
-    { name: 'all', label: '전체' },
-    ...cityScopes.map(scope => ({ name: scope.name, label: scope.name })),
-  ];
-  const showCityTabs = regionId !== 500001 && scopeTabs.length > 1;
+  const leadComplex = popularComplexes[0] || null;
+  const scopeTabs = cityScopes.map(scope => ({ name: scope.name, label: scope.name }));
+  const showCityTabs = regionId !== 500001 && scopeTabs.length > 0;
+  const scopeTitle = selectedDealCity === 'all' ? selectedName : selectedDealCity;
 
   return `
-    <div class="db-actual-card" id="dbTopDealsCard">
-      <div class="db-fact-label">거래 많은 단지 TOP5 · ${formatTradeMonth(aptTrade.latestDealMonth)}</div>
-      ${showCityTabs ? `
-      <div class="db-deal-scope-tabs">
-        ${scopeTabs.map(tab => `
-          <button
-            class="db-deal-scope-tab${(tab.name === 'all' ? selectedDealCity === 'all' : selectedDealCity === tab.name) ? ' active' : ''}"
-            type="button"
-            onclick="setDealCity(${regionId}, '${tab.name}')"
-          >${tab.label}</button>
-        `).join('')}
-      </div>` : ''}
-      <div class="db-deal-list">
-        ${popularComplexes.length ? popularComplexes.map((complex, index) => `
-          <div class="db-deal-item">
-            <div class="db-deal-head">
-              <strong><span class="db-deal-rank">TOP ${index + 1}</span>${escapeHtml(complex.aptName || '단지명 없음')}</strong>
-              <span>${Number(complex.tradeCount || 0).toLocaleString()}건</span>
-            </div>
-            <div class="db-deal-meta">
-              ${escapeHtml([complex.sigunguName, complex.umdName].filter(Boolean).join(' '))}
-              ${complex.latestTradePrice ? ` · 최근 실거래가 ${formatTradePrice(complex.latestTradePrice)}` : ''}
-              ${complex.latestTradeArea ? ` · ${Number(complex.latestTradeArea).toFixed(2)}㎡` : ''}
-              ${complex.latestDealDate ? ` · 최근 ${complex.latestDealDate}` : ''}
-            </div>
+    <div class="db-actual-card db-actual-card--deals" id="dbTopDealsCard">
+      <div class="db-deal-hero">
+        <div class="db-fact-label">거래 많은 단지 TOP5 · ${formatTradeMonth(aptTrade.latestDealMonth)}</div>
+        ${showCityTabs ? `
+        <div class="db-deal-scope-tabs">
+          ${scopeTabs.map(tab => `
+            <button
+              class="db-deal-scope-tab${selectedDealCity === tab.name ? ' active' : ''}"
+              type="button"
+              onclick="setDealCity(${regionId}, '${tab.name}')"
+            >${tab.label}</button>
+          `).join('')}
+        </div>` : `<strong class="db-deal-hero-title">${escapeHtml(scopeTitle)}</strong>`}
+        <p class="db-deal-hero-desc">최근 거래가 몰린 단지를 먼저 보면 실거래 흐름이 더 빨리 읽힙니다.</p>
+      </div>
+      <div class="db-deal-table-wrap">
+        ${popularComplexes.length ? `
+          <div class="db-deal-list-cards">
+            ${popularComplexes.map((complex, index) => `
+              <article class="db-deal-list-card db-deal-list-card-enter" style="--deal-enter-delay:${index * 48}ms">
+                <div class="db-deal-list-top">
+                  <span class="db-deal-rank">TOP ${index + 1}</span>
+                  <span class="db-deal-count">${Number(complex.tradeCount || 0).toLocaleString()}건</span>
+                </div>
+                <div class="db-deal-list-copy">
+                  <strong>${escapeHtml(complex.aptName || '단지명 없음')}</strong>
+                </div>
+                <div class="db-deal-price">${complex.latestTradePrice ? formatTradePrice(complex.latestTradePrice) : '—'}</div>
+                <div class="db-deal-meta">
+                  <span>${escapeHtml([complex.sigunguName, complex.umdName].filter(Boolean).join(' ')) || '지역 정보 없음'}</span>
+                  <span>${complex.latestTradeArea ? escapeHtml(formatAreaToPyeong(complex.latestTradeArea)) : '면적 정보 없음'}</span>
+                </div>
+                <div class="db-deal-date">${complex.latestDealDate ? escapeHtml(complex.latestDealDate) : '최근 거래일 없음'}</div>
+                ${index === 0 ? `
+                  <div class="db-deal-insight db-deal-insight--inline" id="dbTopComplexInsight">
+                    <div class="db-deal-insight-loading">입지와 거래 해석을 준비하는 중…</div>
+                  </div>
+                ` : ''}
+              </article>
+            `).join('')}
           </div>
-        `).join('') : '<div class="db-actual-empty">거래 많은 단지 데이터가 아직 없어요.</div>'}
+        ` : '<div class="db-actual-empty">거래 많은 단지 데이터가 아직 없어요.</div>'}
       </div>
     </div>
   `;
@@ -734,6 +1115,9 @@ function renderTopDealsCard({ regionId, aptTrade }) {
 function renderAptTradeCards({
   regionId,
   aptTrade,
+  selectedName,
+  marketTone,
+  summaryReport,
   latestPrice,
   latestJeonse,
   priceChange,
@@ -757,8 +1141,22 @@ function renderAptTradeCards({
 
   return `
     <div class="db-actual-grid">
-      <div class="db-actual-card">
-        <div class="db-fact-label">최근 실제 거래 흐름 · ${formatTradeMonth(aptTrade.latestDealMonth)}</div>
+      <div class="db-actual-card db-actual-card--market">
+        <div class="db-fact-label">지금 시장 분위기</div>
+        <div class="db-therm-summary">
+          <strong>${marketTone}</strong>
+          <span>${selectedName} 선택 지역 기준</span>
+        </div>
+        <div class="db-therm-chip-row">
+          <span class="db-therm-chip ${signalClass(priceChange)}">최근 가격 변화 ${formatSignedPct(priceChange, 2)}</span>
+          <span class="db-therm-chip ${signalClass(medianChange)}">실거래 체감 ${formatSignedPct(medianChange)}</span>
+          <span class="db-therm-chip ${signalClass(countChange)}">최근 거래 수 ${formatSignedPct(countChange)}</span>
+        </div>
+        <div class="db-summary-report db-summary-report--hero">
+          <div class="db-fact-label">쉽게 보는 해석</div>
+          <p class="db-summary-report-conclusion db-summary-report-conclusion--hero">${renderStreamingWords(summaryReport, 'db-summary-report-stream', 40)}</p>
+        </div>
+        <div class="db-actual-data-head">최근 실제 거래 흐름 · ${formatTradeMonth(aptTrade.latestDealMonth)}</div>
         <div class="db-actual-main">
           <div>
             <span class="db-actual-k">지역 평균 가격</span>
@@ -863,7 +1261,6 @@ function renderFacts() {
   const nationalPriceGap = (currP !== null && latestNationalPrice !== null && latestNationalPrice !== 0)
     ? ((currP - latestNationalPrice) / latestNationalPrice) * 100
     : null;
-  const regionStatus = document.getElementById('dbRegionStatus');
   const fmtPct = (v, digits = 2) => {
     if (v === null || v === undefined) return '—';
     const abs = Math.abs(v).toFixed(digits);
@@ -873,18 +1270,6 @@ function renderFacts() {
   };
 
   const aptTrade = aptTradeSummary?.sido?.[String(selectedClsId)] || null;
-  const aptTradeHtml = renderAptTradeCards({
-    regionId: selectedClsId,
-    aptTrade,
-    latestPrice,
-    latestJeonse,
-    priceChange,
-    jeonseChange,
-    ratio,
-    ratioChange,
-    latestJeonseSupply,
-    jeonseSupplyChange,
-  });
   const summaryReport = buildSummaryReport({
     selectedName,
     indexChange,
@@ -899,37 +1284,28 @@ function renderFacts() {
       : indexChange < -0.12
         ? '가격 하락 흐름'
         : '보합 흐름';
-
-  if (regionStatus) {
-    regionStatus.textContent = buildNationalPositionLine({
-      selectedName,
-      selectedClsId,
-      nationalIndexChange,
-      regionalGap,
-      nationalPriceGap,
-    });
-    regionStatus.style.display = 'block';
-  }
+  const aptTradeHtml = renderAptTradeCards({
+    regionId: selectedClsId,
+    aptTrade,
+    selectedName,
+    marketTone,
+    summaryReport,
+    latestPrice,
+    latestJeonse,
+    priceChange,
+    jeonseChange,
+    ratio,
+    ratioChange,
+    latestJeonseSupply,
+    jeonseSupplyChange,
+  });
+  const stageClass = pendingRegionStageEnter ? ' db-region-stage-enter' : '';
+  pendingRegionStageEnter = false;
 
   facts.innerHTML = `
+    <div class="db-region-stage${stageClass}">
     <div class="db-facts-grid">
       <div class="db-facts-meta">${selectedName} · 아파트 기준${latestMonth ? ` · ${latestMonth}` : ''}</div>
-
-      <div class="db-fact-card db-fact-card--therm">
-        <div class="db-fact-label">지금 시장 분위기</div>
-        <div class="db-therm-summary">
-          <strong>${marketTone}</strong>
-          <span>${selectedName} 선택 지역 기준</span>
-        </div>
-        <div class="db-therm-chip-row">
-          <span class="db-therm-chip ${signalClass(indexChange)}">최근 가격 변화 ${fmtPct(indexChange)}</span>
-          ${aptTrade ? `<span class="db-therm-chip ${signalClass(aptTrade.signals?.medianChangePct)}">실거래 체감 ${fmtPct(aptTrade.signals?.medianChangePct, 1)}</span>` : ''}
-        </div>
-        <div class="db-summary-report">
-          <div class="db-fact-label">쉽게 보는 해석</div>
-          <p class="db-summary-report-conclusion">${renderStreamingWords(summaryReport, 'db-summary-report-stream', 40)}</p>
-        </div>
-      </div>
 
       ${aptTradeHtml}
 
@@ -954,8 +1330,17 @@ function renderFacts() {
       </div>
 
     </div>
+    </div>
   `;
   syncActiveDealScopeTab();
+  const selectedDealCity = getSelectedDealCity(selectedClsId, aptTrade);
+  const activeScope = selectedDealCity === 'all'
+    ? null
+    : (Array.isArray(aptTrade?.cityScopes) ? aptTrade.cityScopes.find(scope => scope.name === selectedDealCity) || null : null);
+  const leadComplex = Array.isArray(activeScope?.popularComplexes) && activeScope.popularComplexes.length
+    ? activeScope.popularComplexes[0]
+    : Array.isArray(aptTrade?.popularComplexes) ? aptTrade.popularComplexes[0] : null;
+  hydrateTopComplexInsight({ aptTrade, complex: leadComplex || null, allowNetwork: true });
 }
 
 // ── 차트 모드/기간 전환 ──────────────────────────────
