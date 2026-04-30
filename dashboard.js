@@ -311,11 +311,15 @@ function buildTopComplexInsightCopy({ complex, aptTrade, station, school }) {
   const tradeFocus = getComplexTradeFocus(complex, aptTrade);
   const priceGap = getComplexPriceGap(complex, aptTrade);
   const area = Number(complex?.avgArea);
+  const subwayDistanceText = String(complex?.subwayDistance || '').trim();
+  const busDistanceText = String(complex?.busDistance || '').trim();
+  const convenientSummary = buildInfraSummary(complex);
 
   const reasons = [];
-  if (station?.distance <= 600) reasons.push(`가까운 지하철역이 ${formatDistance(station.distance)} 거리로 붙어 있어 접근성이 좋은 편`);
-  else if (station?.distance <= 1200) reasons.push(`지하철 접근이 가능한 거리권이라 이동 편의 기대가 있는 편`);
+  if (subwayDistanceText) reasons.push(`지하철 접근 정보가 확인돼 이동 편의 해석에 참고할 수 있는 단지`);
+  if (busDistanceText) reasons.push(`버스 정류장 거리 정보도 확인돼 대중교통 접근성을 함께 볼 수 있는 편`);
   if (school?.distance <= 500) reasons.push(`가까운 초등학교가 ${formatDistance(school.distance)} 거리로 붙어 있어 가족 단위 실수요가 보기 쉬운 편`);
+  if (convenientSummary) reasons.push(`${convenientSummary} 접근성이 확인되는 편`);
 
   if (Number.isFinite(tradeFocus) && tradeFocus >= 8) reasons.push(`같은 지역 거래 중 ${tradeFocus}%가 이 단지에 몰릴 만큼 거래 집중도가 높음`);
   else if (Number.isFinite(tradeFocus) && tradeFocus >= 4) reasons.push(`지역 안에서 반복 거래가 이어진 단지로 관심이 유지된 편`);
@@ -335,22 +339,49 @@ function buildTopComplexInsightCopy({ complex, aptTrade, station, school }) {
   return reasons.slice(0, 3);
 }
 
+function buildInfraSummary(complex) {
+  const compact = (text) => String(text || '').replace(/\s+/g, ' ').trim();
+  const pickItems = (text, { limit = 2, separator = ',', mode = 'comma' } = {}) => {
+    const source = compact(text);
+    if (!source) return '';
+
+    if (mode === 'paren') {
+      const matches = [...source.matchAll(/([가-힣A-Za-z]+)\(([^)]+)\)/g)]
+        .slice(0, limit)
+        .map(([, label, value]) => `${label} ${value.split(',')[0].trim()}`);
+      return matches.join(' · ');
+    }
+
+    return source.split(separator).map(item => item.trim()).filter(Boolean).slice(0, limit).join(' · ');
+  };
+
+  const convenient = pickItems(complex?.convenientFacility, { mode: 'paren', limit: 2 });
+  return convenient ? `편의 ${convenient}` : '';
+}
+
 function buildTopComplexInsightPayload({ aptTrade, complex, station = null, school = null }) {
   const tradeFocus = getComplexTradeFocus(complex, aptTrade);
   const reasons = buildTopComplexInsightCopy({ complex, aptTrade, station, school });
   const primaryArea = Number.isFinite(Number(complex?.avgArea)) ? formatAreaToPyeong(complex.avgArea) : '확인 중';
+  const householdCount = Number(complex?.householdCount);
+  const subwayLabel = [complex?.subwayLine, complex?.subwayStation].filter(Boolean).join(' ');
+  const subwayDistanceText = String(complex?.subwayDistance || '').trim();
+  const busDistanceText = String(complex?.busDistance || '').trim();
   return {
-    locationText: [complex?.sigunguName, complex?.umdName].filter(Boolean).join(' ') || '위치 확인 중',
-    stationText: station?.placeName
-      ? `${station.placeName} · 직선 ${formatDistance(station.distance)}`
+    householdText: Number.isFinite(householdCount) && householdCount > 0 ? `${householdCount.toLocaleString()}세대` : '준비중',
+    stationText: subwayLabel
+      ? [subwayLabel, subwayDistanceText].filter(Boolean).join(' · ')
       : '준비중',
+    busText: busDistanceText || '준비중',
     schoolText: school?.placeName
       ? `${school.placeName} · 직선 ${formatDistance(school.distance)}`
       : '준비중',
     focusText: Number.isFinite(tradeFocus) ? `${tradeFocus}%` : '확인 중',
     primaryAreaText: primaryArea,
     reasons: reasons.length ? reasons : ['현재는 거래량과 가격 패턴을 중심으로 참고 해석을 제공합니다.'],
-    hasStation: Boolean(station?.placeName),
+    hasHousehold: Number.isFinite(householdCount) && householdCount > 0,
+    hasStation: Boolean(subwayLabel),
+    hasBus: Boolean(busDistanceText),
     hasSchool: Boolean(school?.placeName),
   };
 }
@@ -362,28 +393,32 @@ function renderTopComplexInsight(target, payload) {
       <strong>왜 거래가 몰렸는지 보는 신호</strong>
       <span>TOP1 기준</span>
     </div>
-    <div class="db-deal-insight-grid">
-      <div>
-        <span class="db-deal-insight-k">위치</span>
-        <strong>${escapeHtml(payload.locationText)}</strong>
+    <div class="db-deal-insight-strip">
+      <div class="db-deal-insight-chip">
+        <span class="db-deal-insight-k">세대수</span>
+        <strong>${escapeHtml(payload.householdText)}</strong>
       </div>
-      <div>
-        <span class="db-deal-insight-k">주로 거래된 평형</span>
+      <div class="db-deal-insight-chip">
+        <span class="db-deal-insight-k">평형</span>
         <strong>${payload.primaryAreaText}</strong>
       </div>
-      <div>
-        <span class="db-deal-insight-k">${payload.hasStation ? '지하철역' : '준비중'}</span>
+      <div class="db-deal-insight-chip">
+        <span class="db-deal-insight-k">지하철역</span>
         <strong>${escapeHtml(payload.stationText)}</strong>
       </div>
-      <div>
-        <span class="db-deal-insight-k">${payload.hasSchool ? '근처 초등학교' : '준비중'}</span>
+      <div class="db-deal-insight-chip">
+        <span class="db-deal-insight-k">버스 정류장</span>
+        <strong>${escapeHtml(payload.busText)}</strong>
+      </div>
+      <div class="db-deal-insight-chip">
+        <span class="db-deal-insight-k">근처 초등학교</span>
         <strong>${escapeHtml(payload.schoolText)}</strong>
       </div>
     </div>
     <ul class="db-deal-insight-list">
       ${payload.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}
     </ul>
-    <p class="db-deal-insight-note">이 해석은 최근 실거래와 지도 검색 결과를 바탕으로 한 참고 정보이며, 학군·세대수·개발계획·실제 도보 동선은 반영하지 않습니다.</p>
+    <p class="db-deal-insight-note">이 해석은 최근 실거래와 지도 검색 결과를 바탕으로 한 참고 정보이며, 학군·개발계획·실제 도보 동선은 반영하지 않습니다.</p>
   `;
 }
 
@@ -406,12 +441,10 @@ async function hydrateTopComplexInsight({ aptTrade, complex, allowNetwork = fals
 
   try {
     const location = await searchComplexLocation(complex);
-    const [station, school] = location
-      ? await Promise.all([searchNearestStation(location), searchNearestElementarySchool(location)])
-      : [null, null];
+    const school = location ? await searchNearestElementarySchool(location) : null;
     if (requestId !== topComplexInsightSeq) return;
 
-    const payload = buildTopComplexInsightPayload({ aptTrade, complex, station, school });
+    const payload = buildTopComplexInsightPayload({ aptTrade, complex, school });
     topComplexInsightCache.set(cacheKey, payload);
     renderTopComplexInsight(target, payload);
   } catch (error) {
@@ -1117,6 +1150,7 @@ function renderAptTradeCards({
   aptTrade,
   selectedName,
   marketTone,
+  marketState,
   summaryReport,
   latestPrice,
   latestJeonse,
@@ -1141,16 +1175,13 @@ function renderAptTradeCards({
 
   return `
     <div class="db-actual-grid">
-      <div class="db-actual-card db-actual-card--market">
-        <div class="db-fact-label">지금 시장 분위기</div>
+      <div class="db-actual-card db-actual-card--market db-market-state--${escapeHtml(marketState)}">
+        <div class="db-therm-head">
+          <div class="db-fact-label">지금 시장 분위기</div>
+        </div>
         <div class="db-therm-summary">
           <strong>${marketTone}</strong>
           <span>${selectedName} 선택 지역 기준</span>
-        </div>
-        <div class="db-therm-chip-row">
-          <span class="db-therm-chip ${signalClass(priceChange)}">최근 가격 변화 ${formatSignedPct(priceChange, 2)}</span>
-          <span class="db-therm-chip ${signalClass(medianChange)}">실거래 체감 ${formatSignedPct(medianChange)}</span>
-          <span class="db-therm-chip ${signalClass(countChange)}">최근 거래 수 ${formatSignedPct(countChange)}</span>
         </div>
         <div class="db-summary-report db-summary-report--hero">
           <div class="db-fact-label">쉽게 보는 해석</div>
@@ -1158,32 +1189,32 @@ function renderAptTradeCards({
         </div>
         <div class="db-actual-data-head">최근 실제 거래 흐름 · ${formatTradeMonth(aptTrade.latestDealMonth)}</div>
         <div class="db-actual-main">
-          <div>
+          <div class="db-actual-chip">
             <span class="db-actual-k">지역 평균 가격</span>
             <strong>${formatPrice(latestPrice)}</strong>
             <em class="${signalClass(priceChange)}">${formatSignedPct(priceChange, 2)} 지난달보다</em>
           </div>
-          <div>
+          <div class="db-actual-chip">
             <span class="db-actual-k">실거래 체감 가격</span>
             <strong>${formatTradePrice(aptTrade.medianPrice)}</strong>
             <em class="${signalClass(medianChange)}">${formatSignedPct(medianChange)} 지난달보다</em>
           </div>
-          <div>
+          <div class="db-actual-chip">
             <span class="db-actual-k">지역 평균 전세 가격</span>
             <strong>${formatPrice(latestJeonse)}</strong>
             <em class="${signalClass(jeonseChange)}">${formatSignedPct(jeonseChange, 2)} 지난달보다</em>
           </div>
-          <div>
+          <div class="db-actual-chip">
             <span class="db-actual-k">최근 거래 수</span>
             <strong>${Number(aptTrade.tradeCount || 0).toLocaleString()}건</strong>
             <em class="${signalClass(countChange)}">${formatSignedPct(countChange)} 지난달보다</em>
           </div>
-          <div>
+          <div class="db-actual-chip">
             <span class="db-actual-inline-label">매매 대비 전세 비율</span>
             <strong>${ratio !== null ? `${ratio.toFixed(1)}%` : '—'}</strong>
             ${ratioChange !== null ? `<em class="${signalClass(ratioChange)}">${ratioChange > 0 ? '▲' : ratioChange < 0 ? '▼' : '—'} ${Math.abs(ratioChange).toFixed(1)}%p</em>` : ''}
           </div>
-          <div>
+          <div class="db-actual-chip">
             <span class="db-actual-inline-label">전세 수요 분위기</span>
             <strong>${latestJeonseSupply !== null ? latestJeonseSupply.toFixed(1) : '—'}</strong>
             ${jeonseSupplyChange !== null ? `<em class="${signalClass(jeonseSupplyChange)}">${formatSignedPct(jeonseSupplyChange, 2)}</em>` : ''}
@@ -1191,6 +1222,34 @@ function renderAptTradeCards({
         </div>
         <div class="db-actual-sub">
           가장 최근 거래일 ${aptTrade.latestDealDate || '—'} · 최근 ${aptTrade.totalTradeCount?.toLocaleString?.() || 0}건 기준
+        </div>
+        <div class="db-actual-data-head">평균 가격 흐름 · ${selectedName}</div>
+        <div
+          class="db-chart-wrap db-chart-wrap--market"
+          data-buy-value="${escapeHtml(formatPrice(latestPrice))}"
+          data-buy-change="${Number.isFinite(priceChange) ? priceChange.toFixed(2) : ''}"
+          data-jeonse-value="${escapeHtml(formatPrice(latestJeonse))}"
+          data-jeonse-change="${Number.isFinite(jeonseChange) ? jeonseChange.toFixed(2) : ''}"
+        >
+          <div class="db-chart-copy db-chart-copy--market">
+            <div class="db-chart-stat">
+              <strong id="dbChartStatValue">${formatPrice(latestPrice)}</strong>
+              <em id="dbChartStatChange" class="${signalClass(priceChange)}">${formatSignedPct(priceChange, 2)}</em>
+            </div>
+            <div class="db-chart-label-lite" id="dbChartStatLabel">평균 매매 가격 흐름 →</div>
+          </div>
+          <div class="db-chart-top">
+            <div class="db-chart-tabs">
+              <button class="db-chart-tab active" onclick="switchChartMode('buy', this)">매매</button>
+              <button class="db-chart-tab" onclick="switchChartMode('jeonse', this)">전세</button>
+            </div>
+            <div class="db-period-tabs">
+              <button class="db-period-tab" onclick="switchPeriod(3, this)">3개월</button>
+              <button class="db-period-tab active" onclick="switchPeriod(6, this)">6개월</button>
+              <button class="db-period-tab" onclick="switchPeriod(12, this)">1년</button>
+            </div>
+          </div>
+          <canvas id="dbChart"></canvas>
         </div>
       </div>
       ${renderTopDealsCard({ regionId, aptTrade })}
@@ -1280,15 +1339,23 @@ function renderFacts() {
   const marketTone = indexChange === null
     ? '흐름 확인 중'
     : indexChange > 0.12
-      ? '가격 상승 흐름'
+      ? '상승 흐름'
       : indexChange < -0.12
-        ? '가격 하락 흐름'
+        ? '하락 흐름'
         : '보합 흐름';
+  const marketState = indexChange === null
+    ? 'idle'
+    : indexChange > 0.12
+      ? 'up'
+      : indexChange < -0.12
+        ? 'down'
+        : 'flat';
   const aptTradeHtml = renderAptTradeCards({
     regionId: selectedClsId,
     aptTrade,
     selectedName,
     marketTone,
+    marketState,
     summaryReport,
     latestPrice,
     latestJeonse,
@@ -1309,26 +1376,6 @@ function renderFacts() {
 
       ${aptTradeHtml}
 
-      <div class="db-chart-wrap db-chart-wrap--embedded">
-        <div class="db-chart-copy">
-          <div class="db-chart-title">평균 가격 흐름</div>
-          <p class="db-chart-desc">지역 평균 가격의 최근 방향을 보여줍니다. 실거래 흐름과 같이 보면 판단이 쉬워집니다.</p>
-        </div>
-        <div class="db-chart-top">
-          <div class="db-chart-tabs">
-            <button class="db-chart-tab active" onclick="switchChartMode('buy', this)">매매</button>
-            <button class="db-chart-tab" onclick="switchChartMode('jeonse', this)">전세</button>
-          </div>
-          <div class="db-period-tabs">
-            <button class="db-period-tab" onclick="switchPeriod(3, this)">3개월</button>
-            <button class="db-period-tab active" onclick="switchPeriod(6, this)">6개월</button>
-            <button class="db-period-tab" onclick="switchPeriod(12, this)">1년</button>
-          </div>
-        </div>
-        <canvas id="dbChart"></canvas>
-        <div class="db-chart-unit">평균 가격 흐름 · 한국부동산원</div>
-      </div>
-
     </div>
     </div>
   `;
@@ -1348,6 +1395,7 @@ function switchChartMode(mode, btn) {
   chartMode = mode;
   document.querySelectorAll('.db-chart-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  syncChartSummary();
   renderChart();
 }
 
@@ -1358,10 +1406,27 @@ function switchPeriod(months, btn) {
   renderChart();
 }
 
+function syncChartSummary() {
+  const wrap = document.querySelector('.db-chart-wrap--market');
+  const valueEl = document.getElementById('dbChartStatValue');
+  const changeEl = document.getElementById('dbChartStatChange');
+  const labelEl = document.getElementById('dbChartStatLabel');
+  if (!wrap || !valueEl || !changeEl || !labelEl) return;
+
+  const isBuy = chartMode === 'buy';
+  const value = isBuy ? wrap.dataset.buyValue : wrap.dataset.jeonseValue;
+  const change = Number.parseFloat(isBuy ? wrap.dataset.buyChange : wrap.dataset.jeonseChange);
+  valueEl.textContent = value || '—';
+  changeEl.textContent = Number.isFinite(change) ? formatSignedPct(change, 2) : '—';
+  changeEl.className = signalClass(change);
+  labelEl.textContent = isBuy ? '평균 매매 가격 흐름 →' : '평균 전세 가격 흐름 →';
+}
+
 // ── 차트 렌더 ────────────────────────────────────────
 function renderChart() {
   const ctx = document.getElementById('dbChart');
   if (!ctx || !window.Chart) { setTimeout(renderChart, 300); return; }
+  syncChartSummary();
 
   const sourceRows = chartMode === 'buy' ? allPriceData : allJeonseData;
   if (!sourceRows) return;
@@ -1377,8 +1442,9 @@ function renderChart() {
     return Math.round(perPyeong);
   });
 
-  const color   = chartMode === 'buy' ? '#0a84ff' : '#30d158';
-  const bgColor = chartMode === 'buy' ? 'rgba(10,132,255,0.08)' : 'rgba(48,209,88,0.08)';
+  const color = chartMode === 'buy' ? '#66b8ff' : '#62e2a2';
+  const transparentColor = chartMode === 'buy' ? 'rgba(102,184,255,0)' : 'rgba(98,226,162,0)';
+  const fillColor = chartMode === 'buy' ? '102,184,255' : '98,226,162';
 
   if (chart) { chart.destroy(); chart = null; }
 
@@ -1388,17 +1454,35 @@ function renderChart() {
       labels,
       datasets: [{
         data: values,
-        borderColor: color,
-        backgroundColor: bgColor,
-        borderWidth: 2,
-        pointRadius: chartPeriod <= 6 ? 4 : 2,
-        pointBackgroundColor: color,
+        borderColor: context => {
+          const chartArea = context.chart.chartArea;
+          if (!chartArea) return color;
+          const gradient = context.chart.ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+          gradient.addColorStop(0, transparentColor);
+          gradient.addColorStop(0.12, color);
+          gradient.addColorStop(0.88, color);
+          gradient.addColorStop(1, transparentColor);
+          return gradient;
+        },
+        backgroundColor: context => {
+          const chartArea = context.chart.chartArea;
+          if (!chartArea) return `rgba(${fillColor},0.08)`;
+          const gradient = context.chart.ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0, `rgba(${fillColor},0.16)`);
+          gradient.addColorStop(0.72, `rgba(${fillColor},0.05)`);
+          gradient.addColorStop(1, `rgba(${fillColor},0)`);
+          return gradient;
+        },
+        borderWidth: 2.4,
+        pointRadius: 0,
+        pointHoverRadius: 0,
         fill: true,
-        tension: 0.3,
+        tension: 0.36,
       }]
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -1407,22 +1491,26 @@ function renderChart() {
           }
         }
       },
+      layout: {
+        padding: {
+          left: 4,
+          right: 4,
+          top: 2,
+          bottom: 0,
+        }
+      },
       scales: {
         x: {
-          ticks: {
-            color: 'rgba(255,255,255,0.35)',
-            font: { size: 10 },
-            maxTicksLimit: 6,
-          },
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          display: false,
+          ticks: { display: false },
+          grid: { display: false },
+          border: { display: false },
         },
         y: {
-          ticks: {
-            color: 'rgba(255,255,255,0.35)',
-            font: { size: 10 },
-            callback: v => v.toLocaleString() + '만',
-          },
-          grid: { color: 'rgba(255,255,255,0.05)' },
+          display: false,
+          ticks: { display: false },
+          grid: { display: false },
+          border: { display: false },
         }
       }
     }

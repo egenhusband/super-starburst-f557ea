@@ -2,6 +2,9 @@
 
 const fs = require('fs/promises');
 const path = require('path');
+const { loadEnvLocal } = require('./lib/load-env-local');
+
+loadEnvLocal(process.cwd());
 
 const KEY = process.env.MOLIT_API_KEY;
 const BASE_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade';
