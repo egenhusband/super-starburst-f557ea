@@ -1372,8 +1372,6 @@ function renderFacts() {
   facts.innerHTML = `
     <div class="db-region-stage${stageClass}">
     <div class="db-facts-grid">
-      <div class="db-facts-meta">${selectedName} · 아파트 기준${latestMonth ? ` · ${latestMonth}` : ''}</div>
-
       ${aptTradeHtml}
 
     </div>

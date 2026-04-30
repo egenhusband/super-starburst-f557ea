@@ -2673,12 +2673,6 @@
   min-width: 0;
   max-width: 100%;
 }
-.db-facts-meta {
-  grid-column: 1 / -1;
-  font-size: 11px;
-  color: var(--label3);
-  margin-bottom: -2px;
-}
 .db-fact-card {
   background: var(--bg3);
   border: 1.5px solid var(--separator);
