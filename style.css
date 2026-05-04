@@ -2602,33 +2602,38 @@
   justify-content: center;
   height: 40px;
   padding: 0 14px;
-  background: var(--bg3);
-  border: 1.5px solid var(--separator);
-  border-radius: 12px;
-  color: var(--label2);
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 999px;
+  color: rgba(220,229,244,0.68);
   font-family: 'Pretendard Variable', sans-serif;
   font-size: 13px;
-  font-weight: 400;
+  font-weight: 700;
+  letter-spacing: -0.14px;
   cursor: pointer;
   transition:
-    background-color 260ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 260ms cubic-bezier(0.22, 1, 0.36, 1),
-    color 260ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1);
+    background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1);
   flex: 0 0 auto;
   white-space: nowrap;
   line-height: 1;
 }
+.db-region-btn:hover {
+  color: rgba(238,246,255,0.92);
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.05);
+}
 .db-region-btn.active {
-  background: var(--accent-dim);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
-  box-shadow: 0 10px 18px rgba(10, 132, 255, 0.14);
+  background: rgba(102,184,255,0.14);
+  border-color: rgba(102,184,255,0.38);
+  color: #eef6ff;
+  box-shadow: 0 10px 22px rgba(10, 132, 255, 0.16);
 }
 .db-region-btn:active {
-  transform: scale(0.97);
+  transform: scale(0.98);
 }
 
 /* 조회 버튼 */
@@ -2774,9 +2779,16 @@
   overflow: hidden;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
+.db-chart-canvas-shell {
+  position: relative;
+  width: 100%;
+  height: 196px;
+}
 .db-chart-wrap canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
   max-width: 100% !important;
-  height: 136px !important;
 }
 .db-chart-wrap--embedded {
   grid-column: 1 / -1;
@@ -2851,30 +2863,46 @@
 }
 .db-chart-tabs, .db-period-tabs {
   display: flex;
-  gap: 4px;
+  gap: 6px;
 }
 .db-chart-tab, .db-period-tab {
-  padding: 5px 12px;
-  border-radius: 20px;
-  border: 1px solid var(--separator);
-  background: transparent;
-  color: var(--label3);
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.035);
+  color: rgba(220,229,244,0.68);
   font-family: 'Pretendard Variable', sans-serif;
   font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.14px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition:
+    background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.db-chart-tab:hover, .db-period-tab:hover {
+  color: rgba(238,246,255,0.92);
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.05);
+}
+.db-chart-tab:active, .db-period-tab:active {
+  transform: scale(0.98);
 }
 .db-chart-tab.active {
-  background: var(--accent-dim);
-  border-color: var(--accent);
-  color: var(--accent);
-  font-weight: 600;
+  background: rgba(102,184,255,0.14);
+  border-color: rgba(102,184,255,0.38);
+  color: #eef6ff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 .db-period-tab.active {
-  background: var(--bg4);
-  border-color: var(--label3);
-  color: var(--label1);
-  font-weight: 600;
+  background: rgba(102,184,255,0.14);
+  border-color: rgba(102,184,255,0.38);
+  color: #eef6ff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 /* 로딩 */
 .db-loading {
@@ -3402,29 +3430,37 @@
 }
 .db-deal-scope-tab {
   flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 12px;
-  border: 0;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 999px;
-  background: transparent;
-  color: rgba(220,229,244,0.62);
+  background: rgba(255,255,255,0.035);
+  color: rgba(220,229,244,0.68);
   font-family: inherit;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: -0.12px;
+  letter-spacing: -0.14px;
   cursor: pointer;
   box-shadow: none;
-  transition: color 0.26s ease, background 0.26s ease, opacity 0.26s ease;
+  transition:
+    background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .db-deal-scope-tab:hover {
-  color: rgba(220,229,244,0.84);
+  color: rgba(238,246,255,0.92);
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.05);
 }
 .db-deal-scope-tab:active {
-  transform: none;
+  transform: scale(0.98);
 }
 .db-deal-scope-tab.active {
-  background: rgba(255,255,255,0.08);
+  background: rgba(102,184,255,0.14);
+  border-color: rgba(102,184,255,0.38);
   color: #eef6ff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 .db-deal-hero {
   display: flex;
@@ -3500,23 +3536,7 @@
 }
 .db-deal-insight-strip::before,
 .db-deal-insight-strip::after {
-  content: '';
-  position: sticky;
-  top: 0;
-  width: 18px;
-  flex: 0 0 18px;
-  pointer-events: none;
-  z-index: 1;
-}
-.db-deal-insight-strip::before {
-  left: 0;
-  margin-right: -18px;
-  background: linear-gradient(90deg, rgba(6,10,19,0.72), rgba(6,10,19,0));
-}
-.db-deal-insight-strip::after {
-  right: 0;
-  margin-left: -18px;
-  background: linear-gradient(270deg, rgba(6,10,19,0.72), rgba(6,10,19,0));
+  content: none;
 }
 .db-deal-insight-chip {
   flex: 0 0 132px;

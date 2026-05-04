@@ -75,7 +75,7 @@ let chart = null;
 let selectedClsId     = 500001; // 기본값: 전국
 let selectedName      = '전국';
 let chartMode         = 'buy';  // 'buy' | 'jeonse'
-let chartPeriod       = 6;      // 개월 (기본: 6개월)
+let chartPeriod       = 12;     // 개월 (1년 고정)
 let allPriceData      = null;   // 캐시된 전체 데이터
 let allJeonseData     = null;
 let allJeonseSupplyData = null;
@@ -556,10 +556,10 @@ function hasDashboardData() {
 function updateQueryUi() {
   const queryWrap = document.getElementById('dbQueryWrap');
   const placeholder = document.getElementById('dbPlaceholder');
-  if (!queryWrap || !placeholder) return;
+  if (!placeholder) return;
 
   const loaded = hasDashboardData();
-  queryWrap.style.display = loaded ? 'none' : 'block';
+  if (queryWrap) queryWrap.style.display = 'none';
   placeholder.style.display = loaded ? 'none' : 'flex';
 }
 
@@ -664,12 +664,8 @@ function initDashboard() {
         </div>
         <div class="db-region-grid">${regionBtns}</div>
       </div>
-      <div class="db-query-wrap" id="dbQueryWrap">
-        <button class="db-query-btn" id="dbQueryBtn" onclick="handleQuery()">시장 데이터 불러오기</button>
-      </div>
-
       <div class="db-placeholder" id="dbPlaceholder">
-        지역을 선택한 뒤 시장 데이터를 불러와 주세요
+        시장 데이터를 준비하고 있어요
       </div>
 
       <div class="db-loading" id="dbLoading" style="display:none">
@@ -704,6 +700,7 @@ function initDashboard() {
     }).catch(() => {});
   } else {
     updateQueryUi();
+    loadDashboardData();
   }
 }
 
@@ -1243,13 +1240,10 @@ function renderAptTradeCards({
               <button class="db-chart-tab active" onclick="switchChartMode('buy', this)">매매</button>
               <button class="db-chart-tab" onclick="switchChartMode('jeonse', this)">전세</button>
             </div>
-            <div class="db-period-tabs">
-              <button class="db-period-tab" onclick="switchPeriod(3, this)">3개월</button>
-              <button class="db-period-tab active" onclick="switchPeriod(6, this)">6개월</button>
-              <button class="db-period-tab" onclick="switchPeriod(12, this)">1년</button>
-            </div>
           </div>
-          <canvas id="dbChart"></canvas>
+          <div class="db-chart-canvas-shell">
+            <canvas id="dbChart"></canvas>
+          </div>
         </div>
       </div>
       ${renderTopDealsCard({ regionId, aptTrade })}
@@ -1397,27 +1391,44 @@ function switchChartMode(mode, btn) {
   renderChart();
 }
 
-function switchPeriod(months, btn) {
-  chartPeriod = months;
-  document.querySelectorAll('.db-period-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderChart();
+function getCurrentChartSeries() {
+  const sourceRows = chartMode === 'buy' ? allPriceData : allJeonseData;
+  if (!sourceRows) return { rows: [], labels: [], values: [] };
+
+  const rows = filterByRegion(sourceRows, selectedClsId)
+    .filter(r => r.DTA_VAL !== null)
+    .slice(-chartPeriod);
+  const labels = rows.map(r => r.WRTTIME_DESC.replace('년 ', '.').replace('월', ''));
+  const values = rows.map(r => Math.round(r.DTA_VAL * 3.3058));
+  return { rows, labels, values };
 }
 
 function syncChartSummary() {
-  const wrap = document.querySelector('.db-chart-wrap--market');
   const valueEl = document.getElementById('dbChartStatValue');
   const changeEl = document.getElementById('dbChartStatChange');
   const labelEl = document.getElementById('dbChartStatLabel');
-  if (!wrap || !valueEl || !changeEl || !labelEl) return;
+  if (!valueEl || !changeEl || !labelEl) return;
 
-  const isBuy = chartMode === 'buy';
-  const value = isBuy ? wrap.dataset.buyValue : wrap.dataset.jeonseValue;
-  const change = Number.parseFloat(isBuy ? wrap.dataset.buyChange : wrap.dataset.jeonseChange);
-  valueEl.textContent = value || '—';
+  const { rows } = getCurrentChartSeries();
+  const latestRow = rows.length ? rows[rows.length - 1] : null;
+  const firstRow = rows.length ? rows[0] : null;
+  const latestValue = latestRow ? parseNumericValue(latestRow.DTA_VAL) : null;
+  const firstValue = firstRow ? parseNumericValue(firstRow.DTA_VAL) : null;
+  const averageValue = rows.length
+    ? rows.reduce((sum, row) => sum + parseNumericValue(row.DTA_VAL || 0), 0) / rows.length
+    : null;
+  const change = Number.isFinite(latestValue) && Number.isFinite(firstValue) && firstValue !== 0
+    ? ((latestValue - firstValue) / firstValue) * 100
+    : null;
+  const periodLabel = chartPeriod === 12 ? '1년' : `${chartPeriod}개월`;
+  const rangeLabel = rows.length >= 2
+    ? `${rows[0].WRTTIME_DESC} → ${rows[rows.length - 1].WRTTIME_DESC}`
+    : '최근 기준';
+
+  valueEl.textContent = formatPrice(averageValue);
   changeEl.textContent = Number.isFinite(change) ? formatSignedPct(change, 2) : '—';
   changeEl.className = signalClass(change);
-  labelEl.textContent = isBuy ? '평균 매매 가격 흐름 →' : '평균 전세 가격 흐름 →';
+  labelEl.textContent = `${periodLabel} ${chartMode === 'buy' ? '평균 매매 가격' : '평균 전세 가격'} · ${rangeLabel}`;
 }
 
 // ── 차트 렌더 ────────────────────────────────────────
@@ -1425,20 +1436,8 @@ function renderChart() {
   const ctx = document.getElementById('dbChart');
   if (!ctx || !window.Chart) { setTimeout(renderChart, 300); return; }
   syncChartSummary();
-
-  const sourceRows = chartMode === 'buy' ? allPriceData : allJeonseData;
-  if (!sourceRows) return;
-
-  const filtered = filterByRegion(sourceRows, selectedClsId)
-    .filter(r => r.DTA_VAL !== null)
-    .slice(-chartPeriod);
-
-  const labels = filtered.map(r => r.WRTTIME_DESC.replace('년 ', '.').replace('월', ''));
-  const values = filtered.map(r => {
-    // 만원/㎡ → 만원/평 (×3.3058), 25평 기준 총액
-    const perPyeong = r.DTA_VAL * 3.3058;
-    return Math.round(perPyeong);
-  });
+  const { labels, values } = getCurrentChartSeries();
+  if (!labels.length) return;
 
   const color = chartMode === 'buy' ? '#66b8ff' : '#62e2a2';
   const transparentColor = chartMode === 'buy' ? 'rgba(102,184,255,0)' : 'rgba(98,226,162,0)';
@@ -1452,16 +1451,7 @@ function renderChart() {
       labels,
       datasets: [{
         data: values,
-        borderColor: context => {
-          const chartArea = context.chart.chartArea;
-          if (!chartArea) return color;
-          const gradient = context.chart.ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
-          gradient.addColorStop(0, transparentColor);
-          gradient.addColorStop(0.12, color);
-          gradient.addColorStop(0.88, color);
-          gradient.addColorStop(1, transparentColor);
-          return gradient;
-        },
+        borderColor: color,
         backgroundColor: context => {
           const chartArea = context.chart.chartArea;
           if (!chartArea) return `rgba(${fillColor},0.08)`;
@@ -1472,8 +1462,13 @@ function renderChart() {
           return gradient;
         },
         borderWidth: 2.4,
-        pointRadius: 0,
-        pointHoverRadius: 0,
+        borderCapStyle: 'round',
+        borderJoinStyle: 'round',
+        pointRadius: chartPeriod <= 6 ? 2.5 : 2,
+        pointHoverRadius: 4,
+        pointHitRadius: 16,
+        pointBorderWidth: 0,
+        pointBackgroundColor: color,
         fill: true,
         tension: 0.36,
       }]
@@ -1484,30 +1479,79 @@ function renderChart() {
       plugins: {
         legend: { display: false },
         tooltip: {
+          displayColors: false,
+          backgroundColor: 'rgba(9,13,22,0.94)',
+          borderColor: 'rgba(255,255,255,0.08)',
+          borderWidth: 1,
+          padding: 10,
+          titleFont: {
+            family: "'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif",
+            size: 11,
+            weight: '700',
+          },
+          titleColor: 'rgba(238,246,255,0.98)',
+          bodyFont: {
+            family: "'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif",
+            size: 11,
+            weight: '700',
+          },
+          bodyColor: 'rgba(238,246,255,0.96)',
+          bodySpacing: 4,
+          caretSize: 6,
+          cornerRadius: 10,
           callbacks: {
-            label: ctx => `${ctx.parsed.y.toLocaleString()}만원/평`
+            title: items => items[0]?.label || '',
+            label: ctx => `평당 평균가 ${ctx.parsed.y.toLocaleString()}만원`
           }
         }
       },
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
       layout: {
         padding: {
-          left: 4,
-          right: 4,
+          left: 2,
+          right: 2,
           top: 2,
-          bottom: 0,
+          bottom: 2,
         }
       },
       scales: {
         x: {
-          display: false,
-          ticks: { display: false },
-          grid: { display: false },
+          display: true,
+          ticks: {
+            color: 'rgba(220,229,244,0.46)',
+            font: {
+              family: "'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif",
+              size: 10,
+              weight: '600',
+            },
+            maxTicksLimit: Math.min(chartPeriod, 4),
+          },
+          grid: {
+            display: false,
+          },
           border: { display: false },
         },
         y: {
-          display: false,
-          ticks: { display: false },
-          grid: { display: false },
+          display: true,
+          position: 'right',
+          ticks: {
+            color: 'rgba(220,229,244,0.42)',
+            font: {
+              family: "'Pretendard Variable', -apple-system, BlinkMacSystemFont, sans-serif",
+              size: 10,
+              weight: '600',
+            },
+            maxTicksLimit: 4,
+            padding: 8,
+            callback: value => `${Number(value).toLocaleString()}만`,
+          },
+          grid: {
+            color: 'rgba(255,255,255,0.05)',
+            drawTicks: false,
+          },
           border: { display: false },
         }
       }
