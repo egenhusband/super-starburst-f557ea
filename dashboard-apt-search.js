@@ -183,6 +183,20 @@ function formatLatestTradeSummary(entry) {
   return parts.join(' · ');
 }
 
+function isLuxuryPriceTier(entry) {
+  const priceCandidates = [
+    Number(entry?.latestTradePrice || 0) || null,
+    Number(entry?.avgPrice || 0) || null,
+  ].filter(Number.isFinite);
+  return priceCandidates.some(price => price >= 200000);
+}
+
+function formatPriceLevelSummary(entry) {
+  if (Number.isFinite(entry?.avgPrice)) return `평균 실거래 ${formatPricePoint(entry.avgPrice)}`;
+  if (Number.isFinite(entry?.latestTradePrice)) return `최근 실거래 기준 ${formatPricePoint(entry.latestTradePrice)}`;
+  return '가격 레벨 데이터 보강 중';
+}
+
 function formatBusinessDistrictSummary(result) {
   if (!result?.available || !result.bestDistrict || !Number.isFinite(result.totalMinutes)) {
     return '서울 지하철 시간 데이터 준비 중';
@@ -286,19 +300,20 @@ function findShortestGraphMinutes(graph, originIds, targetIds) {
 }
 
 function computeNewBuildScore(buildYear) {
-  if (!Number.isFinite(buildYear)) return { score: 4, label: '준공 정보 일부만 확보' };
+  if (!Number.isFinite(buildYear)) return { score: 6, label: '준공 정보 일부만 확보' };
   const age = new Date().getFullYear() - buildYear;
-  if (age <= 5) return { score: 20, label: '신축 기준에 들어오는 단지' };
-  if (age <= 10) return { score: 14, label: '준신축으로 관리 기대감이 있는 편' };
+  if (age <= 5) return { score: 12, label: '신축 기준에 들어오는 단지' };
+  if (age <= 10) return { score: 10, label: '준신축으로 관리 기대감이 있는 편' };
   if (age <= 15) return { score: 8, label: '연식은 있지만 비교적 최근 공급 축' };
-  return { score: 3, label: '구축 축으로 보는 편이 자연스러운 단지' };
+  return { score: 6, label: '연식은 있지만 입지 비교가 더 중요한 단지' };
 }
 
 function computeHouseholdScore(householdCount) {
   if (!Number.isFinite(householdCount) || householdCount <= 0) return { score: 5, label: '세대수 정보 확보 중' };
-  if (householdCount >= 1500) return { score: 15, label: '대단지 스케일이 강점' };
-  if (householdCount >= 1000) return { score: 12, label: '규모감이 있는 단지' };
-  if (householdCount >= 500) return { score: 8, label: '중대형 커뮤니티를 기대할 수 있는 규모' };
+  if (householdCount >= 1500) return { score: 8, label: '대단지 스케일이 강점' };
+  if (householdCount >= 1000) return { score: 7, label: '규모감이 있는 단지' };
+  if (householdCount >= 500) return { score: 6, label: '중형 이상 단지로 보기 좋은 규모' };
+  if (householdCount >= 200) return { score: 5, label: '도심 핵심지에서 보기 드문 희소 규모' };
   return { score: 4, label: '소규모 단지에 가까운 편' };
 }
 
@@ -436,31 +451,31 @@ function computeDashboardApartmentGrade(entry, insight) {
     {
       key: 'school',
       available: Number.isFinite(insight?.school?.distance),
-      weight: 40,
+      weight: 34,
       result: computeSchoolScore(insight?.school?.distance),
     },
     {
       key: 'station',
       available: Number.isFinite(insight?.station?.distance),
-      weight: 25,
+      weight: 22,
       result: computeStationScore(insight?.station?.distance),
     },
     {
       key: 'businessDistrict',
       available: businessDistrictResult.available,
-      weight: 25,
+      weight: 34,
       result: businessDistrictResult,
     },
     {
       key: 'household',
       available: Number.isFinite(entry.householdCount) && entry.householdCount > 0,
-      weight: 15,
+      weight: 8,
       result: computeHouseholdScore(entry.householdCount),
     },
     {
       key: 'newBuild',
       available: Number.isFinite(entry.buildYear),
-      weight: 20,
+      weight: 12,
       result: computeNewBuildScore(entry.buildYear),
     },
   ];
@@ -470,8 +485,8 @@ function computeDashboardApartmentGrade(entry, insight) {
   const earnedScore = availableDimensions.reduce((sum, item) => {
     const maxScore = item.key === 'school' ? 40
       : item.key === 'station' ? 25
-      : item.key === 'household' ? 15
-      : item.key === 'newBuild' ? 20
+      : item.key === 'household' ? 8
+      : item.key === 'newBuild' ? 12
       : 25;
     return sum + ((item.result.score / maxScore) * item.weight);
   }, 0);
@@ -482,8 +497,8 @@ function computeDashboardApartmentGrade(entry, insight) {
 
   const sBonusConditions = [
     Number.isFinite(schoolDistance) && schoolDistance <= 400,
-    Number.isFinite(entry.householdCount) && entry.householdCount >= 700,
-    Number.isFinite(entry.buildYear) && (new Date().getFullYear() - entry.buildYear) <= 5,
+    Number.isFinite(entry.householdCount) && entry.householdCount >= 300,
+    Number.isFinite(entry.buildYear) && (new Date().getFullYear() - entry.buildYear) <= 15,
   ].filter(Boolean).length;
 
   const isSGrade = Number.isFinite(businessDistrictResult?.totalMinutes)
@@ -492,10 +507,25 @@ function computeDashboardApartmentGrade(entry, insight) {
     && stationDistance <= 400
     && sBonusConditions >= 2;
 
+  const isCorePremium = Number.isFinite(businessDistrictResult?.totalMinutes)
+    && businessDistrictResult.totalMinutes <= 24
+    && Number.isFinite(stationDistance)
+    && stationDistance <= 550;
+
+  const isLuxuryCorePremium = isLuxuryPriceTier(entry)
+    && Number.isFinite(businessDistrictResult?.totalMinutes)
+    && businessDistrictResult.totalMinutes <= 30
+    && Number.isFinite(stationDistance)
+    && stationDistance <= 700;
+  const isLuxurySGrade = isLuxuryPriceTier(entry);
+
   const grade = normalizedScore === null
     ? null
-    : isSGrade ? 'S'
-      : normalizedScore >= 75 ? 'A'
+    : isLuxurySGrade ? 'S'
+      : isSGrade ? 'S'
+      : isLuxuryCorePremium ? 'A'
+        : isCorePremium ? 'A'
+        : normalizedScore >= 75 ? 'A'
         : normalizedScore >= 55 ? 'B'
           : 'C';
 
@@ -515,7 +545,9 @@ function computeDashboardApartmentGrade(entry, insight) {
     ready: grade !== null,
     grade,
     reasons: [
+      ...(isLuxurySGrade ? ['20억 이상 초고가 아파트로 분류되는 최상위 자산가치 단지'] : []),
       ...(isSGrade ? ['핵심 업무지구 20분 안팎으로 닿고 생활 조건도 함께 강한 최상위 입지'] : []),
+      ...(!isSGrade && isLuxuryCorePremium ? ['평균 거래가가 높은 핵심 입지로 상급지 해석이 자연스러운 단지'] : []),
       ...availableDimensions.map(item => item.result.label),
       ...(missingLabels.length ? [`아직 ${missingLabels.join(', ')} 데이터는 순차 보강 중이에요.`] : []),
     ].slice(0, 3),
@@ -592,6 +624,7 @@ function buildDashboardSearchIndex({ codeMap, households, trades }) {
       householdCount: Number(household?.householdCount || 0) || null,
       buildYear,
       latestTradePrice: Number(trade?.latestTradePrice || 0) || null,
+      avgPrice: Number(trade?.avgPrice || 0) || null,
       latestDealDate: trade?.latestDealDate || '',
       tradeCount: Number(trade?.tradeCount || 0) || null,
       avgTradeArea: Number(trade?.avgArea || 0) || null,
@@ -883,6 +916,10 @@ function renderDashboardSelectedApartment() {
         <div class="db-apt-grade-chip">
           <span>최근 실거래</span>
           <strong>${escapeHtml(formatLatestTradeSummary(entry))}</strong>
+        </div>
+        <div class="db-apt-grade-chip">
+          <span>가격 레벨</span>
+          <strong>${escapeHtml(formatPriceLevelSummary(entry))}</strong>
         </div>
         <div class="db-apt-grade-chip">
           <span>거래 평형</span>
