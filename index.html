@@ -12,6 +12,7 @@
 
   <!-- 대시보드 -->
   <div id="dashboardScreen" style="display:none"></div>
+  <div id="aptSearchScreen" style="display:none"></div>
 
   <!-- 비밀번호 진입 화면 -->
   <div class="pw-screen" id="pwScreen">
@@ -370,7 +371,8 @@
       'screen-from-calculator',
       'screen-to-dashboard',
       'screen-from-dashboard',
-      'screen-to-calculator'
+      'screen-to-calculator',
+      'screen-apt-search-active'
     );
   }
 
@@ -378,7 +380,16 @@
     if (activeScreen === 'dashboard') return;
     const app = document.querySelector('.app');
     const screen = document.getElementById('dashboardScreen');
+    const aptScreen = document.getElementById('aptSearchScreen');
     if (!app || !screen) return;
+
+    if (activeScreen === 'apt-search') {
+      activeScreen = 'dashboard';
+      if (aptScreen) aptScreen.style.display = 'none';
+      app.classList.remove('screen-apt-search-active');
+      app.classList.add('screen-dashboard-active');
+      return;
+    }
 
     clearScreenTransition(app);
     activeScreen = 'dashboard';
@@ -409,7 +420,16 @@
   function showCalculator() {
     const app = document.querySelector('.app');
     const screen = document.getElementById('dashboardScreen');
+    const aptScreen = document.getElementById('aptSearchScreen');
     if (!app || !screen) return;
+
+    if (activeScreen === 'apt-search') {
+      if (aptScreen) aptScreen.style.display = 'none';
+      app.classList.remove('screen-apt-search-active');
+      activeScreen = 'dashboard';
+      showCalculator();
+      return;
+    }
 
     if (activeScreen === 'calculator') {
       clearScreenTransition(app);
@@ -437,9 +457,28 @@
       screenTransitionTimer = null;
     }, SCREEN_TRANSITION_MS);
   }
+
+  function showAptSearchScreen() {
+    if (activeScreen === 'apt-search') return;
+    const app = document.querySelector('.app');
+    const dashboardScreen = document.getElementById('dashboardScreen');
+    const aptScreen = document.getElementById('aptSearchScreen');
+    if (!app || !dashboardScreen || !aptScreen) return;
+
+    clearScreenTransition(app);
+    activeScreen = 'apt-search';
+    dashboardScreen.style.display = 'block';
+    aptScreen.style.display = 'block';
+    app.classList.add('screen-dashboard-active', 'screen-apt-search-active');
+
+    if (typeof renderAptSearchScreen === 'function') {
+      renderAptSearchScreen();
+    }
+  }
 </script>
 <script src="calculator.js"></script>
 <script src="dashboard.js"></script>
+<script src="dashboard-apt-search.js"></script>
 
 <!-- 우대금리 상한 토스트 -->
 <div class="pref-toast" id="prefToast">

@@ -13,6 +13,11 @@ const CODE_MAP_PATH = process.env.APT_CODE_MAP_OUTPUT || path.join('data', 'apt-
 const SUMMARY_PATH = path.join('data', 'apt-trades-summary.json');
 const OUTPUT_PATH = process.env.APT_HOUSEHOLDS_OUTPUT || path.join('data', 'apt-households.json');
 const REQUEST_DELAY_MS = Math.max(0, Number(process.env.APT_HOUSEHOLDS_DELAY_MS || 120));
+const FETCH_DETAIL = process.env.APT_HOUSEHOLDS_FETCH_DETAIL === '1';
+const SCOPE = process.env.APT_HOUSEHOLDS_SCOPE || 'capital';
+const START_INDEX = Math.max(0, Number(process.env.APT_HOUSEHOLDS_START_INDEX || 0));
+const LIMIT = Math.max(0, Number(process.env.APT_HOUSEHOLDS_LIMIT || 0));
+const LOG_EVERY = Math.max(1, Number(process.env.APT_HOUSEHOLDS_LOG_EVERY || 100));
 
 function normalizeText(value) {
   return String(value || '')
@@ -81,26 +86,27 @@ function buildDetailUrl(kaptCode) {
   return `${DETAIL_URL}?${params}`;
 }
 
-function extractTopTargets(summary) {
-  const targetMap = new Map();
+function isInScope(entry) {
+  if (!entry) return false;
+  if (SCOPE === 'seoul') return entry.as1 === '서울특별시';
+  if (SCOPE === 'gyeonggi') return entry.as1 === '경기도';
+  if (SCOPE === 'capital') return entry.as1 === '서울특별시' || entry.as1 === '경기도';
+  return true;
+}
 
-  Object.values(summary.sido || {}).forEach(region => {
-    const top = Array.isArray(region?.popularComplexes) ? region.popularComplexes[0] : null;
-    if (top?.aptName) {
-      const key = [top.sigunguCode, top.umdName, top.aptName].join('|');
-      if (!targetMap.has(key)) targetMap.set(key, top);
-    }
-
-    (region?.cityScopes || []).forEach(scope => {
-      const cityTop = Array.isArray(scope?.popularComplexes) ? scope.popularComplexes[0] : null;
-      if (cityTop?.aptName) {
-        const key = [cityTop.sigunguCode, cityTop.umdName, cityTop.aptName].join('|');
-        if (!targetMap.has(key)) targetMap.set(key, cityTop);
-      }
-    });
-  });
-
-  return [...targetMap.values()];
+function extractTargetsFromCodeMap(codeMapItems) {
+  return codeMapItems
+    .filter(isInScope)
+    .map(item => ({
+      match: item,
+      target: {
+        kaptCode: item.kaptCode,
+        aptName: item.kaptName,
+        sigunguCode: item.sigunguCode,
+        sigunguName: item.as2,
+        umdName: item.umdName,
+      },
+    }));
 }
 
 function scoreCodeMapMatch(target, entry) {
@@ -224,39 +230,64 @@ async function main() {
   const codeMapPath = path.join(root, CODE_MAP_PATH);
   const outputPath = path.join(root, OUTPUT_PATH);
 
-  const [summary, codeMapPayload] = await Promise.all([
+  const [summary, codeMapPayload, existingPayload] = await Promise.all([
     readJson(summaryPath),
     readJson(codeMapPath),
+    readJson(outputPath).catch(() => ({ entries: [] })),
   ]);
 
   const codeMapItems = Array.isArray(codeMapPayload?.items) ? codeMapPayload.items : [];
-  const targets = extractTopTargets(summary);
-  const matchedTargets = [];
-  const unmatchedTargets = [];
+  const allTargets = extractTargetsFromCodeMap(codeMapItems);
+  const matchedTargets = LIMIT > 0
+    ? allTargets.slice(START_INDEX, START_INDEX + LIMIT)
+    : allTargets.slice(START_INDEX);
+  const existingEntries = Array.isArray(existingPayload?.entries) ? existingPayload.entries : [];
+  const existingByKaptCode = new Map(
+    existingEntries
+      .filter(entry => entry?.kaptCode)
+      .map(entry => [String(entry.kaptCode), entry]),
+  );
 
-  targets.forEach(target => {
-    const match = findBestCodeMapMatch(target, codeMapItems);
-    if (match) matchedTargets.push({ target, match });
-    else unmatchedTargets.push(target);
-  });
+  const householdEntries = [...existingEntries];
+  const householdIndexByKaptCode = new Map(
+    householdEntries
+      .filter(entry => entry?.kaptCode)
+      .map((entry, index) => [String(entry.kaptCode), index]),
+  );
 
-  const householdEntries = [];
+  let fetchedCount = 0;
   for (let index = 0; index < matchedTargets.length; index += 1) {
     const { target, match } = matchedTargets[index];
-    const [basisPayload, detailPayload] = await Promise.all([
-      fetchJson(buildBasisUrl(match.kaptCode)),
-      fetchJson(buildDetailUrl(match.kaptCode)),
-    ]);
+    if (existingByKaptCode.has(String(match.kaptCode))) continue;
+
+    const basisPayload = await fetchJson(buildBasisUrl(match.kaptCode));
+    const detailPayload = FETCH_DETAIL
+      ? await fetchJson(buildDetailUrl(match.kaptCode))
+      : null;
     const item = basisPayload?.response?.body?.item || null;
     const detailItem = detailPayload?.response?.body?.item || null;
     if (item) {
-      householdEntries.push({
+      const entry = {
         ...parseHouseholdItem(item, detailItem, match),
         sigunguCode: target.sigunguCode,
         sigunguName: target.sigunguName,
         umdName: target.umdName,
         aptName: target.aptName,
-      });
+      };
+      const existingIndex = householdIndexByKaptCode.get(String(entry.kaptCode));
+      if (Number.isInteger(existingIndex)) householdEntries[existingIndex] = entry;
+      else {
+        householdIndexByKaptCode.set(String(entry.kaptCode), householdEntries.length);
+        householdEntries.push(entry);
+      }
+      fetchedCount += 1;
+    }
+
+    const processed = index + 1;
+    if (processed % LOG_EVERY === 0 || processed === matchedTargets.length) {
+      console.log(
+        `[apt-households] processed=${processed}/${matchedTargets.length} fetched=${fetchedCount} scope=${SCOPE} start=${START_INDEX} limit=${LIMIT || 'all'}`,
+      );
     }
 
     if (index < matchedTargets.length - 1) {
@@ -272,11 +303,16 @@ async function main() {
     meta: {
       source: 'MOLIT_APT_BASIS_INFO_V4',
       generatedAt: new Date().toISOString(),
+      startIndex: START_INDEX,
+      limit: LIMIT || null,
       matchedTargetCount: matchedTargets.length,
-      unmatchedTargetCount: unmatchedTargets.length,
+      fetchedCount,
+      scope: SCOPE,
+      fetchDetail: FETCH_DETAIL,
+      unmatchedTargetCount: 0,
       householdCount: householdEntries.length,
     },
-    unmatchedTargets,
+    unmatchedTargets: [],
     entries: householdEntries,
   };
 
@@ -289,7 +325,7 @@ async function main() {
 
   console.log(`Wrote ${outputPath}`);
   console.log(`Merged ${householdEntries.length} household entries into ${summaryPath}`);
-  console.log(`Matched=${matchedTargets.length}, Unmatched=${unmatchedTargets.length}`);
+  console.log(`Scope=${SCOPE}, Matched=${matchedTargets.length}, Fetched=${fetchedCount}`);
 }
 
 main().catch(error => {

@@ -662,6 +662,7 @@ function initDashboard() {
             <span>계산 흐름은 그대로 유지돼요</span>
           </div>
         </div>
+        <div id="dbAptSearchBarMount"></div>
         <div class="db-region-grid">${regionBtns}</div>
       </div>
       <div class="db-placeholder" id="dbPlaceholder">
@@ -671,6 +672,8 @@ function initDashboard() {
       <div class="db-loading" id="dbLoading" style="display:none">
         <div class="db-loading-dot"></div>
       </div>
+
+      <div id="dbAptSearchMount"></div>
 
       <div class="db-content" id="dbContent" style="display:none">
         <div class="db-facts" id="dbFacts"></div>
@@ -682,6 +685,7 @@ function initDashboard() {
     </div>
   `;
   bindDashboardStickyShell();
+  if (typeof renderDashboardAptSearchSection === 'function') renderDashboardAptSearchSection();
 
   if (!window.Chart) {
     const s = document.createElement('script');
@@ -713,6 +717,8 @@ function selectRegion(clsId, name) {
     const isActive = parseInt(btn.dataset.id) === clsId;
     btn.classList.toggle('active', isActive);
   });
+
+  if (typeof renderDashboardAptSearchSection === 'function') renderDashboardAptSearchSection();
 
   if (hasDashboardData()) {
     const swapId = ++regionSwapSeq;
