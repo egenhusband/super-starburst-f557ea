@@ -2467,7 +2467,7 @@
   padding: 16px 18px;
 }
 .db-fact-label {
-  font-size: 24px;
+  font-size: 11px;
   color: var(--label3);
   margin-bottom: 6px;
 }
@@ -2781,7 +2781,7 @@
   color: var(--label3);
 }
 .db-fact-label {
-  font-size: 24px;
+  font-size: 11px;
   color: var(--label3);
   margin-bottom: 5px;
 }
@@ -3860,7 +3860,7 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  padding: 0 18px 16px;
+  padding: 0 20px 16px;
   background:
     linear-gradient(180deg, rgba(5,9,16,0.98), rgba(5,9,16,0.9) 72%, rgba(5,9,16,0));
 }
@@ -3876,7 +3876,7 @@
 .db-apt-page-body {
   flex: 1;
   overflow-y: auto;
-  padding: 6px 18px max(env(safe-area-inset-bottom), 24px);
+  padding: 6px 20px max(env(safe-area-inset-bottom), 24px);
   -webkit-overflow-scrolling: touch;
 }
 .db-apt-page-body::-webkit-scrollbar {
@@ -4126,8 +4126,8 @@
 @media (max-width: 640px) {
   .db-apt-page-sticky,
   .db-apt-page-body {
-    padding-left: 16px;
-    padding-right: 16px;
+    padding-left: 20px;
+    padding-right: 20px;
   }
   .db-apt-search-item {
     align-items: flex-start;
