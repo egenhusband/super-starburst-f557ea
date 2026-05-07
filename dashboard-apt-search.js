@@ -1,7 +1,9 @@
 const DASHBOARD_APT_CODE_MAP_URL = '/data/apt-code-map.json?v=20260506b';
 const DASHBOARD_APT_HOUSEHOLDS_URL = '/data/apt-households.json?v=20260506b';
+const DASHBOARD_APT_SCHOOL_META_URL = '/data/apt-school-meta.json?v=20260507a';
+const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260507a';
 const DASHBOARD_SUBWAY_TIMES_URL = '/data/subway-seoul-times.json?v=20260506a';
-const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v3';
+const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v6';
 const DASHBOARD_APT_SEARCH_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
 const DASHBOARD_SUBWAY_TIMES_CACHE_KEY = 'dashboard_subway_times_v1';
 const DASHBOARD_SUBWAY_TIMES_CACHE_TTL = 90 * 24 * 60 * 60 * 1000;
@@ -59,7 +61,6 @@ const CORE_BUSINESS_DISTRICTS = [
 let dashboardAptSearchIndexPromise = null;
 let dashboardSubwayTimesPromise = null;
 let dashboardSubwayGraph = null;
-let dashboardAptSearchHydrateSeq = 0;
 const dashboardAptSearchInsightCache = new Map();
 const dashboardAptSearchState = {
   entries: [],
@@ -68,6 +69,7 @@ const dashboardAptSearchState = {
   results: [],
   selectedId: '',
   selectedInsight: null,
+  isEditing: false,
   loading: false,
   ready: false,
   error: '',
@@ -176,6 +178,14 @@ function formatPricePoint(value) {
   return `${Math.round(numeric).toLocaleString()}만원`;
 }
 
+function formatPriceRange(minValue, maxValue) {
+  const min = Number(minValue);
+  const max = Number(maxValue);
+  if (!Number.isFinite(min) || min <= 0) return '가격 확인 중';
+  if (!Number.isFinite(max) || max <= 0 || max === min) return formatPricePoint(min);
+  return `${formatPricePoint(min)} ~ ${formatPricePoint(max)}`;
+}
+
 function formatLatestTradeSummary(entry) {
   if (!Number.isFinite(entry.latestTradePrice)) return '최근 실거래 정보 확인 중';
   const parts = [formatPricePoint(entry.latestTradePrice)];
@@ -183,17 +193,46 @@ function formatLatestTradeSummary(entry) {
   return parts.join(' · ');
 }
 
-function isLuxuryPriceTier(entry) {
+function hasTradePriceData(entry) {
+  return Number.isFinite(entry?.latestTradePrice) || Number.isFinite(entry?.avgPrice);
+}
+
+function hasOfficialPriceData(entry) {
+  return Number.isFinite(entry?.medianOfficialPrice);
+}
+
+function getPriceLevelSource(entry) {
+  if (Number.isFinite(entry?.avgPrice)) return 'trade-average';
+  if (Number.isFinite(entry?.latestTradePrice)) return 'trade-latest';
+  if (hasOfficialPriceData(entry)) return 'official-fallback';
+  return null;
+}
+
+function isLuxuryPriceTier(entry, options = {}) {
+  const includeOfficial = options.includeOfficial === true;
   const priceCandidates = [
     Number(entry?.latestTradePrice || 0) || null,
     Number(entry?.avgPrice || 0) || null,
+    ...(includeOfficial ? [Number(entry?.medianOfficialPrice || 0) || null] : []),
   ].filter(Number.isFinite);
   return priceCandidates.some(price => price >= 200000);
 }
 
 function formatPriceLevelSummary(entry) {
-  if (Number.isFinite(entry?.avgPrice)) return `평균 실거래 ${formatPricePoint(entry.avgPrice)}`;
-  if (Number.isFinite(entry?.latestTradePrice)) return `최근 실거래 기준 ${formatPricePoint(entry.latestTradePrice)}`;
+  const priceSource = getPriceLevelSource(entry);
+  if (priceSource === 'trade-average') return `평균 실거래 ${formatPricePoint(entry.avgPrice)}`;
+  if (priceSource === 'trade-latest') return `최근 실거래 기준 ${formatPricePoint(entry.latestTradePrice)}`;
+  if (priceSource === 'official-fallback') {
+    const sampleLabel = Number.isFinite(entry?.officialPriceSampleCount)
+      ? ` · 공시 ${entry.officialPriceSampleCount.toLocaleString()}건`
+      : '';
+    if (Number.isFinite(entry?.medianOfficialPrice)) {
+      return `공시가격 중앙값 ${formatPricePoint(entry.medianOfficialPrice)}${sampleLabel}`;
+    }
+    if (Number.isFinite(entry?.minOfficialPrice) && Number.isFinite(entry?.maxOfficialPrice)) {
+      return `공시가격 ${formatPriceRange(entry.minOfficialPrice, entry.maxOfficialPrice)}${sampleLabel}`;
+    }
+  }
   return '가격 레벨 데이터 보강 중';
 }
 
@@ -202,6 +241,15 @@ function formatBusinessDistrictSummary(result) {
     return '서울 지하철 시간 데이터 준비 중';
   }
   return `${result.bestDistrict.label} · ${result.totalMinutes}분`;
+}
+
+function buildSchoolMetaCompositeKey(sigunguName, umdName, aptName) {
+  return buildDashboardAptCompositeKey(sigunguName, umdName, aptName);
+}
+
+function getSchoolMetaDistance(entry) {
+  const distance = Number(entry?.schoolDistance);
+  return Number.isFinite(distance) && distance > 0 ? distance : null;
 }
 
 function buildDashboardSubwayGraph(payload) {
@@ -326,7 +374,7 @@ function computeStationScore(distance) {
 }
 
 function computeSchoolScore(distance) {
-  if (!Number.isFinite(distance)) return { score: 8, label: '초품아 거리 계산 중' };
+  if (!Number.isFinite(distance)) return { score: 8, label: '초품아 거리 확인 중' };
   if (distance <= 300) return { score: 40, label: '초품아 성격이 아주 강한 거리' };
   if (distance <= 500) return { score: 34, label: '도보 통학 체감이 좋은 편' };
   if (distance <= 700) return { score: 24, label: '가까운 초등학교 접근성이 무난한 편' };
@@ -446,19 +494,28 @@ function computeDashboardApartmentGrade(entry, insight) {
     : parseTransitWalkDistance(entry?.subwayDistance);
   const schoolDistance = Number.isFinite(insight?.school?.distance)
     ? Number(insight.school.distance)
-    : null;
+    : getSchoolMetaDistance(entry);
+  const priceLevelSource = getPriceLevelSource(entry);
+  const hasTradePrice = hasTradePriceData(entry);
+  const hasOfficialFallback = priceLevelSource === 'official-fallback';
   const dimensions = [
     {
+      key: 'priceLevel',
+      available: priceLevelSource !== null,
+      weight: 0,
+      result: null,
+    },
+    {
       key: 'school',
-      available: Number.isFinite(insight?.school?.distance),
+      available: Number.isFinite(schoolDistance),
       weight: 34,
-      result: computeSchoolScore(insight?.school?.distance),
+      result: computeSchoolScore(schoolDistance),
     },
     {
       key: 'station',
-      available: Number.isFinite(insight?.station?.distance),
+      available: Number.isFinite(stationDistance),
       weight: 22,
-      result: computeStationScore(insight?.station?.distance),
+      result: computeStationScore(stationDistance),
     },
     {
       key: 'businessDistrict',
@@ -512,14 +569,41 @@ function computeDashboardApartmentGrade(entry, insight) {
     && Number.isFinite(stationDistance)
     && stationDistance <= 550;
 
-  const isLuxuryCorePremium = isLuxuryPriceTier(entry)
+  const isLuxuryCorePremium = isLuxuryPriceTier(entry, { includeOfficial: true })
     && Number.isFinite(businessDistrictResult?.totalMinutes)
     && businessDistrictResult.totalMinutes <= 30
     && Number.isFinite(stationDistance)
     && stationDistance <= 700;
-  const isLuxurySGrade = isLuxuryPriceTier(entry);
+  const isLuxurySGrade = hasTradePrice
+    && isLuxuryPriceTier(entry)
+    && Number.isFinite(businessDistrictResult?.totalMinutes)
+    && businessDistrictResult.totalMinutes <= 20
+    && Number.isFinite(stationDistance)
+    && stationDistance <= 400;
 
-  const grade = normalizedScore === null
+  const missingLabels = dimensions
+    .filter(item => !item.available)
+    .map(item => item.key === 'priceLevel'
+      ? '가격 레벨'
+      : item.key === 'school'
+        ? '초등학교 거리'
+        : item.key === 'station'
+          ? '역 거리'
+          : item.key === 'household'
+            ? '세대수'
+            : item.key === 'newBuild'
+              ? '준공 정보'
+              : '업무지구 접근성');
+
+  const missingCount = missingLabels.length;
+  const availableCount = dimensions.length - missingCount;
+  const hasPriceLevel = dimensions.find(item => item.key === 'priceLevel')?.available;
+  const hasStation = dimensions.find(item => item.key === 'station')?.available;
+  const shouldHold = missingCount >= 3 || (availableCount <= 2) || (!hasPriceLevel && !hasStation);
+
+  const grade = shouldHold
+    ? null
+    : normalizedScore === null
     ? null
     : isLuxurySGrade ? 'S'
       : isSGrade ? 'S'
@@ -529,23 +613,15 @@ function computeDashboardApartmentGrade(entry, insight) {
         : normalizedScore >= 55 ? 'B'
           : 'C';
 
-  const missingLabels = dimensions
-    .filter(item => !item.available)
-    .map(item => item.key === 'school'
-      ? '초등학교 거리'
-      : item.key === 'station'
-        ? '역 거리'
-        : item.key === 'household'
-          ? '세대수'
-          : item.key === 'newBuild'
-            ? '준공 정보'
-            : '업무지구 접근성');
-
   return {
-    ready: grade !== null,
+    ready: grade !== null || shouldHold,
     grade,
+    withheld: shouldHold,
+    missingCount,
     reasons: [
-      ...(isLuxurySGrade ? ['20억 이상 초고가 아파트로 분류되는 최상위 자산가치 단지'] : []),
+      ...(shouldHold ? [`핵심 데이터 ${missingCount}개(${missingLabels.join(', ')})가 아직 비어 있어 등급 판단은 보류했어요.`] : []),
+      ...(hasOfficialFallback ? ['실거래 커버리지가 얇아 가격 레벨은 공시가격으로 우선 보완했어요.'] : []),
+      ...(isLuxurySGrade ? ['20억 이상 실거래가 확인된 최상위 자산가치 단지'] : []),
       ...(isSGrade ? ['핵심 업무지구 20분 안팎으로 닿고 생활 조건도 함께 강한 최상위 입지'] : []),
       ...(!isSGrade && isLuxuryCorePremium ? ['평균 거래가가 높은 핵심 입지로 상급지 해석이 자연스러운 단지'] : []),
       ...availableDimensions.map(item => item.result.label),
@@ -554,13 +630,27 @@ function computeDashboardApartmentGrade(entry, insight) {
   };
 }
 
-function buildDashboardSearchIndex({ codeMap, households, trades }) {
+function buildDashboardSearchIndex({ codeMap, households, trades, schools, officialPrices }) {
   const householdByCode = new Map();
   const householdByKey = new Map();
   (households?.entries || []).forEach(entry => {
     if (entry?.kaptCode) householdByCode.set(entry.kaptCode, entry);
     const key = buildDashboardAptCompositeKey(entry.sigunguName, entry.umdName, entry.aptName);
     if (key) householdByKey.set(key, entry);
+  });
+  const schoolByCode = new Map();
+  const schoolByKey = new Map();
+  (schools?.entries || []).forEach(entry => {
+    if (entry?.kaptCode) schoolByCode.set(entry.kaptCode, entry);
+    const key = buildSchoolMetaCompositeKey(entry.sigunguName, entry.umdName, entry.aptName);
+    if (key) schoolByKey.set(key, entry);
+  });
+  const officialByCode = new Map();
+  const officialByKey = new Map();
+  (officialPrices?.entries || []).forEach(entry => {
+    if (entry?.kaptCode) officialByCode.set(entry.kaptCode, entry);
+    const key = buildSchoolMetaCompositeKey(entry.sigunguName, entry.umdName, entry.aptName);
+    if (key) officialByKey.set(key, entry);
   });
 
   const tradeByKey = new Map();
@@ -603,6 +693,8 @@ function buildDashboardSearchIndex({ codeMap, households, trades }) {
 
     const compositeKey = buildDashboardAptCompositeKey(sigunguName, umdName, aptName);
     const household = householdByCode.get(item.kaptCode) || householdByKey.get(compositeKey) || null;
+    const school = schoolByCode.get(item.kaptCode) || schoolByKey.get(compositeKey) || null;
+    const officialPrice = officialByCode.get(item.kaptCode) || officialByKey.get(compositeKey) || null;
     const trade = tradeByKey.get(compositeKey) || null;
     const id = item.kaptCode || compositeKey;
     if (!id || seenIds.has(id)) return;
@@ -628,10 +720,17 @@ function buildDashboardSearchIndex({ codeMap, households, trades }) {
       latestDealDate: trade?.latestDealDate || '',
       tradeCount: Number(trade?.tradeCount || 0) || null,
       avgTradeArea: Number(trade?.avgArea || 0) || null,
+      minOfficialPrice: Number(officialPrice?.minOfficialPrice || 0) || null,
+      maxOfficialPrice: Number(officialPrice?.maxOfficialPrice || 0) || null,
+      avgOfficialPrice: Number(officialPrice?.avgOfficialPrice || 0) || null,
+      medianOfficialPrice: Number(officialPrice?.medianOfficialPrice || 0) || null,
+      officialPriceSampleCount: Number(officialPrice?.sampleCount || 0) || null,
       subwayLine: household?.subwayLine || '',
       subwayStation: household?.subwayStation || '',
       subwayDistance: household?.subwayDistance || '',
       busDistance: household?.busDistance || '',
+      schoolName: school?.schoolName || '',
+      schoolDistance: Number(school?.schoolDistance || 0) || null,
       searchTextNormalized: normalizePlaceToken(searchTokens),
       displayLocation: [sigunguName, umdName].filter(Boolean).join(' '),
     });
@@ -645,7 +744,9 @@ async function fetchDashboardAptSearchIndex() {
   const cached = getCache(DASHBOARD_APT_SEARCH_CACHE_KEY, DASHBOARD_APT_SEARCH_CACHE_TTL);
   if (cached?.entries?.length) return cached.entries;
 
-  const [codeMapRes, householdsRes, trades] = await Promise.all([
+  const [schoolMetaRes, officialPriceRes, codeMapRes, householdsRes, trades] = await Promise.all([
+    fetch(DASHBOARD_APT_SCHOOL_META_URL, { cache: 'no-store' }).catch(() => null),
+    fetch(DASHBOARD_APT_OFFICIAL_PRICE_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_CODE_MAP_URL, { cache: 'no-store' }),
     fetch(DASHBOARD_APT_HOUSEHOLDS_URL, { cache: 'no-store' }),
     preloadAptTrades(),
@@ -654,11 +755,13 @@ async function fetchDashboardAptSearchIndex() {
   if (!codeMapRes.ok) throw new Error('단지 목록을 불러오지 못했어요.');
   if (!householdsRes.ok) throw new Error('단지 기본정보를 불러오지 못했어요.');
 
-  const [codeMap, households] = await Promise.all([
+  const [codeMap, households, schools, officialPrices] = await Promise.all([
     codeMapRes.json(),
     householdsRes.json(),
+    schoolMetaRes?.ok ? schoolMetaRes.json() : Promise.resolve({ entries: [] }),
+    officialPriceRes?.ok ? officialPriceRes.json() : Promise.resolve({ entries: [] }),
   ]);
-  const entries = buildDashboardSearchIndex({ codeMap, households, trades });
+  const entries = buildDashboardSearchIndex({ codeMap, households, trades, schools, officialPrices });
   setCache(DASHBOARD_APT_SEARCH_CACHE_KEY, { entries });
   return entries;
 }
@@ -744,18 +847,9 @@ function renderDashboardAptSearchBar() {
   const mount = document.getElementById('dbAptSearchBarMount');
   if (!mount) return;
 
-  const entry = getDashboardSelectedEntry();
-  const summary = entry
-    ? `${entry.aptName} · ${entry.regionLabel} ${entry.displayLocation}`
-    : '서울·경기 아파트 검색';
-
   mount.innerHTML = `
     <button class="db-apt-search-trigger" type="button" onclick="showAptSearchScreen()">
-      <div class="db-apt-search-trigger-icon">⌕</div>
-      <div class="db-apt-search-trigger-copy">
-        <strong>${escapeHtml(summary)}</strong>
-        <span>초품아, 가까운 역, 세대수, 업무지구 접근성 보기</span>
-      </div>
+      <span class="db-apt-search-trigger-placeholder">${escapeHtml(getDashboardAptRegionLabel())} 단지명 또는 지역명으로 검색</span>
     </button>
   `;
 }
@@ -786,7 +880,6 @@ function renderAptSearchScreenLayout() {
             onfocus="handleDashboardAptSearchFocus()"
             onkeydown="handleDashboardAptSearchKeydown(event)"
           >
-          <button class="db-apt-search-btn" type="button" onclick="submitDashboardAptSearch()">검색</button>
         </div>
       </div>
       <div class="db-apt-page-body">
@@ -854,6 +947,11 @@ function renderDashboardSelectedApartment() {
   const target = document.getElementById('dbAptSearchSelected');
   if (!target) return;
 
+  if (dashboardAptSearchState.isEditing) {
+    target.innerHTML = '';
+    return;
+  }
+
   const entry = getDashboardSelectedEntry();
   if (!entry) {
     target.innerHTML = '';
@@ -864,19 +962,19 @@ function renderDashboardSelectedApartment() {
   const gradeData = insight?.ready ? computeDashboardApartmentGrade(entry, insight) : null;
   const businessDistrictData = insight?.ready ? computeBusinessDistrictScore(entry, insight) : null;
   const isGradeReady = gradeData?.ready && gradeData?.grade;
-  const gradeClass = isGradeReady ? `grade-${gradeData.grade.toLowerCase()}` : 'grade-pending';
-  const stationText = insight?.station?.placeName
-    ? `${insight.station.placeName} · 직선 ${formatDistance(insight.station.distance)}`
-    : formatStationFallback(entry);
-  const schoolText = insight?.school?.placeName
-    ? `${insight.school.placeName} · 직선 ${formatDistance(insight.school.distance)}`
-    : (insight?.failed ? '초등학교 거리 확인 중' : '초등학교 거리 계산 중');
+  const isGradeWithheld = Boolean(gradeData?.withheld);
+  const gradeClass = isGradeReady ? `grade-${gradeData.grade.toLowerCase()}` : isGradeWithheld ? 'grade-pending' : 'grade-pending';
+  const stationText = formatStationFallback(entry);
+  const schoolDistance = getSchoolMetaDistance(entry);
+  const schoolText = entry.schoolName && Number.isFinite(schoolDistance)
+    ? `${entry.schoolName} · 직선 ${formatDistance(schoolDistance)}`
+    : '초등학교 거리 확인 중';
   const areaText = entry.avgTradeArea ? `${formatAreaToPyeong(entry.avgTradeArea)} 중심 거래` : '대표 평형 확인 중';
-  const statusText = insight?.failed
-    ? '지도 검색이 일부 느려서, 확보된 데이터 기준으로 먼저 보여드리고 있어요.'
-    : insight?.ready
-      ? '선택한 단지 기준으로 입지 요소를 묶어서 정리했어요.'
-      : '카카오맵 기준으로 초등학교와 역 거리를 계산하고 있어요.';
+  const statusText = !insight?.ready
+    ? '단지 입지 데이터를 불러오는 중이에요.'
+    : gradeData?.withheld
+      ? '핵심 데이터가 더 채워져야 해서 등급은 잠시 보류하고, 확보된 정보만 먼저 보여드려요.'
+      : '선택한 단지 기준으로 정적 입지 데이터를 묶어서 정리했어요.';
 
   target.innerHTML = `
     <article class="db-apt-grade-card">
@@ -888,7 +986,7 @@ function renderDashboardSelectedApartment() {
         </div>
         <div class="db-apt-grade-badge ${gradeClass}">
           <span>등급</span>
-          <strong>${isGradeReady ? gradeData.grade : '…'}</strong>
+          <strong>${isGradeReady ? gradeData.grade : '보류'}</strong>
         </div>
       </div>
       <p class="db-apt-grade-status">${escapeHtml(statusText)}</p>
@@ -951,32 +1049,28 @@ function renderDashboardAptSearchSection() {
 
 function handleDashboardAptSearchInput(event) {
   dashboardAptSearchState.query = event?.target?.value || '';
-  dashboardAptSearchState.selectedInsight = null;
+  dashboardAptSearchState.isEditing = true;
+  if (!dashboardAptSearchState.query.trim()) {
+    dashboardAptSearchState.selectedId = '';
+    dashboardAptSearchState.selectedInsight = null;
+  }
   updateDashboardAptSearchResults();
   renderDashboardAptSearchHint();
   renderDashboardAptSearchResults();
+  renderDashboardSelectedApartment();
 }
 
 function handleDashboardAptSearchFocus() {
+  dashboardAptSearchState.isEditing = true;
   updateDashboardAptSearchResults();
   renderDashboardAptSearchHint();
   renderDashboardAptSearchResults();
+  renderDashboardSelectedApartment();
 }
 
 function handleDashboardAptSearchKeydown(event) {
   if (event.key !== 'Enter') return;
   event.preventDefault();
-  submitDashboardAptSearch();
-}
-
-function submitDashboardAptSearch() {
-  updateDashboardAptSearchResults();
-  const first = dashboardAptSearchState.results[0];
-  if (first) pickDashboardApartment(first.id);
-  else {
-    renderDashboardAptSearchHint();
-    renderDashboardAptSearchResults();
-  }
 }
 
 function hydrateDashboardApartmentInsight(entry) {
@@ -988,41 +1082,18 @@ function hydrateDashboardApartmentInsight(entry) {
     return;
   }
 
-  const requestId = ++dashboardAptSearchHydrateSeq;
-  dashboardAptSearchState.selectedInsight = { ready: false, failed: false };
-  renderDashboardSelectedApartment();
-
-  const locationSeed = {
-    aptName: entry.aptName,
-    sigunguName: entry.sigunguName,
-    umdName: entry.umdName,
+  const schoolDistance = getSchoolMetaDistance(entry);
+  const insight = {
+    ready: true,
+    failed: false,
+    station: null,
+    school: entry.schoolName && Number.isFinite(schoolDistance)
+      ? { placeName: entry.schoolName, distance: schoolDistance }
+      : null,
   };
-
-  Promise.resolve()
-    .then(() => searchComplexLocation(locationSeed))
-    .then(location => Promise.all([
-      Promise.resolve(location),
-      location ? searchNearestStation(location) : Promise.resolve(null),
-      location ? searchNearestElementarySchool(location) : Promise.resolve(null),
-    ]))
-    .then(([location, station, school]) => {
-      if (requestId !== dashboardAptSearchHydrateSeq) return;
-      const insight = {
-        ready: true,
-        failed: false,
-        location,
-        station,
-        school,
-      };
-      dashboardAptSearchInsightCache.set(cacheKey, insight);
-      dashboardAptSearchState.selectedInsight = insight;
-      renderDashboardSelectedApartment();
-    })
-    .catch(() => {
-      if (requestId !== dashboardAptSearchHydrateSeq) return;
-      dashboardAptSearchState.selectedInsight = { ready: true, failed: true, station: null, school: null };
-      renderDashboardSelectedApartment();
-    });
+  dashboardAptSearchInsightCache.set(cacheKey, insight);
+  dashboardAptSearchState.selectedInsight = insight;
+  renderDashboardSelectedApartment();
 }
 
 function pickDashboardApartment(id) {
@@ -1030,6 +1101,7 @@ function pickDashboardApartment(id) {
   if (!entry) return;
 
   dashboardAptSearchState.selectedId = id;
+  dashboardAptSearchState.isEditing = false;
   dashboardAptSearchState.query = `${entry.aptName} ${entry.displayLocation}`.trim();
   dashboardAptSearchState.results = [];
   syncDashboardAptSearchUi();
@@ -1054,5 +1126,4 @@ window.renderAptSearchScreen = renderAptSearchScreen;
 window.handleDashboardAptSearchInput = handleDashboardAptSearchInput;
 window.handleDashboardAptSearchFocus = handleDashboardAptSearchFocus;
 window.handleDashboardAptSearchKeydown = handleDashboardAptSearchKeydown;
-window.submitDashboardAptSearch = submitDashboardAptSearch;
 window.pickDashboardApartment = pickDashboardApartment;

@@ -307,7 +307,7 @@ function searchNearestElementarySchool(location) {
   }));
 }
 
-function buildTopComplexInsightCopy({ complex, aptTrade, station, school }) {
+function buildTopComplexInsightCopy({ complex, aptTrade, station }) {
   const tradeFocus = getComplexTradeFocus(complex, aptTrade);
   const priceGap = getComplexPriceGap(complex, aptTrade);
   const area = Number(complex?.avgArea);
@@ -318,7 +318,6 @@ function buildTopComplexInsightCopy({ complex, aptTrade, station, school }) {
   const reasons = [];
   if (subwayDistanceText) reasons.push(`지하철 접근 정보가 확인돼 이동 편의 해석에 참고할 수 있는 단지`);
   if (busDistanceText) reasons.push(`버스 정류장 거리 정보도 확인돼 대중교통 접근성을 함께 볼 수 있는 편`);
-  if (school?.distance <= 500) reasons.push(`가까운 초등학교가 ${formatDistance(school.distance)} 거리로 붙어 있어 가족 단위 실수요가 보기 쉬운 편`);
   if (convenientSummary) reasons.push(`${convenientSummary} 접근성이 확인되는 편`);
 
   if (Number.isFinite(tradeFocus) && tradeFocus >= 8) reasons.push(`같은 지역 거래 중 ${tradeFocus}%가 이 단지에 몰릴 만큼 거래 집중도가 높음`);
@@ -359,9 +358,9 @@ function buildInfraSummary(complex) {
   return convenient ? `편의 ${convenient}` : '';
 }
 
-function buildTopComplexInsightPayload({ aptTrade, complex, station = null, school = null }) {
+function buildTopComplexInsightPayload({ aptTrade, complex, station = null }) {
   const tradeFocus = getComplexTradeFocus(complex, aptTrade);
-  const reasons = buildTopComplexInsightCopy({ complex, aptTrade, station, school });
+  const reasons = buildTopComplexInsightCopy({ complex, aptTrade, station });
   const primaryArea = Number.isFinite(Number(complex?.avgArea)) ? formatAreaToPyeong(complex.avgArea) : '확인 중';
   const householdCount = Number(complex?.householdCount);
   const subwayLabel = [complex?.subwayLine, complex?.subwayStation].filter(Boolean).join(' ');
@@ -373,16 +372,12 @@ function buildTopComplexInsightPayload({ aptTrade, complex, station = null, scho
       ? [subwayLabel, subwayDistanceText].filter(Boolean).join(' · ')
       : '준비중',
     busText: busDistanceText || '준비중',
-    schoolText: school?.placeName
-      ? `${school.placeName} · 직선 ${formatDistance(school.distance)}`
-      : '준비중',
     focusText: Number.isFinite(tradeFocus) ? `${tradeFocus}%` : '확인 중',
     primaryAreaText: primaryArea,
     reasons: reasons.length ? reasons : ['현재는 거래량과 가격 패턴을 중심으로 참고 해석을 제공합니다.'],
     hasHousehold: Number.isFinite(householdCount) && householdCount > 0,
     hasStation: Boolean(subwayLabel),
     hasBus: Boolean(busDistanceText),
-    hasSchool: Boolean(school?.placeName),
   };
 }
 
@@ -410,15 +405,11 @@ function renderTopComplexInsight(target, payload) {
         <span class="db-deal-insight-k">버스 정류장</span>
         <strong>${escapeHtml(payload.busText)}</strong>
       </div>
-      <div class="db-deal-insight-chip">
-        <span class="db-deal-insight-k">근처 초등학교</span>
-        <strong>${escapeHtml(payload.schoolText)}</strong>
-      </div>
     </div>
     <ul class="db-deal-insight-list">
       ${payload.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}
     </ul>
-    <p class="db-deal-insight-note">이 해석은 최근 실거래와 지도 검색 결과를 바탕으로 한 참고 정보이며, 학군·개발계획·실제 도보 동선은 반영하지 않습니다.</p>
+    <p class="db-deal-insight-note">이 해석은 최근 실거래와 공공 주택 데이터를 바탕으로 한 참고 정보이며, 학군·개발계획·실제 도보 동선은 반영하지 않습니다.</p>
   `;
 }
 
@@ -426,7 +417,6 @@ async function hydrateTopComplexInsight({ aptTrade, complex, allowNetwork = fals
   const target = document.getElementById('dbTopComplexInsight');
   if (!target || !aptTrade || !complex) return;
 
-  const requestId = ++topComplexInsightSeq;
   const cacheKey = getTopComplexCacheKey(complex);
   const cached = topComplexInsightCache.get(cacheKey);
   if (cached) {
@@ -435,23 +425,8 @@ async function hydrateTopComplexInsight({ aptTrade, complex, allowNetwork = fals
   }
 
   const fallbackPayload = buildTopComplexInsightPayload({ aptTrade, complex, station: null });
+  topComplexInsightCache.set(cacheKey, fallbackPayload);
   renderTopComplexInsight(target, fallbackPayload);
-
-  if (!allowNetwork) return;
-
-  try {
-    const location = await searchComplexLocation(complex);
-    const school = location ? await searchNearestElementarySchool(location) : null;
-    if (requestId !== topComplexInsightSeq) return;
-
-    const payload = buildTopComplexInsightPayload({ aptTrade, complex, school });
-    topComplexInsightCache.set(cacheKey, payload);
-    renderTopComplexInsight(target, payload);
-  } catch (error) {
-    if (requestId !== topComplexInsightSeq) return;
-    console.warn('[deal insight]', error);
-    renderTopComplexInsight(target, fallbackPayload);
-  }
 }
 
 function hydrateMarketBundle(bundle) {
