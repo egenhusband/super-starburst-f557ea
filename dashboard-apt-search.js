@@ -117,6 +117,13 @@ function formatStationFallback(entry) {
   return '역 정보 확인 중';
 }
 
+function formatStationSummary(entry, insight) {
+  if (insight?.station?.placeName && Number.isFinite(insight?.station?.distance)) {
+    return `${insight.station.placeName} · 직선 ${formatDistance(insight.station.distance)}`;
+  }
+  return formatStationFallback(entry);
+}
+
 function normalizeStationToken(value) {
   return String(value || '')
     .trim()
@@ -423,6 +430,7 @@ function computeBusinessDistrictScore(entry, insight) {
       .map(normalizeLineToken)
       .filter(Boolean),
   );
+  const shouldRestrictLineMatch = lineTokens.size > 0 && parseStationNameCandidates(entry?.subwayStation).length > 0;
 
   const originIds = [];
   stationTokens.forEach(token => {
@@ -430,7 +438,7 @@ function computeBusinessDistrictScore(entry, insight) {
     stationIds.forEach(stationId => {
       const station = dashboardSubwayGraph.stationMap.get(stationId);
       const lineToken = normalizeLineToken(station?.lineName);
-      if (!lineTokens.size || lineTokens.has(lineToken)) originIds.push(stationId);
+      if (!shouldRestrictLineMatch || lineTokens.has(lineToken)) originIds.push(stationId);
     });
   });
 
@@ -993,7 +1001,7 @@ function renderDashboardSelectedApartment() {
   const isGradeReady = gradeData?.ready && gradeData?.grade;
   const isGradeWithheld = Boolean(gradeData?.withheld);
   const gradeClass = isGradeReady ? `grade-${gradeData.grade.toLowerCase()}` : isGradeWithheld ? 'grade-pending' : 'grade-pending';
-  const stationText = formatStationFallback(entry);
+  const stationText = formatStationSummary(entry, insight);
   const schoolDistance = getSchoolMetaDistance(entry);
   const schoolText = entry.schoolName && Number.isFinite(schoolDistance)
     ? `${entry.schoolName} · 직선 ${formatDistance(schoolDistance)}`
@@ -1114,6 +1122,23 @@ function hydrateDashboardApartmentInsight(entry) {
   dashboardAptSearchInsightCache.set(cacheKey, insight);
   dashboardAptSearchState.selectedInsight = insight;
   renderDashboardSelectedApartment();
+
+  const needsStationBackfill = !parseStationNameCandidates(entry.subwayStation).length;
+  const canBackfillStation = typeof searchComplexLocation === 'function' && typeof searchNearestStation === 'function';
+  if (!needsStationBackfill || !canBackfillStation) return;
+
+  searchComplexLocation(entry)
+    .then(location => searchNearestStation(location))
+    .then(station => {
+      if (!station) return;
+      insight.station = station;
+      dashboardAptSearchInsightCache.set(cacheKey, insight);
+      if (dashboardAptSearchState.selectedId === entry.id) {
+        dashboardAptSearchState.selectedInsight = insight;
+        renderDashboardSelectedApartment();
+      }
+    })
+    .catch(() => {});
 }
 
 function pickDashboardApartment(id) {
