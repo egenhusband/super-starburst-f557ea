@@ -9,6 +9,11 @@ const INPUT_PATH = process.env.SUBWAY_SEOUL_CSV_INPUT
   || '/Users/deukgyunman/Desktop/서울교통공사 역간거리 및 소요시간_240810.csv';
 const LINE_EXTENSION_INPUTS = [
   {
+    path: '/Users/deukgyunman/Desktop/국가철도공단_수도권8호선_역간거리_20250630.csv',
+    lineName: '8호선',
+    minutesPerKm: 1.45,
+  },
+  {
     path: '/Users/deukgyunman/Desktop/국가철도공단_수도권9호선_역간거리_20250630.csv',
     lineName: '9호선',
     minutesPerKm: 1.8,
@@ -43,6 +48,7 @@ const OUTPUT_PATH = process.env.SUBWAY_SEOUL_JSON_OUTPUT
   || path.join('data', 'subway-seoul-times.json');
 const TRANSFER_MINUTES = Math.max(1, Number(process.env.SUBWAY_TRANSFER_MINUTES || 4));
 const EXTENSION_LINE_COVERAGE = [
+  { lineName: '8호선', purpose: '장자호수공원·별내 등 동북권 연장 구간 보강' },
   { lineName: '9호선', purpose: '여의도·마곡·강남축 보강' },
   { lineName: '신분당선', purpose: '강남·판교축 보강' },
   { lineName: '분당선', purpose: '이매·정자·선릉 등 분당/강남 접근 보강' },
