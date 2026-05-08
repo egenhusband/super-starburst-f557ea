@@ -2,10 +2,10 @@ const DASHBOARD_APT_CODE_MAP_URL = '/data/apt-code-map.json?v=20260506b';
 const DASHBOARD_APT_HOUSEHOLDS_URL = '/data/apt-households.json?v=20260506b';
 const DASHBOARD_APT_SCHOOL_META_URL = '/data/apt-school-meta.json?v=20260507a';
 const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260507a';
-const DASHBOARD_SUBWAY_TIMES_URL = '/data/subway-seoul-times.json?v=20260506a';
+const DASHBOARD_SUBWAY_TIMES_URL = '/data/subway-seoul-times.json?v=20260509a';
 const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v6';
 const DASHBOARD_APT_SEARCH_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
-const DASHBOARD_SUBWAY_TIMES_CACHE_KEY = 'dashboard_subway_times_v1';
+const DASHBOARD_SUBWAY_TIMES_CACHE_KEY = 'dashboard_subway_times_v2';
 const DASHBOARD_SUBWAY_TIMES_CACHE_TTL = 90 * 24 * 60 * 60 * 1000;
 const CORE_BUSINESS_DISTRICTS = [
   {
@@ -120,6 +120,7 @@ function formatStationFallback(entry) {
 function normalizeStationToken(value) {
   return String(value || '')
     .trim()
+    .replace(/\([^)]*\)/g, '')
     .replace(/\s+(?:\d+호선|신분당선|수인분당선|분당선|경의중앙선|경강선|공항철도공항선|공항철도|우이신설선|서해선|인천1호선|인천2호선)$/u, '')
     .replace(/\s+/g, '')
     .replace(/역$/u, '')
@@ -128,12 +129,20 @@ function normalizeStationToken(value) {
 }
 
 function normalizeLineToken(value) {
-  return String(value || '')
+  const normalized = String(value || '')
     .trim()
     .replace(/\s+/g, '')
     .replace(/^서울/u, '')
     .replace(/[()[\]{}.,·\-_/]/g, '')
     .toLowerCase();
+  if (!normalized) return '';
+  if (normalized.includes('수인분당') || normalized.includes('분당')) return '분당선';
+  if (normalized.includes('경의중앙')) return '경의중앙선';
+  if (normalized.includes('경강')) return '경강선';
+  if (normalized.includes('공항철도')) return '공항철도';
+  if (normalized === '9호선' || normalized === '9') return '9호선';
+  if (normalized === '8호선' || normalized === '8') return '8호선';
+  return normalized;
 }
 
 function parseStationNameCandidates(rawValue) {
