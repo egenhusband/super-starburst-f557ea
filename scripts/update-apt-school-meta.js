@@ -14,6 +14,8 @@ const START_INDEX = Math.max(0, Number(process.env.APT_SCHOOL_START_INDEX || 0))
 const LIMIT = Math.max(0, Number(process.env.APT_SCHOOL_LIMIT || 0));
 const REQUEST_DELAY_MS = Math.max(0, Number(process.env.APT_SCHOOL_DELAY_MS || 160));
 const LOG_EVERY = Math.max(1, Number(process.env.APT_SCHOOL_LOG_EVERY || 100));
+const CHECKPOINT_EVERY = Math.max(LOG_EVERY, Number(process.env.APT_SCHOOL_CHECKPOINT_EVERY || 200));
+const REFRESH_EXISTING = process.env.APT_SCHOOL_REFRESH_EXISTING === '1';
 const PLACE_SEARCH_URL = 'https://dapi.kakao.com/v2/local/search/keyword.json';
 const CATEGORY_SEARCH_URL = 'https://dapi.kakao.com/v2/local/search/category.json';
 
@@ -154,6 +156,38 @@ function normalizeSchoolEntry(target, place, school) {
   };
 }
 
+function hasSchoolFields(entry) {
+  if (!entry) return false;
+  return Boolean(
+    String(entry.schoolName || '').trim()
+    && Number(entry.schoolDistance || 0) > 0,
+  );
+}
+
+async function writePayload({ outputPath, entries, processed, saved, skipped, totalTargets, complete }) {
+  const payload = {
+    meta: {
+      source: 'KAKAO_LOCAL_CATEGORY_SC4',
+      generatedAt: new Date().toISOString(),
+      scope: SCOPE,
+      startIndex: START_INDEX,
+      limit: LIMIT || null,
+      count: entries.length,
+      processedTargetCount: processed,
+      savedCount: saved,
+      skippedCount: skipped,
+      totalTargetCount: totalTargets,
+      refreshExisting: REFRESH_EXISTING,
+      complete,
+    },
+    entries,
+  };
+
+  const tempPath = `${outputPath}.tmp`;
+  await fs.writeFile(tempPath, `${JSON.stringify(payload)}\n`, 'utf8');
+  await fs.rename(tempPath, outputPath);
+}
+
 async function main() {
   if (!KAKAO_KEY) throw new Error('KAKAO_REST_API_KEY or KAKAO_API_KEY is required.');
 
@@ -182,12 +216,34 @@ async function main() {
   const indexByKaptCode = new Map(
     entries.filter(entry => entry?.kaptCode).map((entry, index) => [String(entry.kaptCode), index]),
   );
+  const existingByKaptCode = new Map(
+    entries.filter(entry => entry?.kaptCode).map(entry => [String(entry.kaptCode), entry]),
+  );
 
   let processed = 0;
   let saved = 0;
   let skipped = 0;
   for (const target of scopedTargets) {
     processed += 1;
+    const existingEntry = existingByKaptCode.get(String(target.kaptCode)) || null;
+    if (existingEntry && !REFRESH_EXISTING && hasSchoolFields(existingEntry)) {
+      if (processed % LOG_EVERY === 0) {
+        console.log(`[apt-school-meta] processed=${processed}/${scopedTargets.length} saved=${saved} skipped=${skipped} scope=${SCOPE}`);
+      }
+      if (processed % CHECKPOINT_EVERY === 0) {
+        await writePayload({
+          outputPath,
+          entries,
+          processed,
+          saved,
+          skipped,
+          totalTargets: scopedTargets.length,
+          complete: false,
+        });
+      }
+      continue;
+    }
+
     try {
       const query = buildPlaceSearchQuery(target);
       const placeResponse = await fetchKakaoJson(buildPlaceSearchUrl(query));
@@ -217,27 +273,45 @@ async function main() {
       if (processed % LOG_EVERY === 0) {
         console.log(`[apt-school-meta] processed=${processed}/${scopedTargets.length} saved=${saved} skipped=${skipped} scope=${SCOPE}`);
       }
+      if (processed % CHECKPOINT_EVERY === 0) {
+        await writePayload({
+          outputPath,
+          entries,
+          processed,
+          saved,
+          skipped,
+          totalTargets: scopedTargets.length,
+          complete: false,
+        });
+      }
       await sleep(REQUEST_DELAY_MS);
     } catch (error) {
       skipped += 1;
       console.warn(`[apt-school-meta] skip ${target.sigunguName} ${target.umdName} ${target.aptName}: ${error.message}`);
+      if (processed % CHECKPOINT_EVERY === 0) {
+        await writePayload({
+          outputPath,
+          entries,
+          processed,
+          saved,
+          skipped,
+          totalTargets: scopedTargets.length,
+          complete: false,
+        });
+      }
       await sleep(REQUEST_DELAY_MS);
     }
   }
 
-  const payload = {
-    meta: {
-      source: 'KAKAO_LOCAL_CATEGORY_SC4',
-      generatedAt: new Date().toISOString(),
-      scope: SCOPE,
-      startIndex: START_INDEX,
-      limit: LIMIT || null,
-      count: entries.length,
-    },
+  await writePayload({
+    outputPath,
     entries,
-  };
-
-  await fs.writeFile(outputPath, `${JSON.stringify(payload)}\n`, 'utf8');
+    processed,
+    saved,
+    skipped,
+    totalTargets: scopedTargets.length,
+    complete: true,
+  });
   console.log(`Wrote ${outputPath}`);
   console.log(`Entries=${entries.length}, saved=${saved}, skipped=${skipped}`);
 }

@@ -15,6 +15,7 @@ const SOURCE_PATH = process.env.APT_OFFICIAL_PRICE_SOURCE_PATH
   || '/Users/deukgyunman/Desktop/국토교통부_주택 공시가격 정보_20250626/국토교통부_주택 공시가격 정보(2025).csv';
 const SCOPE = process.env.APT_OFFICIAL_PRICE_SCOPE || 'capital';
 const LOG_EVERY = Math.max(10000, Number(process.env.APT_OFFICIAL_PRICE_LOG_EVERY || 50000));
+const CHECKPOINT_EVERY = Math.max(LOG_EVERY, Number(process.env.APT_OFFICIAL_PRICE_CHECKPOINT_EVERY || 200000));
 
 function normalizePlaceToken(value = '') {
   return String(value)
@@ -99,6 +100,55 @@ function computeMedian(sortedValues) {
   const mid = Math.floor(sortedValues.length / 2);
   if (sortedValues.length % 2 === 0) return Math.round((sortedValues[mid - 1] + sortedValues[mid]) / 2);
   return sortedValues[mid];
+}
+
+function buildEntriesFromAggregates(aggregates) {
+  return Array.from(aggregates.values()).map(entry => {
+    const officialPrices = entry.officialPrices.sort((a, b) => a - b);
+    const officialPricePerPyeong = entry.officialPricePerPyeong.sort((a, b) => a - b);
+    const minOfficialPrice = officialPrices[0] || null;
+    const maxOfficialPrice = officialPrices[officialPrices.length - 1] || null;
+    const avgOfficialPrice = officialPrices.length
+      ? Math.round(officialPrices.reduce((sum, value) => sum + value, 0) / officialPrices.length)
+      : null;
+
+    return {
+      kaptCode: entry.kaptCode,
+      aptName: entry.aptName,
+      sigunguName: entry.sigunguName,
+      umdName: entry.umdName,
+      basisYear: entry.basisYear,
+      basisMonth: entry.basisMonth,
+      sampleCount: officialPrices.length,
+      minOfficialPrice,
+      maxOfficialPrice,
+      avgOfficialPrice,
+      medianOfficialPrice: computeMedian(officialPrices),
+      medianOfficialPricePerPyeong: computeMedian(officialPricePerPyeong),
+    };
+  });
+}
+
+async function writePayload({ outputPath, sourcePath, targetCount, aggregates, matchedRows, processed, complete }) {
+  const entries = buildEntriesFromAggregates(aggregates);
+  const payload = {
+    meta: {
+      source: path.basename(sourcePath),
+      generatedAt: new Date().toISOString(),
+      scope: SCOPE,
+      targetCount,
+      matchedComplexCount: entries.length,
+      matchedRowCount: matchedRows,
+      processedRowCount: processed,
+      complete,
+    },
+    entries,
+  };
+
+  const tempPath = `${outputPath}.tmp`;
+  await fsp.writeFile(tempPath, `${JSON.stringify(payload)}\n`, 'utf8');
+  await fsp.rename(tempPath, outputPath);
+  return entries.length;
 }
 
 async function main() {
@@ -193,51 +243,35 @@ async function main() {
     if (pricePerPyeong) aggregate.officialPricePerPyeong.push(pricePerPyeong);
     matchedRows += 1;
 
+    if (processed % CHECKPOINT_EVERY === 0) {
+      const checkpointCount = await writePayload({
+        outputPath: OUTPUT_PATH,
+        sourcePath: SOURCE_PATH,
+        targetCount: targets.size,
+        aggregates,
+        matchedRows,
+        processed,
+        complete: false,
+      });
+      console.log(`[apt-official-price-meta] checkpoint processed=${processed} matchedRows=${matchedRows} matchedComplexes=${checkpointCount}`);
+    }
+
     if (processed % LOG_EVERY === 0) {
       console.log(`[apt-official-price-meta] processed=${processed} matchedRows=${matchedRows} matchedComplexes=${aggregates.size}`);
     }
   }
 
-  const entries = Array.from(aggregates.values()).map(entry => {
-    const officialPrices = entry.officialPrices.sort((a, b) => a - b);
-    const officialPricePerPyeong = entry.officialPricePerPyeong.sort((a, b) => a - b);
-    const minOfficialPrice = officialPrices[0] || null;
-    const maxOfficialPrice = officialPrices[officialPrices.length - 1] || null;
-    const avgOfficialPrice = officialPrices.length
-      ? Math.round(officialPrices.reduce((sum, value) => sum + value, 0) / officialPrices.length)
-      : null;
-
-    return {
-      kaptCode: entry.kaptCode,
-      aptName: entry.aptName,
-      sigunguName: entry.sigunguName,
-      umdName: entry.umdName,
-      basisYear: entry.basisYear,
-      basisMonth: entry.basisMonth,
-      sampleCount: officialPrices.length,
-      minOfficialPrice,
-      maxOfficialPrice,
-      avgOfficialPrice,
-      medianOfficialPrice: computeMedian(officialPrices),
-      medianOfficialPricePerPyeong: computeMedian(officialPricePerPyeong),
-    };
+  const entryCount = await writePayload({
+    outputPath: OUTPUT_PATH,
+    sourcePath: SOURCE_PATH,
+    targetCount: targets.size,
+    aggregates,
+    matchedRows,
+    processed,
+    complete: true,
   });
-
-  const payload = {
-    meta: {
-      source: path.basename(SOURCE_PATH),
-      generatedAt: new Date().toISOString(),
-      scope: SCOPE,
-      targetCount: targets.size,
-      matchedComplexCount: entries.length,
-      matchedRowCount: matchedRows,
-    },
-    entries,
-  };
-
-  await fsp.writeFile(OUTPUT_PATH, `${JSON.stringify(payload)}\n`, 'utf8');
   console.log(`Wrote ${OUTPUT_PATH}`);
-  console.log(`Targets=${targets.size}, entries=${entries.length}, matchedRows=${matchedRows}`);
+  console.log(`Targets=${targets.size}, entries=${entryCount}, matchedRows=${matchedRows}`);
 }
 
 main().catch(error => {

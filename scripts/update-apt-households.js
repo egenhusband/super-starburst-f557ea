@@ -13,11 +13,13 @@ const CODE_MAP_PATH = process.env.APT_CODE_MAP_OUTPUT || path.join('data', 'apt-
 const SUMMARY_PATH = path.join('data', 'apt-trades-summary.json');
 const OUTPUT_PATH = process.env.APT_HOUSEHOLDS_OUTPUT || path.join('data', 'apt-households.json');
 const REQUEST_DELAY_MS = Math.max(0, Number(process.env.APT_HOUSEHOLDS_DELAY_MS || 120));
-const FETCH_DETAIL = process.env.APT_HOUSEHOLDS_FETCH_DETAIL === '1';
+const FETCH_DETAIL = process.env.APT_HOUSEHOLDS_FETCH_DETAIL !== '0';
 const SCOPE = process.env.APT_HOUSEHOLDS_SCOPE || 'capital';
 const START_INDEX = Math.max(0, Number(process.env.APT_HOUSEHOLDS_START_INDEX || 0));
 const LIMIT = Math.max(0, Number(process.env.APT_HOUSEHOLDS_LIMIT || 0));
 const LOG_EVERY = Math.max(1, Number(process.env.APT_HOUSEHOLDS_LOG_EVERY || 100));
+const REFRESH_EXISTING = process.env.APT_HOUSEHOLDS_REFRESH_EXISTING === '1';
+const CHECKPOINT_EVERY = Math.max(1, Number(process.env.APT_HOUSEHOLDS_CHECKPOINT_EVERY || 50));
 
 function normalizeText(value) {
   return String(value || '')
@@ -175,6 +177,17 @@ function parseHouseholdItem(item, detailItem, match) {
   };
 }
 
+function hasDetailFields(entry) {
+  if (!entry) return false;
+  return Boolean(
+    String(entry.subwayStation || '').trim()
+    || String(entry.subwayDistance || '').trim()
+    || String(entry.busDistance || '').trim()
+    || String(entry.convenientFacility || '').trim()
+    || String(entry.educationFacility || '').trim(),
+  );
+}
+
 function mergeHouseholdsIntoSummary(summary, householdMap) {
   function mergeComplex(complex) {
     const key = [complex.sigunguCode, complex.umdName, complex.aptName].join('|');
@@ -222,6 +235,45 @@ function mergeHouseholdsIntoSummary(summary, householdMap) {
   return nextSummary;
 }
 
+async function writeCheckpoint({
+  outputPath,
+  summaryPath,
+  summary,
+  householdEntries,
+  matchedTargets,
+  fetchedCount,
+  failedTargets,
+}) {
+  const householdMap = new Map(
+    householdEntries.map(entry => [[entry.sigunguCode, entry.umdName, entry.aptName].join('|'), entry]),
+  );
+
+  const householdsPayload = {
+    meta: {
+      source: 'MOLIT_APT_BASIS_INFO_V4',
+      generatedAt: new Date().toISOString(),
+      startIndex: START_INDEX,
+      limit: LIMIT || null,
+      matchedTargetCount: matchedTargets.length,
+      fetchedCount,
+      scope: SCOPE,
+      fetchDetail: FETCH_DETAIL,
+      unmatchedTargetCount: failedTargets.length,
+      householdCount: householdEntries.length,
+      checkpointEvery: CHECKPOINT_EVERY,
+    },
+    unmatchedTargets: failedTargets,
+    entries: householdEntries,
+  };
+
+  const mergedSummary = mergeHouseholdsIntoSummary(summary, householdMap);
+
+  await Promise.all([
+    fs.writeFile(outputPath, `${JSON.stringify(householdsPayload)}\n`, 'utf8'),
+    fs.writeFile(summaryPath, `${JSON.stringify(mergedSummary)}\n`, 'utf8'),
+  ]);
+}
+
 async function main() {
   if (!KEY) throw new Error('MOLIT_API_KEY or MOLIT_HOUSING_API_KEY is required.');
 
@@ -256,31 +308,57 @@ async function main() {
   );
 
   let fetchedCount = 0;
+  const failedTargets = [];
   for (let index = 0; index < matchedTargets.length; index += 1) {
     const { target, match } = matchedTargets[index];
-    if (existingByKaptCode.has(String(match.kaptCode))) continue;
+    const existingEntry = existingByKaptCode.get(String(match.kaptCode)) || null;
+    const shouldSkip = existingEntry
+      && !REFRESH_EXISTING
+      && (!FETCH_DETAIL || hasDetailFields(existingEntry));
+    if (shouldSkip) continue;
 
-    const basisPayload = await fetchJson(buildBasisUrl(match.kaptCode));
-    const detailPayload = FETCH_DETAIL
-      ? await fetchJson(buildDetailUrl(match.kaptCode))
-      : null;
-    const item = basisPayload?.response?.body?.item || null;
-    const detailItem = detailPayload?.response?.body?.item || null;
-    if (item) {
-      const entry = {
-        ...parseHouseholdItem(item, detailItem, match),
-        sigunguCode: target.sigunguCode,
+    try {
+      const basisPayload = await fetchJson(buildBasisUrl(match.kaptCode));
+      const detailPayload = FETCH_DETAIL
+        ? await fetchJson(buildDetailUrl(match.kaptCode))
+        : null;
+      const item = basisPayload?.response?.body?.item || null;
+      const detailItem = detailPayload?.response?.body?.item || null;
+      if (item) {
+        const entry = {
+          ...parseHouseholdItem(item, detailItem, match),
+          sigunguCode: target.sigunguCode,
+          sigunguName: target.sigunguName,
+          umdName: target.umdName,
+          aptName: target.aptName,
+        };
+        const existingIndex = householdIndexByKaptCode.get(String(entry.kaptCode));
+        if (Number.isInteger(existingIndex)) householdEntries[existingIndex] = entry;
+        else {
+          householdIndexByKaptCode.set(String(entry.kaptCode), householdEntries.length);
+          householdEntries.push(entry);
+        }
+        fetchedCount += 1;
+      } else {
+        failedTargets.push({
+          kaptCode: match.kaptCode,
+          aptName: target.aptName,
+          sigunguName: target.sigunguName,
+          umdName: target.umdName,
+          reason: 'basis_item_missing',
+        });
+      }
+    } catch (error) {
+      failedTargets.push({
+        kaptCode: match.kaptCode,
+        aptName: target.aptName,
         sigunguName: target.sigunguName,
         umdName: target.umdName,
-        aptName: target.aptName,
-      };
-      const existingIndex = householdIndexByKaptCode.get(String(entry.kaptCode));
-      if (Number.isInteger(existingIndex)) householdEntries[existingIndex] = entry;
-      else {
-        householdIndexByKaptCode.set(String(entry.kaptCode), householdEntries.length);
-        householdEntries.push(entry);
-      }
-      fetchedCount += 1;
+        reason: error.message,
+      });
+      console.warn(
+        `[apt-households] skip ${target.sigunguName} ${target.umdName} ${target.aptName}: ${error.message}`,
+      );
     }
 
     const processed = index + 1;
@@ -290,42 +368,26 @@ async function main() {
       );
     }
 
+    if (processed % CHECKPOINT_EVERY === 0 || processed === matchedTargets.length) {
+      await writeCheckpoint({
+        outputPath,
+        summaryPath,
+        summary,
+        householdEntries,
+        matchedTargets,
+        fetchedCount,
+        failedTargets,
+      });
+    }
+
     if (index < matchedTargets.length - 1) {
       await sleep(REQUEST_DELAY_MS);
     }
   }
 
-  const householdMap = new Map(
-    householdEntries.map(entry => [[entry.sigunguCode, entry.umdName, entry.aptName].join('|'), entry]),
-  );
-
-  const householdsPayload = {
-    meta: {
-      source: 'MOLIT_APT_BASIS_INFO_V4',
-      generatedAt: new Date().toISOString(),
-      startIndex: START_INDEX,
-      limit: LIMIT || null,
-      matchedTargetCount: matchedTargets.length,
-      fetchedCount,
-      scope: SCOPE,
-      fetchDetail: FETCH_DETAIL,
-      unmatchedTargetCount: 0,
-      householdCount: householdEntries.length,
-    },
-    unmatchedTargets: [],
-    entries: householdEntries,
-  };
-
-  const mergedSummary = mergeHouseholdsIntoSummary(summary, householdMap);
-
-  await Promise.all([
-    fs.writeFile(outputPath, `${JSON.stringify(householdsPayload)}\n`, 'utf8'),
-    fs.writeFile(summaryPath, `${JSON.stringify(mergedSummary)}\n`, 'utf8'),
-  ]);
-
   console.log(`Wrote ${outputPath}`);
   console.log(`Merged ${householdEntries.length} household entries into ${summaryPath}`);
-  console.log(`Scope=${SCOPE}, Matched=${matchedTargets.length}, Fetched=${fetchedCount}`);
+  console.log(`Scope=${SCOPE}, Matched=${matchedTargets.length}, Fetched=${fetchedCount}, Failed=${failedTargets.length}`);
 }
 
 main().catch(error => {
