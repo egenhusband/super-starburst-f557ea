@@ -1,9 +1,9 @@
 const DASHBOARD_APT_CODE_MAP_URL = '/data/apt-code-map.json?v=20260506b';
 const DASHBOARD_APT_HOUSEHOLDS_URL = '/data/apt-households.json?v=20260506b';
 const DASHBOARD_APT_SCHOOL_META_URL = '/data/apt-school-meta.json?v=20260507a';
-const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260507a';
+const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260510a';
 const DASHBOARD_SUBWAY_TIMES_URL = '/data/subway-seoul-times.json?v=20260509b';
-const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v6';
+const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v7';
 const DASHBOARD_APT_SEARCH_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
 const DASHBOARD_SUBWAY_TIMES_CACHE_KEY = 'dashboard_subway_times_v3';
 const DASHBOARD_SUBWAY_TIMES_CACHE_TTL = 90 * 24 * 60 * 60 * 1000;
@@ -252,11 +252,40 @@ function formatPriceLevelSummary(entry) {
   return '가격 레벨 데이터 보강 중';
 }
 
-function formatBusinessDistrictSummary(result) {
-  if (!result?.available || !result.bestDistrict || !Number.isFinite(result.totalMinutes)) {
-    return '서울 지하철 시간 데이터 준비 중';
+function splitDistanceLabel(rawLabel) {
+  const label = String(rawLabel || '').trim();
+  if (!label) return { primary: '', secondary: '' };
+  const parts = label.split('·').map(part => part.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return {
+      primary: parts[0],
+      secondary: parts.slice(1).join(' · '),
+    };
   }
-  return `${result.bestDistrict.label} · ${result.totalMinutes}분`;
+  return { primary: label, secondary: '' };
+}
+
+function formatBusinessDistrictSummary(result) {
+  if (!result?.available || !Array.isArray(result.candidates) || !result.candidates.length) {
+    return ['서울 지하철 시간 데이터 준비 중'];
+  }
+  return result.candidates
+    .slice(0, 2)
+    .map(candidate => `${candidate.district.label} ${candidate.totalMinutes}분`);
+}
+
+function formatGradeClassName(grade) {
+  const normalized = String(grade || '')
+    .toLowerCase()
+    .replace(/\+/g, '-plus')
+    .replace(/[^a-z-]/g, '');
+  return normalized || 'pending';
+}
+
+function renderBusinessDistrictSummaryHtml(result) {
+  return formatBusinessDistrictSummary(result)
+    .map(line => `<strong>${escapeHtml(line)}</strong>`)
+    .join('');
 }
 
 function buildSchoolMetaCompositeKey(sigunguName, umdName, aptName) {
@@ -453,7 +482,7 @@ function computeBusinessDistrictScore(entry, insight) {
     };
   }
 
-  let bestCandidate = null;
+  const candidates = [];
   CORE_BUSINESS_DISTRICTS.forEach(district => {
     const targetIds = district.stationNames.flatMap(name => {
       const token = normalizeStationToken(name);
@@ -465,14 +494,15 @@ function computeBusinessDistrictScore(entry, insight) {
     if (!path) return;
 
     const totalMinutes = path.minutes + (Number.isFinite(walkMinutes) ? walkMinutes : 0);
-    if (!bestCandidate || totalMinutes < bestCandidate.totalMinutes) {
-      bestCandidate = {
-        district,
-        path,
-        totalMinutes,
-      };
-    }
+    candidates.push({
+      district,
+      path,
+      totalMinutes,
+    });
   });
+
+  candidates.sort((a, b) => a.totalMinutes - b.totalMinutes);
+  const bestCandidate = candidates[0] || null;
 
   if (!bestCandidate) {
     return {
@@ -481,10 +511,19 @@ function computeBusinessDistrictScore(entry, insight) {
       label: '대표역 도착 시간을 계산할 서울 구간 데이터가 아직 부족해요.',
       bestDistrict: null,
       totalMinutes: null,
+      candidates: [],
     };
   }
 
   const totalMinutes = Math.max(1, Math.round(bestCandidate.totalMinutes));
+  const topCandidates = candidates.slice(0, 2).map(candidate => ({
+    district: {
+      key: candidate.district.key,
+      label: candidate.district.label,
+      shortLabel: candidate.district.shortLabel,
+    },
+    totalMinutes: Math.max(1, Math.round(candidate.totalMinutes)),
+  }));
   const score = totalMinutes <= 20 ? 25
     : totalMinutes <= 30 ? 22
     : totalMinutes <= 40 ? 17
@@ -501,6 +540,7 @@ function computeBusinessDistrictScore(entry, insight) {
       shortLabel: bestCandidate.district.shortLabel,
     },
     totalMinutes,
+    candidates: topCandidates,
   };
 }
 
@@ -576,44 +616,42 @@ function computeDashboardApartmentGrade(entry, insight) {
   ];
 
   const availableDimensions = dimensions.filter(item => item.available);
-  const possibleScore = availableDimensions.reduce((sum, item) => sum + item.weight, 0);
-  const earnedScore = availableDimensions.reduce((sum, item) => {
-    const maxScore = item.key === 'priceLevel' ? 30
-      : item.key === 'school' ? 40
-      : item.key === 'station' ? 25
-      : item.key === 'household' ? 8
-      : item.key === 'newBuild' ? 12
-      : 25;
-    return sum + ((item.result.score / maxScore) * item.weight);
-  }, 0);
+  const priceLevel = [
+    Number(entry?.avgPrice || 0) || null,
+    Number(entry?.latestTradePrice || 0) || null,
+    Number(entry?.medianOfficialPrice || 0) || null,
+    Number(entry?.avgOfficialPrice || 0) || null,
+  ].filter(Number.isFinite).sort((a, b) => b - a)[0] || null;
+  const age = Number.isFinite(entry.buildYear) ? (new Date().getFullYear() - entry.buildYear) : null;
+  const hasAnchor = Boolean(
+    priceLevelSource !== null
+    || Number.isFinite(stationDistance)
+    || businessDistrictResult.available,
+  );
 
-  const normalizedScore = possibleScore > 0
-    ? Math.round((earnedScore / possibleScore) * 100)
-    : null;
-
-  const sBonusConditions = [
+  const sConditions = [
     Number.isFinite(schoolDistance) && schoolDistance <= 400,
     Number.isFinite(entry.householdCount) && entry.householdCount >= 700,
-    Number.isFinite(entry.buildYear) && (new Date().getFullYear() - entry.buildYear) <= 5,
-    priceLevelResult.score >= 25,
+    Number.isFinite(age) && age <= 5,
   ].filter(Boolean).length;
 
-  const isLuxurySGrade = isLuxuryPriceTier(entry, { includeOfficial: true });
-  const isSGrade = Number.isFinite(businessDistrictResult?.totalMinutes)
-    && businessDistrictResult.totalMinutes <= 20
-    && Number.isFinite(stationDistance)
-    && stationDistance <= 400
-    && sBonusConditions >= 1;
+  const aPlusConditions = [
+    Number.isFinite(schoolDistance) && schoolDistance <= 500,
+    Number.isFinite(entry.householdCount) && entry.householdCount >= 500,
+    Number.isFinite(age) && age <= 10,
+  ].filter(Boolean).length;
 
-  const isCorePremium = Number.isFinite(businessDistrictResult?.totalMinutes)
-    && businessDistrictResult.totalMinutes <= 26
-    && Number.isFinite(stationDistance)
-    && stationDistance <= 600;
+  const aConditions = [
+    Number.isFinite(schoolDistance) && schoolDistance <= 700,
+    Number.isFinite(entry.householdCount) && entry.householdCount >= 500,
+    Number.isFinite(age) && age <= 15,
+  ].filter(Boolean).length;
 
-  const isLuxuryCorePremium = isLuxuryPriceTier(entry, { includeOfficial: true })
-    && (Number.isFinite(businessDistrictResult?.totalMinutes)
-      ? businessDistrictResult.totalMinutes <= 32
-      : Number.isFinite(stationDistance) && stationDistance <= 500);
+  const cPlusConditions = [
+    Number.isFinite(schoolDistance) && schoolDistance <= 800,
+    Number.isFinite(entry.householdCount) && entry.householdCount >= 300,
+    Number.isFinite(age) && age <= 20,
+  ].filter(Boolean).length;
 
   const missingLabels = dimensions
     .filter(item => !item.available)
@@ -631,24 +669,53 @@ function computeDashboardApartmentGrade(entry, insight) {
 
   const missingCount = missingLabels.length;
   const availableCount = availableDimensions.length;
-  const anchorAvailable = Boolean(
-    dimensions.find(item => item.key === 'priceLevel')?.available
-    || dimensions.find(item => item.key === 'station')?.available
-    || dimensions.find(item => item.key === 'businessDistrict')?.available,
-  );
-  const shouldHold = availableCount <= 1 || !anchorAvailable;
+  const shouldHold = availableCount <= 1 || !hasAnchor;
 
-  const grade = shouldHold
-    ? null
-    : normalizedScore === null
-    ? null
-    : isLuxurySGrade ? 'S'
-      : isSGrade ? 'S'
-      : isLuxuryCorePremium ? 'A'
-        : isCorePremium ? 'A'
-        : normalizedScore >= 75 ? 'A'
-        : normalizedScore >= 55 ? 'B'
-          : 'C';
+  let grade = null;
+  if (!shouldHold) {
+    if (
+      Number.isFinite(priceLevel) && priceLevel >= 300000
+      && Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 20
+      && Number.isFinite(stationDistance) && stationDistance <= 400
+    ) {
+      grade = 'S+';
+    } else if (
+      (Number.isFinite(priceLevel) && priceLevel >= 200000)
+      || (
+        Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 20
+        && Number.isFinite(stationDistance) && stationDistance <= 400
+        && sConditions >= 2
+      )
+    ) {
+      grade = 'S';
+    } else if (
+      Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 25
+      && Number.isFinite(stationDistance) && stationDistance <= 500
+      && aPlusConditions >= 2
+    ) {
+      grade = 'A+';
+    } else if (
+      Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 35
+      && Number.isFinite(stationDistance) && stationDistance <= 700
+      && aConditions >= 1
+    ) {
+      grade = 'A';
+    } else if (
+      (Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 45)
+      || (Number.isFinite(priceLevel) && priceLevel >= 100000)
+    ) {
+      grade = 'B+';
+    } else if (
+      (Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 55)
+      || (Number.isFinite(stationDistance) && stationDistance <= 1000)
+    ) {
+      grade = 'B';
+    } else if (cPlusConditions >= 1) {
+      grade = 'C+';
+    } else {
+      grade = 'C';
+    }
+  }
 
   return {
     ready: grade !== null || shouldHold,
@@ -658,9 +725,13 @@ function computeDashboardApartmentGrade(entry, insight) {
     reasons: [
       ...(shouldHold ? ['아직 핵심 축이 너무 적어서 등급 판단을 잠시 미뤘어요.'] : []),
       ...(hasOfficialFallback ? ['실거래 커버리지가 얇아 가격 레벨은 공시가격으로 우선 보완했어요.'] : []),
-      ...(isLuxurySGrade ? ['20억 이상 초고가 아파트 기준에 들어오는 최상위 가격대 단지'] : []),
-      ...(isSGrade ? ['핵심 업무지구 20분 안팎으로 닿고 생활 조건도 함께 강한 최상위 입지'] : []),
-      ...(!isSGrade && isLuxuryCorePremium ? ['평균 거래가가 높은 핵심 입지로 상급지 해석이 자연스러운 단지'] : []),
+      ...(grade === 'S+' ? ['30억 이상 초고가이면서 핵심 업무지구와 역세권 조건까지 모두 강한 최상위 입지'] : []),
+      ...(grade === 'S' ? ['20억 이상 초고가이거나 핵심 업무지구 20분 내 직주근접이 강한 단지'] : []),
+      ...(grade === 'A+' ? ['핵심 업무지구와 역 접근이 모두 좋은 상급 입지'] : []),
+      ...(grade === 'A' ? ['역세권과 업무지구 접근성 중 핵심 조건이 안정적으로 받쳐주는 단지'] : []),
+      ...(grade === 'B+' ? ['직주근접 또는 가격 레벨 중 하나가 분명한 단지'] : []),
+      ...(grade === 'B' ? ['핵심 업무지구 또는 역 접근성에서 기본 경쟁력이 있는 단지'] : []),
+      ...(grade === 'C+' ? ['강점 축은 제한적이지만 생활 조건에서 일부 장점이 보이는 단지'] : []),
       ...availableDimensions.map(item => item.result.label),
       ...(missingLabels.length ? [`아직 ${missingLabels.join(', ')} 데이터는 순차 보강 중이에요.`] : []),
     ].slice(0, 3),
@@ -986,12 +1057,14 @@ function renderDashboardSelectedApartment() {
 
   if (dashboardAptSearchState.isEditing) {
     target.innerHTML = '';
+    delete target.dataset.renderedEntryId;
     return;
   }
 
   const entry = getDashboardSelectedEntry();
   if (!entry) {
     target.innerHTML = '';
+    delete target.dataset.renderedEntryId;
     return;
   }
 
@@ -1000,12 +1073,14 @@ function renderDashboardSelectedApartment() {
   const businessDistrictData = insight?.ready ? computeBusinessDistrictScore(entry, insight) : null;
   const isGradeReady = gradeData?.ready && gradeData?.grade;
   const isGradeWithheld = Boolean(gradeData?.withheld);
-  const gradeClass = isGradeReady ? `grade-${gradeData.grade.toLowerCase()}` : isGradeWithheld ? 'grade-pending' : 'grade-pending';
+  const gradeClass = isGradeReady ? `grade-${formatGradeClassName(gradeData.grade)}` : isGradeWithheld ? 'grade-pending' : 'grade-pending';
   const stationText = formatStationSummary(entry, insight);
   const schoolDistance = getSchoolMetaDistance(entry);
   const schoolText = entry.schoolName && Number.isFinite(schoolDistance)
     ? `${entry.schoolName} · 직선 ${formatDistance(schoolDistance)}`
     : '초등학교 거리 확인 중';
+  const schoolParts = splitDistanceLabel(schoolText);
+  const stationParts = splitDistanceLabel(stationText);
   const statusText = !insight?.ready
     ? '단지 입지 데이터를 불러오는 중이에요.'
     : gradeData?.withheld
@@ -1029,11 +1104,13 @@ function renderDashboardSelectedApartment() {
       <div class="db-apt-grade-grid">
         <div class="db-apt-grade-chip">
           <span>초품아</span>
-          <strong>${escapeHtml(schoolText)}</strong>
+          <strong>${escapeHtml(schoolParts.primary || schoolText)}</strong>
+          ${schoolParts.secondary ? `<em>${escapeHtml(schoolParts.secondary)}</em>` : ''}
         </div>
         <div class="db-apt-grade-chip">
           <span>가까운 역</span>
-          <strong>${escapeHtml(stationText)}</strong>
+          <strong>${escapeHtml(stationParts.primary || stationText)}</strong>
+          ${stationParts.secondary ? `<em>${escapeHtml(stationParts.secondary)}</em>` : ''}
         </div>
         <div class="db-apt-grade-chip">
           <span>세대수</span>
@@ -1045,7 +1122,7 @@ function renderDashboardSelectedApartment() {
         </div>
         <div class="db-apt-grade-chip">
           <span>핵심 업무지구</span>
-          <strong>${escapeHtml(formatBusinessDistrictSummary(businessDistrictData))}</strong>
+          <strong class="db-apt-grade-business-lines">${renderBusinessDistrictSummaryHtml(businessDistrictData)}</strong>
         </div>
         <div class="db-apt-grade-chip">
           <span>가격 레벨</span>
@@ -1059,6 +1136,8 @@ function renderDashboardSelectedApartment() {
       </div>
     </article>
   `;
+
+  target.dataset.renderedEntryId = entry.id;
 }
 
 function syncDashboardAptSearchUi() {

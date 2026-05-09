@@ -336,7 +336,7 @@
 <script>
   let activeScreen = 'calculator';
   let screenTransitionTimer = null;
-  const SCREEN_TRANSITION_MS = 460;
+  const SCREEN_TRANSITION_MS = 560;
   const calculatorUiState = {
     bottomNavDisplay: 'flex',
     progressWrapDisplay: 'block',
@@ -372,6 +372,8 @@
       'screen-to-dashboard',
       'screen-from-dashboard',
       'screen-to-calculator',
+      'screen-from-apt-search',
+      'screen-to-apt-search',
       'screen-apt-search-active'
     );
   }
@@ -384,10 +386,21 @@
     if (!app || !screen) return;
 
     if (activeScreen === 'apt-search') {
+      clearScreenTransition(app);
       activeScreen = 'dashboard';
-      if (aptScreen) aptScreen.style.display = 'none';
-      app.classList.remove('screen-apt-search-active');
-      app.classList.add('screen-dashboard-active');
+      screen.style.display = 'block';
+      if (aptScreen) aptScreen.style.display = 'block';
+      app.classList.add('screen-dashboard-active', 'screen-transitioning', 'screen-apt-search-active', 'screen-from-apt-search');
+      requestAnimationFrame(() => {
+        app.classList.remove('screen-from-apt-search');
+        app.classList.add('screen-to-dashboard');
+      });
+      screenTransitionTimer = setTimeout(() => {
+        if (aptScreen) aptScreen.style.display = 'none';
+        app.classList.remove('screen-transitioning', 'screen-to-dashboard', 'screen-apt-search-active');
+        app.classList.add('screen-dashboard-active');
+        screenTransitionTimer = null;
+      }, SCREEN_TRANSITION_MS);
       return;
     }
 
@@ -469,11 +482,22 @@
     activeScreen = 'apt-search';
     dashboardScreen.style.display = 'block';
     aptScreen.style.display = 'block';
-    app.classList.add('screen-dashboard-active', 'screen-apt-search-active');
 
     if (typeof renderAptSearchScreen === 'function') {
       renderAptSearchScreen();
     }
+
+    app.classList.add('screen-dashboard-active', 'screen-transitioning', 'screen-from-dashboard');
+    requestAnimationFrame(() => {
+      app.classList.remove('screen-from-dashboard');
+      app.classList.add('screen-apt-search-active', 'screen-to-apt-search');
+    });
+
+    screenTransitionTimer = setTimeout(() => {
+      app.classList.remove('screen-transitioning', 'screen-to-apt-search');
+      app.classList.add('screen-dashboard-active', 'screen-apt-search-active');
+      screenTransitionTimer = null;
+    }, SCREEN_TRANSITION_MS);
   }
 </script>
 <script src="calculator.js"></script>
