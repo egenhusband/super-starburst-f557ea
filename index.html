@@ -6,6 +6,7 @@
 <title>주택 기금대출 추천</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="style.css">
+<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 </head>
 <body>
 <div class="app">
@@ -503,6 +504,88 @@
 <script src="calculator.js"></script>
 <script src="dashboard.js"></script>
 <script src="dashboard-apt-search.js"></script>
+<script>
+  (function () {
+    const params = new URLSearchParams(window.location.search);
+    const captureState = params.get('captureState');
+    if (!captureState) return;
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const waitFor = async (test, timeout = 12000, interval = 120) => {
+      const start = Date.now();
+      while (Date.now() - start < timeout) {
+        try {
+          const value = test();
+          if (value) return value;
+        } catch {}
+        await sleep(interval);
+      }
+      return null;
+    };
+
+    const activateResultSlide = () => {
+      const slides = document.querySelectorAll('.slide');
+      slides.forEach(slide => slide.classList.remove('active', 'exit-left', 'exit-right'));
+      const resultSlide = document.querySelector('[data-slide="8"]');
+      if (resultSlide) resultSlide.classList.add('active');
+      current = 8;
+      const bottomNav = document.getElementById('bottomNav');
+      const progressWrap = document.getElementById('progressWrap');
+      if (bottomNav) bottomNav.style.display = 'none';
+      if (progressWrap) progressWrap.style.display = 'none';
+    };
+
+    const runCaptureState = async () => {
+      await waitFor(() => typeof showCalculator === 'function' && typeof showDashboard === 'function', 12000);
+      await sleep(180);
+
+      if (captureState === 'dashboard') {
+        showDashboard();
+        return;
+      }
+
+      if (captureState === 'slide') {
+        showCalculator();
+        await sleep(120);
+        selectLoanType('fund');
+        await sleep(40);
+        navigateTo(1, 'forward');
+        return;
+      }
+
+      if (captureState === 'result') {
+        showCalculator();
+        await sleep(120);
+        loanType = 'fund';
+        answers.household = '신혼';
+        answers.house = '생애최초';
+        answers.children = '신생아';
+        answers.region = '수도권';
+        renderResult(8000, 6, 5, 0);
+        activateResultSlide();
+        return;
+      }
+
+      if (captureState === 'apt-list' || captureState === 'apt-card') {
+        showDashboard();
+        await sleep(900);
+        showAptSearchScreen();
+        await waitFor(() => document.getElementById('dbAptSearchInput'), 12000);
+        await sleep(120);
+        handleDashboardAptSearchInput({ target: { value: '성수' } });
+        const firstItem = await waitFor(() => document.querySelector('.db-apt-search-item'), 12000);
+        if (!firstItem) return;
+        if (captureState === 'apt-list') return;
+        firstItem.click();
+        await waitFor(() => document.querySelector('.db-apt-grade-card'), 12000);
+      }
+    };
+
+    window.addEventListener('load', () => {
+      setTimeout(() => { runCaptureState().catch(() => {}); }, 120);
+    }, { once: true });
+  })();
+</script>
 
 <!-- 우대금리 상한 토스트 -->
 <div class="pref-toast" id="prefToast">
