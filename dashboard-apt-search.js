@@ -66,6 +66,7 @@ const dashboardAptSearchState = {
   entries: [],
   entriesById: new Map(),
   query: '',
+  lastSearchQuery: '',
   results: [],
   selectedId: '',
   selectedInsight: null,
@@ -996,6 +997,7 @@ function renderAptSearchScreenLayout() {
         <div class="db-apt-search-results" id="dbAptSearchResults"></div>
         <div class="db-apt-search-selected" id="dbAptSearchSelected"></div>
       </div>
+      <div class="db-apt-search-toast-layer" id="dbAptSearchToast"></div>
     </div>
   `;
 }
@@ -1086,7 +1088,6 @@ function renderDashboardSelectedApartment() {
     : gradeData?.withheld
       ? '핵심 축이 너무 적어서 등급은 잠시 보류하고, 확보된 정보만 먼저 보여드려요.'
       : '선택한 단지 기준으로 정적 입지 데이터를 묶어서 정리했어요.';
-
   target.innerHTML = `
     <article class="db-apt-grade-card">
       <div class="db-apt-grade-head">
@@ -1140,12 +1141,45 @@ function renderDashboardSelectedApartment() {
   target.dataset.renderedEntryId = entry.id;
 }
 
+function renderDashboardAptSearchToast() {
+  const toast = document.getElementById('dbAptSearchToast');
+  const pageBody = document.querySelector('.db-apt-page-body');
+  if (!toast || !pageBody) return;
+
+  const hasReturnResults = Boolean(
+    !dashboardAptSearchState.isEditing
+    && dashboardAptSearchState.selectedId
+    && dashboardAptSearchState.lastSearchQuery.trim(),
+  );
+
+  pageBody.classList.toggle('has-search-toast', hasReturnResults);
+
+  if (!hasReturnResults) {
+    toast.classList.remove('is-visible');
+    toast.innerHTML = '';
+    return;
+  }
+
+  toast.innerHTML = `
+    <button class="db-apt-grade-return" type="button" onclick="returnToDashboardAptResults()">
+      다시 검색 결과 보기
+    </button>
+  `;
+  toast.classList.remove('is-visible');
+  window.requestAnimationFrame(() => {
+    const nextToast = document.getElementById('dbAptSearchToast');
+    if (!nextToast) return;
+    nextToast.classList.add('is-visible');
+  });
+}
+
 function syncDashboardAptSearchUi() {
   renderDashboardAptSearchBar();
   renderAptSearchScreenLayout();
   renderDashboardAptSearchHint();
   renderDashboardAptSearchResults();
   renderDashboardSelectedApartment();
+  renderDashboardAptSearchToast();
 }
 
 function renderDashboardAptSearchSection() {
@@ -1156,15 +1190,18 @@ function renderDashboardAptSearchSection() {
 
 function handleDashboardAptSearchInput(event) {
   dashboardAptSearchState.query = event?.target?.value || '';
+  dashboardAptSearchState.lastSearchQuery = dashboardAptSearchState.query.trim();
   dashboardAptSearchState.isEditing = true;
   if (!dashboardAptSearchState.query.trim()) {
     dashboardAptSearchState.selectedId = '';
     dashboardAptSearchState.selectedInsight = null;
+    dashboardAptSearchState.lastSearchQuery = '';
   }
   updateDashboardAptSearchResults();
   renderDashboardAptSearchHint();
   renderDashboardAptSearchResults();
   renderDashboardSelectedApartment();
+  renderDashboardAptSearchToast();
 }
 
 function handleDashboardAptSearchFocus() {
@@ -1173,6 +1210,7 @@ function handleDashboardAptSearchFocus() {
   renderDashboardAptSearchHint();
   renderDashboardAptSearchResults();
   renderDashboardSelectedApartment();
+  renderDashboardAptSearchToast();
 }
 
 function handleDashboardAptSearchKeydown(event) {
@@ -1224,6 +1262,10 @@ function pickDashboardApartment(id) {
   const entry = dashboardAptSearchState.entriesById.get(id);
   if (!entry) return;
 
+  const currentQuery = dashboardAptSearchState.query.trim();
+  if (currentQuery) {
+    dashboardAptSearchState.lastSearchQuery = currentQuery;
+  }
   dashboardAptSearchState.selectedId = id;
   dashboardAptSearchState.isEditing = false;
   dashboardAptSearchState.query = `${entry.aptName} ${entry.displayLocation}`.trim();
@@ -1233,6 +1275,29 @@ function pickDashboardApartment(id) {
   const input = document.getElementById('dbAptSearchInput');
   if (input) input.value = dashboardAptSearchState.query;
   hydrateDashboardApartmentInsight(entry);
+}
+
+function returnToDashboardAptResults() {
+  const query = dashboardAptSearchState.lastSearchQuery.trim();
+  if (!query) return;
+
+  dashboardAptSearchState.query = query;
+  dashboardAptSearchState.isEditing = true;
+  updateDashboardAptSearchResults();
+  renderDashboardAptSearchHint();
+  renderDashboardAptSearchResults();
+  renderDashboardSelectedApartment();
+  renderDashboardAptSearchToast();
+
+  const input = document.getElementById('dbAptSearchInput');
+  if (input) {
+    input.value = query;
+    input.focus();
+    if (typeof input.setSelectionRange === 'function') {
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+    }
+  }
 }
 
 function renderAptSearchScreen() {
@@ -1251,3 +1316,4 @@ window.handleDashboardAptSearchInput = handleDashboardAptSearchInput;
 window.handleDashboardAptSearchFocus = handleDashboardAptSearchFocus;
 window.handleDashboardAptSearchKeydown = handleDashboardAptSearchKeydown;
 window.pickDashboardApartment = pickDashboardApartment;
+window.returnToDashboardAptResults = returnToDashboardAptResults;
