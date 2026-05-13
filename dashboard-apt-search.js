@@ -75,6 +75,11 @@ const dashboardAptSearchState = {
   ready: false,
   error: '',
 };
+const dashboardAptLoanState = {
+  entryId: '',
+  loanType: 'fund',
+  price: '',
+};
 
 function getDashboardAptRegionFilter() {
   return 'capital';
@@ -1135,10 +1140,111 @@ function renderDashboardSelectedApartment() {
           ${(gradeData?.reasons || ['초품아 거리와 가까운 역 거리를 우선 정리하는 중이에요.']).map(reason => `<p>${escapeHtml(reason)}</p>`).join('')}
         </div>
       </div>
+      <button class="db-apt-loan-cta" type="button" onclick='openAptLoanSheet(${JSON.stringify(entry.id)})'>
+        <span>${icon('calculator', 18)}</span>
+        이 단지로 대출 계산하기
+      </button>
     </article>
   `;
 
   target.dataset.renderedEntryId = entry.id;
+}
+
+function getDashboardAptBasisPriceManwon(entry) {
+  if (!entry) return null;
+  const candidates = [
+    Number(entry.latestTradePrice || 0),
+    Number(entry.avgPrice || 0),
+    Number(entry.medianOfficialPrice || 0),
+    Number(entry.avgOfficialPrice || 0),
+    Number(entry.maxOfficialPrice || 0),
+  ].filter(value => Number.isFinite(value) && value > 0);
+  return candidates.length ? candidates[0] : null;
+}
+
+function formatDashboardAptPriceEok(priceManwon) {
+  if (!Number.isFinite(priceManwon) || priceManwon <= 0) return '';
+  const eok = priceManwon / 10000;
+  return Number.isInteger(eok) ? String(eok) : eok.toFixed(1).replace(/\.0$/, '');
+}
+
+function updateAptLoanSheetState() {
+  const input = document.getElementById('aptLoanPriceInput');
+  const submit = document.getElementById('aptLoanSubmitBtn');
+  const price = input?.value?.trim() || '';
+  dashboardAptLoanState.price = price;
+
+  if (submit) {
+    submit.disabled = !(parseFloat(price) > 0);
+    submit.textContent = dashboardAptLoanState.loanType === 'bank'
+      ? '시중대출 비교 입력하기'
+      : '기금대출 조건 확인하기';
+  }
+}
+
+function setAptLoanType(type) {
+  dashboardAptLoanState.loanType = type === 'bank' ? 'bank' : 'fund';
+  document.querySelectorAll('.apt-loan-type').forEach(button => {
+    button.classList.toggle('active', button.dataset.loanType === dashboardAptLoanState.loanType);
+  });
+  updateAptLoanSheetState();
+}
+
+function openAptLoanSheet(entryId) {
+  const entry = dashboardAptSearchState.entriesById.get(entryId) || getDashboardSelectedEntry();
+  if (!entry) return;
+
+  const overlay = document.getElementById('aptLoanSheetOverlay');
+  const sheet = document.getElementById('aptLoanSheet');
+  const input = document.getElementById('aptLoanPriceInput');
+  const desc = document.getElementById('aptLoanSheetDesc');
+  if (!overlay || !sheet || !input) return;
+
+  const priceManwon = getDashboardAptBasisPriceManwon(entry);
+  const basisPrice = formatDashboardAptPriceEok(priceManwon);
+  dashboardAptLoanState.entryId = entry.id;
+  dashboardAptLoanState.price = basisPrice;
+  input.value = basisPrice;
+  if (desc) {
+    desc.textContent = basisPrice
+      ? `${entry.aptName} 기준 가격을 확인하고 필요하면 직접 수정해주세요.`
+      : `${entry.aptName}의 매수 예정가나 확인한 실거래가를 직접 입력해주세요.`;
+  }
+
+  setAptLoanType(dashboardAptLoanState.loanType);
+  overlay.classList.add('open');
+  sheet.classList.add('open');
+  if (typeof window.renderIcons === 'function') window.renderIcons(sheet);
+  window.setTimeout(() => input.focus(), 260);
+}
+
+function closeAptLoanSheet() {
+  document.getElementById('aptLoanSheetOverlay')?.classList.remove('open');
+  document.getElementById('aptLoanSheet')?.classList.remove('open');
+}
+
+function submitAptLoanSheet() {
+  const price = parseFloat(document.getElementById('aptLoanPriceInput')?.value);
+  if (!(price > 0)) return;
+
+  closeAptLoanSheet();
+  if (typeof startCalculatorFromApartment !== 'function') return;
+
+  startCalculatorFromApartment({
+    loanType: dashboardAptLoanState.loanType,
+    price,
+  });
+}
+
+let dashboardAptToastExitTimer = null;
+
+function getDashboardAptMotionMs(varName, fallback) {
+  if (typeof getMotionMs === 'function') return getMotionMs(varName, fallback);
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  if (!raw) return fallback;
+  if (raw.endsWith('ms')) return parseFloat(raw) || fallback;
+  if (raw.endsWith('s')) return (parseFloat(raw) || 0) * 1000 || fallback;
+  return parseFloat(raw) || fallback;
 }
 
 function renderDashboardAptSearchToast() {
@@ -1155,22 +1261,38 @@ function renderDashboardAptSearchToast() {
   pageBody.classList.toggle('has-search-toast', hasReturnResults);
 
   if (!hasReturnResults) {
+    if (dashboardAptToastExitTimer) clearTimeout(dashboardAptToastExitTimer);
     toast.classList.remove('is-visible');
-    toast.innerHTML = '';
+    dashboardAptToastExitTimer = window.setTimeout(() => {
+      const nextToast = document.getElementById('dbAptSearchToast');
+      if (nextToast && !nextToast.classList.contains('is-visible')) nextToast.innerHTML = '';
+    }, getDashboardAptMotionMs('--motion-toast-exit', 250));
     return;
   }
 
-  toast.innerHTML = `
-    <button class="db-apt-grade-return" type="button" onclick="returnToDashboardAptResults()">
-      다시 검색 결과 보기
-    </button>
-  `;
-  toast.classList.remove('is-visible');
-  window.requestAnimationFrame(() => {
+  if (toast.classList.contains('is-visible') && toast.querySelector('.db-apt-grade-return')) {
+    return;
+  }
+
+  const showToast = () => {
     const nextToast = document.getElementById('dbAptSearchToast');
     if (!nextToast) return;
+    nextToast.innerHTML = `
+      <button class="db-apt-grade-return" type="button" onclick="returnToDashboardAptResults()">
+        다시 검색 결과 보기
+      </button>
+    `;
     nextToast.classList.add('is-visible');
-  });
+  };
+
+  if (dashboardAptToastExitTimer) clearTimeout(dashboardAptToastExitTimer);
+  if (toast.classList.contains('is-visible')) {
+    toast.classList.remove('is-visible');
+    dashboardAptToastExitTimer = window.setTimeout(showToast, getDashboardAptMotionMs('--motion-toast-exit', 250));
+    return;
+  }
+
+  window.requestAnimationFrame(showToast);
 }
 
 function syncDashboardAptSearchUi() {
@@ -1317,3 +1439,8 @@ window.handleDashboardAptSearchFocus = handleDashboardAptSearchFocus;
 window.handleDashboardAptSearchKeydown = handleDashboardAptSearchKeydown;
 window.pickDashboardApartment = pickDashboardApartment;
 window.returnToDashboardAptResults = returnToDashboardAptResults;
+window.openAptLoanSheet = openAptLoanSheet;
+window.closeAptLoanSheet = closeAptLoanSheet;
+window.setAptLoanType = setAptLoanType;
+window.updateAptLoanSheetState = updateAptLoanSheetState;
+window.submitAptLoanSheet = submitAptLoanSheet;

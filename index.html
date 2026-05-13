@@ -18,13 +18,13 @@
   <!-- 비밀번호 진입 화면 -->
   <div class="pw-screen" id="pwScreen">
     <div style="width:100%;max-width:390px;display:flex;flex-direction:column;align-items:center">
-    <div class="pw-logo">☕</div>
+    <div class="pw-logo" data-icon="coffee" data-icon-size="34"></div>
     <div style="margin-bottom:12px;text-align:center">
       <div class="pw-copy-line">커피 한 잔 값으로</div>
       <div class="pw-copy-line">나한테 맞는 대출 상품</div>
       <div class="pw-copy-line"><span class="pw-shimmer">3초 만에</span> 찾아보세요</div>
     </div>
-    <div class="pw-sub">지금 바로 구매하지 않아도 괜찮아요.<br>먼저 둘러보고 결정하셔도 돼요 😊</div>
+    <div class="pw-sub">지금 바로 구매하지 않아도 괜찮아요.<br>먼저 둘러보고 결정하셔도 돼요</div>
     <div class="pw-input-wrap">
       <input class="pw-input" id="pwInput" type="password" placeholder="비밀번호 입력"
         oninput="document.getElementById('btnPwSubmit').disabled = this.value.length === 0"
@@ -32,7 +32,7 @@
       <button class="btn-pw-submit" id="btnPwSubmit" onclick="submitPassword()" disabled>입장하기</button>
     </div>
     <div class="pw-err" id="pwErr"></div>
-    <a class="btn-pw-pay" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">💳 결제하러 가기</a>
+    <a class="btn-pw-pay" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener"><span data-icon="creditCard" data-icon-size="16"></span>결제하러 가기</a>
     <button class="btn-pw-guest" onclick="enterAsGuest()">둘러볼게요</button>
     </div>
   </div>
@@ -40,13 +40,13 @@
   <!-- 결제 유도 팝업 -->
   <div class="pay-overlay" id="payOverlay">
     <div class="pay-sheet">
-      <div class="pay-icon">☕</div>
+      <div class="pay-icon" data-icon="coffee" data-icon-size="28"></div>
       <div class="pay-copy"><span class="shimmer-text">커피 한 잔</span> 값으로<br>실시간 규제 반영한<br>계산기 사용해 보세요!</div>
       <div class="pay-copy-sub">대출 분석 결과는 구매 후 이용하실 수 있어요.<br>이미 구매하셨다면 비밀번호로 입장해 주세요.</div>
       <a class="btn-pay-go" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">
-        💳 결제하러 가기
+        <span data-icon="creditCard" data-icon-size="16"></span>결제하러 가기
       </a>
-      <button class="btn-pay-pw" onclick="closePayAndShowPw()">🔑 비밀번호 입력하러 가기</button>
+      <button class="btn-pay-pw" onclick="closePayAndShowPw()"><span data-icon="keyRound" data-icon-size="16"></span>비밀번호 입력하러 가기</button>
     </div>
   </div>
 
@@ -108,7 +108,7 @@
         </div>
         <div class="option-card" data-group="loanType" data-val="bank" onclick="selectLoanType('bank')">
           <div>
-            <div class="option-title">🏦 시중 대출</div>
+            <div class="option-title"><span data-icon="landmark" data-icon-size="18"></span> 시중 대출</div>
             <div class="option-desc">주요 은행 · 저축 은행 - 시중 주담대 상품</div>
           </div>
           <div class="option-check"></div>
@@ -501,6 +501,7 @@
     }, SCREEN_TRANSITION_MS);
   }
 </script>
+<script src="icons.js"></script>
 <script src="calculator.js"></script>
 <script src="dashboard.js"></script>
 <script src="dashboard-apt-search.js"></script>
@@ -589,8 +590,42 @@
 
 <!-- 우대금리 상한 토스트 -->
 <div class="pref-toast" id="prefToast">
-  <span class="pref-toast-icon">🚫</span>우대금리 상한을 초과할 수 없어요
+  <span class="pref-toast-icon" data-icon="alertTriangle" data-icon-size="16"></span>우대금리 상한을 초과할 수 없어요
 </div>
+
+  <!-- 단지 기준 대출 계산 바텀시트 -->
+  <div class="apt-loan-sheet-overlay" id="aptLoanSheetOverlay" onclick="closeAptLoanSheet()"></div>
+  <div class="apt-loan-sheet" id="aptLoanSheet" role="dialog" aria-modal="true" aria-labelledby="aptLoanSheetTitle">
+    <div class="apt-loan-sheet-handle"></div>
+    <div class="apt-loan-sheet-head">
+      <div>
+        <div class="apt-loan-sheet-kicker">단지 기준 계산</div>
+        <h2 class="apt-loan-sheet-title" id="aptLoanSheetTitle">계산 기준 가격</h2>
+      </div>
+      <button class="apt-loan-sheet-close" type="button" onclick="closeAptLoanSheet()" aria-label="닫기">
+        <span data-icon="x" data-icon-size="14"></span>
+      </button>
+    </div>
+    <div class="apt-loan-sheet-body">
+      <p class="apt-loan-sheet-desc" id="aptLoanSheetDesc">실거래가나 매수 예정가를 입력하면 계산기 주택가격에 먼저 반영할게요.</p>
+      <label class="apt-loan-price-label" for="aptLoanPriceInput">주택가격</label>
+      <div class="apt-loan-price-field">
+        <input id="aptLoanPriceInput" type="number" min="0" step="0.1" inputmode="decimal" placeholder="예: 8.5" oninput="updateAptLoanSheetState()">
+        <span>억원</span>
+      </div>
+      <div class="apt-loan-type-row" role="group" aria-label="대출 유형">
+        <button class="apt-loan-type active" type="button" data-loan-type="fund" onclick="setAptLoanType('fund')">
+          <span>기금대출</span>
+          <em>조건 질문부터 확인</em>
+        </button>
+        <button class="apt-loan-type" type="button" data-loan-type="bank" onclick="setAptLoanType('bank')">
+          <span>시중대출</span>
+          <em>은행 비교 입력으로 이동</em>
+        </button>
+      </div>
+      <button class="apt-loan-submit" id="aptLoanSubmitBtn" type="button" onclick="submitAptLoanSheet()" disabled>기금대출 조건 확인하기</button>
+    </div>
+  </div>
 
   <!-- 상환 스케줄 바텀시트 -->
   <div class="sch-sheet-overlay" id="schOverlay" onclick="closeScheduleSheet()"></div>
@@ -599,7 +634,7 @@
     <div class="sch-sheet-head">
       <div class="sch-sheet-title-row">
         <span class="sch-sheet-title">월별 상환 스케줄</span>
-        <button class="sch-sheet-close" onclick="closeScheduleSheet()">✕</button>
+        <button class="sch-sheet-close" onclick="closeScheduleSheet()"><span data-icon="x" data-icon-size="14"></span></button>
       </div>
     </div>
     <div class="sch-sheet-summary">

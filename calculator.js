@@ -150,6 +150,37 @@
     showCalculator();
   }
 
+  function startCalculatorFromApartment(options = {}) {
+    const selectedLoanType = options.loanType === 'bank' ? 'bank' : 'fund';
+    const price = Number(options.price);
+
+    restartApp({ showDashboardAfterReset: false });
+    resetCalculatorToIntro();
+
+    const priceInput = document.getElementById('price');
+    if (priceInput && Number.isFinite(price) && price > 0) {
+      priceInput.value = String(price);
+    }
+
+    showCalculator();
+    selectLoanType(selectedLoanType);
+
+    if (selectedLoanType === 'bank') {
+      showBankLoanScreen();
+      const bankPriceInput = document.getElementById('bankPrice');
+      if (bankPriceInput && Number.isFinite(price) && price > 0) {
+        bankPriceInput.value = String(price);
+        updateBankCalc();
+        checkBankSearchBtn();
+      }
+      return;
+    }
+
+    window.setTimeout(() => {
+      if (current === 0) navigateTo(1, 'forward');
+    }, 80);
+  }
+
   function navigateTo(next, direction = 'forward') {
     const allSlides = document.querySelectorAll('.slide');
     const exitClass = direction === 'forward' ? 'exit-left' : 'exit-right';
@@ -215,7 +246,7 @@
       <div style="display:flex;flex-direction:column;gap:0">
       <div class="result-header-area">
         <div class="result-badge-wrap">
-          <div class="result-icon blue">🏦</div>
+          <div class="result-icon blue">${icon('landmark', 28)}</div>
           <div>
             <div class="result-option-label blue">시중 주택담보대출</div>
             <div class="result-title">조건을 입력해주세요</div>
@@ -346,7 +377,7 @@
       <div id="bankResultArea" style="margin-top:16px"></div>
 
       <div class="result-spacer"></div>
-      <button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>
+      <button class="btn-restart" onclick="confirmRestart()">${icon('rotateCcw', 16)} 처음부터 다시하기</button>
       </div>
     `;
   }
@@ -466,7 +497,7 @@
           <div class="bank-notice-text"><strong>규제지역(서울 전역·경기 8개 지역)</strong>은 LTV 40%가 적용됩니다. 드롭다운에서 🔴 규제지역을 선택하면 자동 반영돼요.</div>
         </div>
         <div class="bank-notice-item">
-          <div class="bank-notice-icon">🏦</div>
+          <div class="bank-notice-icon">${icon('landmark', 18)}</div>
           <div class="bank-notice-text">표시된 상품은 금융감독원 <strong>금융상품 한눈에</strong> 데이터 기준이며, 일부 상품은 누락될 수 있습니다.</div>
         </div>
         <div class="bank-notice-item">
@@ -914,7 +945,7 @@
         <div class="result-group bank-card${noAnimate ? '' : ' card-animate'}" id="bcard-${i}" style="margin-bottom:8px${noAnimate ? '' : `;animation-delay:${i * 0.05}s`}">
           <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
             <div class="compare-check${isChecked?' checked':''}" id="chk-${i}" onclick="toggleCompare('${p.key}',${i})">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              ${icon('check', 12)}
             </div>
             <div style="flex:1;min-width:0">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">
@@ -943,7 +974,7 @@
             </div>
             <button onclick="toggleBankDetail('detail-${i}')" id="detailBtn-${i}"
               style="flex-shrink:0;background:var(--bg4);border:none;border-radius:8px;padding:4px 10px;font-size:11px;color:var(--label2);cursor:pointer;font-family:inherit;margin-left:8px">
-              상세 ▾
+              상세 ${icon('chevronDown', 12)}
             </button>
           </div>
           <div class="bank-detail-panel" id="detail-${i}">
@@ -1031,7 +1062,7 @@
     const btn = document.getElementById('detailBtn-' + idx);
     if (!el) return;
     const open = el.classList.toggle('open');
-    if (btn) btn.textContent = open ? '상세 ▴' : '상세 ▾';
+    if (btn) btn.innerHTML = open ? '상세 ' + icon('chevronDown', 12) : '상세 ' + icon('chevronDown', 12);
   }
 
   // ── 비교 체크 토글 ──
@@ -1084,9 +1115,9 @@
     bar.style.transform = 'translateY(0)';
     bar.style.opacity   = '1';
     bar.innerHTML = `
-      <button onclick="resetCompare()" style="background:rgba(255,255,255,0.15);border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:500;color:#fff;cursor:pointer;font-family:inherit">✕ 초기화</button>
+      <button onclick="resetCompare()" style="background:rgba(255,255,255,0.15);border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:500;color:#fff;cursor:pointer;font-family:inherit">${icon('x', 13)} 초기화</button>
       <span style="font-size:14px;font-weight:600;color:#fff">${cnt}개 선택됨</span>
-      <button onclick="showComparePanel()" style="background:#fff;color:var(--accent);border:none;border-radius:10px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:-0.3px">비교하기 →</button>
+      <button onclick="showComparePanel()" style="background:#fff;color:var(--accent);border:none;border-radius:10px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:-0.3px">비교하기 ${icon('chevronRight', 13)}</button>
     `;
   }
 
@@ -1266,6 +1297,65 @@
     return Math.round(won).toLocaleString() + '원';
   }
 
+  function getMotionMs(varName, fallback) {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    if (!raw) return fallback;
+    if (raw.endsWith('ms')) return parseFloat(raw) || fallback;
+    if (raw.endsWith('s')) return (parseFloat(raw) || 0) * 1000 || fallback;
+    return parseFloat(raw) || fallback;
+  }
+
+  function shouldReduceMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function setAnimatedAmount(el, nextValue, formatter) {
+    if (!el || typeof formatter !== 'function') return;
+    const target = Math.round(Number(nextValue) || 0);
+    const current = Number(el.dataset.motionValue || 0);
+    const threshold = Number(getComputedStyle(document.documentElement).getPropertyValue('--motion-count-threshold').trim()) || 10000;
+
+    if (shouldReduceMotion() || Math.abs(target - current) < threshold || !window.requestAnimationFrame) {
+      el.dataset.motionValue = String(target);
+      el.textContent = formatter(target);
+      return;
+    }
+
+    if (el.dataset.motionFrame) {
+      cancelAnimationFrame(Number(el.dataset.motionFrame));
+    }
+
+    const minDuration = getMotionMs('--motion-count-min', 200);
+    const maxDuration = getMotionMs('--motion-count-max', 600);
+    const distance = Math.abs(target - current);
+    const duration = Math.max(minDuration, Math.min(maxDuration, distance / 2500));
+    const start = performance.now();
+    el.classList.add('motion-counting');
+
+    const tick = now => {
+      const progress = Math.min(1, (now - start) / duration);
+      const value = Math.round(current + (target - current) * easeOutCubic(progress));
+      el.textContent = formatter(value);
+      if (progress < 1) {
+        el.dataset.motionFrame = String(requestAnimationFrame(tick));
+      } else {
+        el.dataset.motionValue = String(target);
+        el.classList.remove('motion-counting');
+        delete el.dataset.motionFrame;
+      }
+    };
+
+    el.dataset.motionFrame = String(requestAnimationFrame(tick));
+  }
+
+  function formatLimitWon(won) {
+    return formatLimit(won / 100000000);
+  }
+
   // ══ 기금대출 금리 테이블 ══
 
   // 보금자리론 기한별 기본금리 (아낌e 기준)
@@ -1338,7 +1428,7 @@
   // ── 우대금리 카드 HTML 헬퍼 ──
   function prefCardHtml(uid, pref, label, val, checked, colorCls, isExcl, exclGroup, extraAttrs) {
     const selClass = checked ? ' selected-' + colorCls : '';
-    const checkSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    const checkSvg = icon('check', 10);
     const dataAttrs = isExcl
       ? 'data-excl="' + exclGroup + '" data-pref="' + pref + '"'
       : 'data-pref="' + pref + '"';
@@ -1355,7 +1445,7 @@
     const isFirstBuyer = house === '생애최초';
     const isLocal      = region === '지방';
     const c            = product === 'bogeumjari' ? 'green' : product === 'newborn' ? 'nb' : 'blue';
-    const chevronSvg2 = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    const chevronSvg2 = icon('chevronDown', 16);
     const selectHtml = (uid2) => '<div class="rate-select-wrap">'
       + '<select data-pref-select onchange="recalcRate(\'' + uid2 + '\')">'
       + '<option value="0">청약저축 — 해당 없음</option>'
@@ -1427,12 +1517,27 @@
 
   // ── 우대금리 상한 토스트 ──
   let _prefToastTimer = null;
+  let _prefToastExitTimer = null;
   function showPrefToast() {
     const toast = document.getElementById('prefToast');
     if (!toast) return;
     if (_prefToastTimer) clearTimeout(_prefToastTimer);
-    toast.classList.add('show');
-    _prefToastTimer = setTimeout(function() { toast.classList.remove('show'); }, 2200);
+    if (_prefToastExitTimer) clearTimeout(_prefToastExitTimer);
+
+    const show = function() {
+      toast.classList.add('show');
+      _prefToastTimer = setTimeout(function() {
+        toast.classList.remove('show');
+      }, 3000);
+    };
+
+    if (toast.classList.contains('show')) {
+      toast.classList.remove('show');
+      _prefToastExitTimer = setTimeout(show, getMotionMs('--motion-toast-exit', 250));
+      return;
+    }
+
+    show();
   }
 
   // ── 카드 클릭 핸들러 ──
@@ -1521,7 +1626,7 @@
 
   // ── 디딤돌 가산금리 선택 HTML ──
   function surchargeHtml(uid) {
-    const checkSvg = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    const checkSvg = icon('check', 10);
     const opts = [
       { val: '0',   label: '해당 없음 (변동금리)' },
       { val: '0.1', label: '5년 단위 변동금리' },
@@ -1567,7 +1672,7 @@
       : [10,15,20,30];
     const defaultYear = isBogeumjari ? 30 : 30;
     const yearOptsHtml = yearOpts.map(y =>
-      `<option value="${y}" ${y===defaultYear?'selected':''}>${y}년</option>`
+      `<button class="rate-dropdown-option${y===defaultYear?' selected':''}" type="button" onclick="selectRateYear('${uid}','${product}',${income},'${household}',${y}, event)">${y}년</button>`
     ).join('');
 
     // 기본금리 계산
@@ -1585,7 +1690,7 @@
 
     const initAmt = calcMonthly(principal, initFinalRate, 'annuity', defaultYear);
 
-    const chevronSvg = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+    const chevronSvg = icon('chevronDown', 16);
 
     return `
       <div class="rate-calc-section" data-color="${colorCls}" data-uid="${uid}" data-product="${product}" data-region="${region}">
@@ -1595,9 +1700,11 @@
             <span class="rate-dropdown-val" id="yr-val-${uid}">${defaultYear}년</span>
             <span class="rate-dropdown-chevron">${chevronSvg}</span>
           </div>
-          <select class="rate-dropdown-select" id="yr-${uid}" onchange="recalcRateWithYear('${uid}','${product}',${income},'${household}'); document.getElementById('yr-val-${uid}').textContent=this.value+'년'">
+          <input type="hidden" id="yr-${uid}" value="${defaultYear}">
+          <button class="rate-dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false" onclick="toggleRateYearMenu('${uid}', event)"></button>
+          <div class="rate-dropdown-menu" role="listbox" aria-label="대출기한">
             ${yearOptsHtml}
-          </select>
+          </div>
         </div>
         ${prefListHtml(uid, product, household, house, region)}
         ${isDidimdol ? surchargeHtml(uid) : ''}
@@ -1623,7 +1730,7 @@
         </div>
         <div class="monthly-result-row" style="align-items:flex-end">
           <span class="monthly-result-label">첫 달 월 납입액</span>
-          <span class="monthly-result-amount" id="mc-amt-${uid}" data-principal="${principal}" style="color:${accentColor};text-align:right">${formatWon(initAmt)}</span>
+          <span class="monthly-result-amount" id="mc-amt-${uid}" data-principal="${principal}" data-motion-value="0" data-motion-target="${Math.round(initAmt)}" style="color:${accentColor};text-align:right">${formatWon(initAmt)}</span>
         </div>
         <div class="monthly-result-note" id="mc-note-${uid}" style="text-align:right">적용금리 ${initFinalRate.toFixed(2)}% · ${defaultYear}년 만기 · 원리금균등 · 1회차 기준</div>
         <button class="sch-open-btn" onclick="openScheduleSheet('${uid}','${colorCls}')" style="color:${accentColor}">
@@ -1870,7 +1977,8 @@
       const principal = parseFloat(amtEl.dataset.principal || 0);
       if (principal > 0) {
         const amt = calcMonthly(principal, finalRate, method, years);
-        amtEl.textContent = formatWon(amt);
+        amtEl.dataset.motionTarget = String(Math.round(amt));
+        setAnimatedAmount(amtEl, amt, formatWon);
       }
     }
     if (noteEl) {
@@ -1910,6 +2018,46 @@
     newBase = Math.round(newBase * 100) / 100;
     baseEl.textContent = newBase.toFixed(2) + '%';
     recalcRate(uid);
+  }
+
+  function closeRateYearMenus(exceptUid) {
+    document.querySelectorAll('.rate-dropdown-box.open').forEach(box => {
+      if (exceptUid && box.id === 'yr-box-' + exceptUid) return;
+      box.classList.remove('open');
+      box.querySelector('.rate-dropdown-toggle')?.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  function toggleRateYearMenu(uid, event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    const box = document.getElementById('yr-box-' + uid);
+    if (!box) return;
+    const willOpen = !box.classList.contains('open');
+    closeRateYearMenus(uid);
+    box.classList.toggle('open', willOpen);
+    box.querySelector('.rate-dropdown-toggle')?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  }
+
+  function selectRateYear(uid, product, income, household, year, event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    const valueEl = document.getElementById('yr-' + uid);
+    const labelEl = document.getElementById('yr-val-' + uid);
+    const box = document.getElementById('yr-box-' + uid);
+    if (valueEl) valueEl.value = String(year);
+    if (labelEl) labelEl.textContent = year + '년';
+    if (box) {
+      box.querySelectorAll('.rate-dropdown-option').forEach(btn => {
+        btn.classList.toggle('selected', btn.textContent.trim() === year + '년');
+      });
+    }
+    closeRateYearMenus();
+    recalcRateWithYear(uid, product, income, household);
   }
 
   // 상환방식 탭 전환
@@ -2070,7 +2218,11 @@
 
     const card = box.closest('.limit-detail-card');
     const amountEl = card ? card.querySelector('[data-room-final-amount]') : null;
-    if (amountEl) amountEl.textContent = formatLimit(state.finalLimit);
+    if (amountEl) {
+      const nextLimitWon = Math.round(state.finalLimit * 100000000);
+      amountEl.dataset.motionTarget = String(nextLimitWon);
+      setAnimatedAmount(amountEl, nextLimitWon, formatLimitWon);
+    }
     document.querySelectorAll('[data-room-sync="' + box.dataset.product + '"]').forEach(function(el) {
       el.textContent = formatLimit(state.finalLimit);
     });
@@ -2099,7 +2251,7 @@
     return `
         <div class="limit-detail-card ${colorCls}-top">
           <div class="limit-detail-label">예상 대출 한도</div>
-          <div class="limit-detail-amount ${colorCls}" data-room-final-amount>${formatLimit(displayLimit)}</div>
+          <div class="limit-detail-amount ${colorCls}" data-room-final-amount data-motion-value="0" data-motion-target="${Math.round(displayLimit * 100000000)}">${formatLimit(displayLimit)}</div>
           <div class="limit-breakdown">
             <div class="limit-breakdown-item">
               <span class="breakdown-label">LTV ${Math.round(ltvLimit/price*100)}% 적용</span>
@@ -2253,7 +2405,7 @@
     var failBTags = failB.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
 
     return '<div class="result-header-area"><div class="result-badge-wrap">'
-      + '<div class="result-icon grey">🏦</div>'
+      + '<div class="result-icon grey">' + icon('landmark', 28) + '</div>'
       + '<div><div class="result-option-label grey">ALTERNATIVE</div><div class="result-title">시중은행</div></div>'
       + '</div></div>'
       + '<div class="result-tagline grey-border">입력하신 조건은 주택기금 대출 요건을 충족하지 않습니다. 시중은행을 알아봐주세요.</div>'
@@ -2269,7 +2421,7 @@
       + '<div class="result-spacer"></div>'
       + noticeHtml()
       + '<div class="result-spacer-sm"></div>'
-      + '<button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>';
+      + '<button class="btn-restart" onclick="confirmRestart()">' + icon('rotateCcw', 16) + ' 처음부터 다시하기</button>';
   }
 
   function buildNewbornHtml(o) {
@@ -2415,7 +2567,7 @@
     }
 
     return '<div class="result-header-area"><div class="result-badge-wrap">'
-      + '<div class="result-icon" style="background:linear-gradient(135deg,#ff6b9d,#ff8c42);font-size:28px">👶</div>'
+      + '<div class="result-icon" style="background:linear-gradient(135deg,#ff6b9d,#ff8c42)">' + icon('baby', 28) + '</div>'
       + '<div><div class="result-option-label" style="color:#ff6b9d">신생아 특례 해당</div><div class="result-title">상품을 비교해 보세요</div></div>'
       + '</div></div>'
       + tabsHtml
@@ -2424,7 +2576,7 @@
       + '<div class="result-spacer"></div>'
       + noticeHtml()
       + '<div class="result-spacer-sm"></div>'
-      + '<button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>';
+      + '<button class="btn-restart" onclick="confirmRestart()">' + icon('rotateCcw', 16) + ' 처음부터 다시하기</button>';
   }
 
   // ── 상환 스케줄 카드 ──
@@ -2447,7 +2599,7 @@
       </div>
       <button class="schedule-expand-btn" id="schedule-expand-${uid}" onclick="toggleSchedule('${uid}')">
         <span id="schedule-expand-label-${uid}">전체 보기</span>
-        <span id="schedule-expand-icon-${uid}">▾</span>
+        <span id="schedule-expand-icon-${uid}">${icon('chevronDown', 14)}</span>
       </button>
       <div class="schedule-summary-row"><span>총 납입액</span><span id="schedule-total-${uid}">—</span></div>
       <div class="schedule-summary-row"><span>총 이자</span><span id="schedule-interest-${uid}" style="color:#ff9f0a">—</span></div>
@@ -2689,7 +2841,7 @@
         <!-- 상단 안내 -->
         <div class="result-header-area">
           <div class="result-badge-wrap">
-            <div class="result-icon blue">🎉</div>
+            <div class="result-icon blue">${icon('sparkle', 28)}</div>
             <div>
               <div class="result-option-label blue">두 상품 모두 해당</div>
               <div class="result-title">비교해 보세요</div>
@@ -2790,14 +2942,14 @@
         ${noticeHtml()}
         <div class="result-spacer"></div>
         <div class="result-spacer-sm"></div>
-        <button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>`;
+        <button class="btn-restart" onclick="confirmRestart()">${icon('rotateCcw', 16)} 처음부터 다시하기</button>`;
 
     // ══ 케이스 B: 디딤돌만 해당 ══
     } else if (didimdolOk) {
       html = `
         <div class="result-header-area">
           <div class="result-badge-wrap">
-            <div class="result-icon blue">🏠</div>
+            <div class="result-icon blue">${icon('home', 28)}</div>
             <div>
               <div class="result-option-label blue">BEST OPTION</div>
               <div class="result-title">디딤돌 대출</div>
@@ -2841,7 +2993,7 @@
         ${noticeHtml()}
         <div class="result-spacer"></div>
         <div class="result-spacer-sm"></div>
-        <button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>`;
+        <button class="btn-restart" onclick="confirmRestart()">${icon('rotateCcw', 16)} 처음부터 다시하기</button>`;
 
     // ══ 케이스 C: 보금자리론만 해당 ══
     } else if (bogeumjariOk) {
@@ -2849,7 +3001,7 @@
       html = `
         <div class="result-header-area">
           <div class="result-badge-wrap">
-            <div class="result-icon green">🏡</div>
+            <div class="result-icon green">${icon('home', 28)}</div>
             <div>
               <div class="result-option-label green">RECOMMENDED</div>
               <div class="result-title">보금자리론</div>
@@ -2900,7 +3052,7 @@
         ${noticeHtml()}
         <div class="result-spacer"></div>
         <div class="result-spacer-sm"></div>
-        <button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>`;
+        <button class="btn-restart" onclick="confirmRestart()">${icon('rotateCcw', 16)} 처음부터 다시하기</button>`;
 
     // ══ 케이스 D: 해당 없음 ══
     } else {
@@ -2912,7 +3064,7 @@
       html = `
         <div class="result-header-area">
           <div class="result-badge-wrap">
-            <div class="result-icon grey">🏦</div>
+            <div class="result-icon grey">${icon('landmark', 28)}</div>
             <div>
               <div class="result-option-label grey">ALTERNATIVE</div>
               <div class="result-title">시중은행</div>
@@ -2943,10 +3095,16 @@
         ${noticeHtml()}
         <div class="result-spacer"></div>
         <div class="result-spacer-sm"></div>
-        <button class="btn-restart" onclick="confirmRestart()">↩ 처음부터 다시하기</button>`;
+        <button class="btn-restart" onclick="confirmRestart()">${icon('rotateCcw', 16)} 처음부터 다시하기</button>`;
     }
 
-    document.getElementById('resultContent').innerHTML = html;
+    const resultContent = document.getElementById('resultContent');
+    resultContent.innerHTML = html;
+    resultContent.querySelectorAll('[data-motion-target]').forEach(function(el) {
+      const target = Number(el.dataset.motionTarget || 0);
+      const formatter = el.hasAttribute('data-room-final-amount') ? formatLimitWon : formatWon;
+      setAnimatedAmount(el, target, formatter);
+    });
 
     // 초기 우대금리 반영 (선택된 카드 기반 rate-summary 초기화)
     setTimeout(function() {
@@ -3088,7 +3246,7 @@
       return '<div class="faq-item" id="nbfaq-' + i + '">'
         + '<button class="faq-q" onclick="toggleNbFaq(' + i + ')">'
         + '<span class="faq-q-text">' + f.q + '</span>'
-        + '<span class="faq-chevron"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>'
+        + '<span class="faq-chevron">' + icon('chevronDown', 14) + '</span>'
         + '</button>'
         + '<div class="faq-a"><div class="faq-a-text">' + f.a + '</div></div>'
         + '</div>';
@@ -3313,5 +3471,15 @@
     if (isGuestMode) { showPayPopup(); return; }
     return _origSearchBankLoans();
   };
+
+  document.addEventListener('click', function(event) {
+    if (!event.target.closest('.rate-dropdown-box')) {
+      closeRateYearMenus();
+    }
+  });
+
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') closeRateYearMenus();
+  });
 
   setProgress(0);

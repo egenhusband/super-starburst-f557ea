@@ -17,10 +17,62 @@
     --red-dim: rgba(255,69,58,0.1);
     --rise: #f04251;
     --fall: #3485fa;
-    --screen-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-smooth: cubic-bezier(0.25, 0.1, 0.25, 1);
+    --ease-snappy: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
+    --screen-ease: var(--ease-enter);
+    --motion-screen-enter: 380ms;
+    --motion-screen-exit: 330ms;
+    --motion-sheet-enter: 420ms;
+    --motion-sheet-exit: 300ms;
+    --motion-toast-enter: 320ms;
+    --motion-toast-exit: 250ms;
+    --motion-button-active: 100ms;
+    --motion-card-active: 120ms;
+    --motion-focus-in: 200ms;
+    --motion-focus-out: 150ms;
+    --motion-shimmer: 1.4s;
+    --motion-count-min: 200ms;
+    --motion-count-max: 600ms;
+    --motion-count-threshold: 10000;
+    --scale-button-active: 0.96;
+    --scale-card-active: 0.97;
+    --focus-ring: 0 0 0 3px var(--accent-dim);
+    --focus-accent: var(--accent);
+    --sheet-overlay-bg: rgba(0,0,0,0.4);
+    --topbar-blur-bg: rgba(18,18,18,0.72);
+    --icon-size-xs: 14px;
+    --icon-size-sm: 16px;
+    --icon-size-md: 20px;
+    --icon-size-lg: 24px;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  .ui-icon {
+    display: inline-block;
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vertical-align: -0.125em;
+  }
+
+  .icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: var(--bg3);
+    border: 1px solid var(--separator);
+    color: var(--label2);
+  }
 
   html, body {
     height: 100%;
@@ -508,7 +560,9 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 26px;
     flex-shrink: 0;
+    color: var(--label1);
   }
+  .result-icon .ui-icon { width: 28px; height: 28px; }
   .result-icon.blue  { background: var(--accent-dim); }
   .result-icon.green { background: var(--green-dim); }
   .result-icon.grey  { background: var(--bg4); }
@@ -712,6 +766,7 @@
     margin-bottom: 10px;
     cursor: pointer;
     transition: border-color 0.15s;
+    overflow: visible;
   }
   .rate-dropdown-box:focus-within { border-color: var(--accent); }
   .rate-dropdown-label {
@@ -737,18 +792,58 @@
     color: var(--label3);
     flex-shrink: 0;
   }
-  /* 투명 select — 박스 전체 터치 영역 */
-  .rate-dropdown-select {
+  .rate-dropdown-toggle {
     position: absolute;
     inset: 0;
-    opacity: 0;
     width: 100%;
     height: 100%;
     cursor: pointer;
     border: none;
     background: transparent;
-    -webkit-appearance: none;
-    appearance: none;
+    z-index: 2;
+  }
+  .rate-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 30;
+    display: none;
+    min-width: 118px;
+    padding: 6px;
+    border-radius: 12px;
+    border: 1px solid var(--separator);
+    background: var(--bg3);
+    box-shadow: 0 16px 38px rgba(0,0,0,0.38);
+  }
+  .rate-dropdown-box.open .rate-dropdown-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .rate-dropdown-box.open .rate-dropdown-toggle {
+    z-index: 1;
+  }
+  .rate-dropdown-option {
+    width: 100%;
+    min-height: 34px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--label2);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    text-align: left;
+    cursor: pointer;
+  }
+  .rate-dropdown-option:hover {
+    background: var(--bg4);
+    color: var(--label1);
+  }
+  .rate-dropdown-option.selected {
+    background: var(--accent-dim);
+    color: var(--accent);
   }
   /* 청약저축 래퍼 (네이티브 화살표 숨기고 커스텀 적용) */
   .rate-select-wrap {
@@ -769,9 +864,22 @@
     cursor: pointer;
     -webkit-appearance: none;
     appearance: none;
+    accent-color: var(--accent);
+    color-scheme: dark;
     transition: border-color 0.15s;
   }
-  .rate-select-wrap select:focus { border-color: var(--accent); }
+  .rate-select-wrap select:focus {
+    border-color: var(--accent);
+    box-shadow: none;
+  }
+  .rate-select-wrap select option {
+    background: var(--bg3);
+    color: var(--label1);
+  }
+  .rate-select-wrap select option:checked {
+    background: var(--accent-dim);
+    color: var(--label1);
+  }
   .rate-select-chevron {
     position: absolute;
     right: 16px;
@@ -1022,7 +1130,7 @@
     font-size: 13px; padding: 8px 12px; outline: none; text-align: right;
     transition: border-color 0.15s;
   }
-  .dti-input-field:focus { border-color: var(--green); }
+  .dti-input-field:focus { border-color: var(--accent); }
   .dti-input-unit { font-size: 12px; color: var(--label3); flex-shrink: 0; }
   .dti-rows { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
   .dti-row {
@@ -1537,6 +1645,10 @@
     font-family: 'Pretendard Variable', sans-serif;
     font-size: 14px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
     transition: border-color 0.18s, color 0.18s;
     letter-spacing: -0.2px;
     margin-bottom: max(env(safe-area-inset-bottom), 4px);
@@ -1835,9 +1947,13 @@
   }
   .bank-notice-item:last-of-type { border-bottom: none; }
   .bank-notice-icon {
-    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
     width: 24px;
+    height: 24px;
+    color: var(--accent);
     text-align: center;
     margin-top: 1px;
   }
@@ -1927,10 +2043,19 @@
     60%       { transform: translateY(-5px); }
   }
   .pw-logo {
-    font-size: 48px; margin-bottom: 20px;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 20px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg3);
+    border: 1px solid var(--separator);
+    color: var(--accent);
     animation: pw-bounce 2s ease-in-out infinite;
-    display: inline-block;
   }
+  .pw-logo .ui-icon { width: 34px; height: 34px; }
 
   /* 카피 순차 페이드업 */
   @keyframes pw-fadeup {
@@ -2074,7 +2199,19 @@
     transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
   }
   .pay-overlay.open .pay-sheet { transform: translateY(0); }
-  .pay-icon { font-size: 36px; margin-bottom: 12px; }
+  .pay-icon {
+    width: 52px;
+    height: 52px;
+    margin: 0 auto 12px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg3);
+    border: 1px solid var(--separator);
+    color: var(--accent);
+  }
+  .pay-icon .ui-icon { width: 28px; height: 28px; }
   .pay-title { font-size: 20px; font-weight: 700; color: var(--label1); letter-spacing: -0.4px; margin-bottom: 8px; }
   .pay-desc { font-size: 13px; color: var(--label2); line-height: 1.7; font-weight: 300; margin-bottom: 24px; }
   .btn-pay-go {
@@ -2089,7 +2226,7 @@
     width: 100%; height: 52px; background: var(--bg3);
     border: 1.5px solid var(--separator); border-radius: 14px; color: var(--label2);
     font-family: 'Pretendard Variable', sans-serif; font-size: 15px; font-weight: 500;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
   }
 
   /* ── 1. 카드 순차 페이드인 ── */
@@ -2554,6 +2691,165 @@
   transition: opacity 0.18s;
 }
 .db-cta:active { opacity: 0.8; }
+
+/* ── Motion token bindings ─────────────────────────────────────────────── */
+.app button,
+.app [role="button"],
+.calc-topbar-btn,
+.db-back-btn,
+.db-region-btn,
+.db-chart-tab,
+.db-period-tab,
+.db-deal-scope-tab,
+.db-apt-grade-return {
+  transition-duration: var(--motion-button-active);
+  transition-timing-function: var(--ease-snappy);
+}
+
+.app button:active:not(:disabled),
+.app [role="button"]:active,
+.calc-topbar-btn:active,
+.db-back-btn:active,
+.db-region-btn:active,
+.db-chart-tab:active,
+.db-period-tab:active,
+.db-deal-scope-tab:active,
+.db-apt-grade-return:active {
+  transform: scale(var(--scale-button-active));
+}
+
+.option-card,
+.result-tab,
+.bank-card,
+.db-apt-search-item,
+.db-deal-list-card,
+.db-actual-chip,
+.db-fact-card {
+  transition-timing-function: var(--ease-snappy);
+}
+
+.option-card:active,
+.result-tab:active,
+.bank-card:active,
+.db-apt-search-item:active,
+.db-deal-list-card:active,
+.db-actual-chip:active,
+.db-fact-card:active {
+  transform: scale(var(--scale-card-active));
+  transition-duration: var(--motion-card-active);
+}
+
+.db-apt-search-input,
+.db-apt-search-trigger {
+  transition:
+    border-color var(--motion-focus-out) var(--ease-snappy),
+    box-shadow var(--motion-focus-out) var(--ease-snappy),
+    background-color var(--motion-focus-out) var(--ease-snappy),
+    color var(--motion-focus-out) var(--ease-snappy);
+}
+
+.db-apt-search-input:focus,
+.db-apt-search-trigger:focus-visible {
+  border-color: var(--focus-accent);
+  box-shadow: var(--focus-ring);
+  transition-duration: var(--motion-focus-in);
+  transition-timing-function: var(--ease-smooth);
+  outline: none;
+}
+
+.number-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+.number-field input:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+.compare-panel,
+.bank-notice-overlay,
+.pay-overlay,
+.restart-confirm-overlay,
+.sch-sheet-overlay {
+  background: var(--sheet-overlay-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.compare-panel-inner,
+.bank-notice-sheet,
+.pay-sheet,
+.restart-confirm-sheet,
+.sch-sheet {
+  transition: transform var(--motion-sheet-exit) var(--ease-snappy);
+}
+
+.compare-panel.open .compare-panel-inner,
+.bank-notice-overlay.open .bank-notice-sheet,
+.pay-overlay.open .pay-sheet,
+.restart-confirm-overlay.open .restart-confirm-sheet,
+.sch-sheet.open {
+  transition-duration: var(--motion-sheet-enter);
+  transition-timing-function: var(--ease-enter);
+}
+
+.pref-toast {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 100px);
+  transform: translateX(-50%) translateY(120%);
+  transition:
+    opacity var(--motion-toast-exit) var(--ease-snappy),
+    transform var(--motion-toast-exit) var(--ease-snappy);
+}
+
+.pref-toast.show {
+  transform: translateX(-50%) translateY(0);
+  transition-duration: var(--motion-toast-enter);
+  transition-timing-function: var(--ease-enter);
+}
+
+.db-apt-search-toast-layer {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  transform: translate(-50%, 120%);
+  transition:
+    opacity var(--motion-toast-exit) var(--ease-snappy),
+    transform var(--motion-toast-exit) var(--ease-snappy);
+}
+
+.db-apt-search-toast-layer.is-visible {
+  transform: translate(-50%, 0);
+  transition-duration: var(--motion-toast-enter);
+  transition-timing-function: var(--ease-enter);
+}
+
+.db-skeleton-shimmer {
+  background: #1c1c1e;
+}
+
+.db-skeleton-shimmer::after {
+  background: linear-gradient(90deg, #1c1c1e 0%, rgba(255,255,255,0.06) 50%, #1c1c1e 100%);
+  animation: dbShimmer var(--motion-shimmer) linear infinite;
+}
+
+.motion-counting {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+
+  .db-skeleton-shimmer::after {
+    animation: none !important;
+    transform: translateX(0) !important;
+  }
+}
 
 /* ── 대시보드 (신규) ────────────────────────────────── */
 .db-wrap {
@@ -4242,6 +4538,208 @@
 .db-apt-grade-reasons p + p {
   margin-top: 6px;
 }
+.db-apt-loan-cta {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--accent);
+  color: #fff;
+  font-family: 'Pretendard Variable', sans-serif;
+  font-size: 15px;
+  font-weight: 760;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.db-apt-loan-cta span {
+  display: inline-flex;
+  margin: 0;
+  color: inherit;
+}
+.apt-loan-sheet-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  background: var(--sheet-overlay-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.apt-loan-sheet-overlay.open {
+  display: block;
+}
+.apt-loan-sheet {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 241;
+  width: min(100%, 430px);
+  transform: translate(-50%, 100%);
+  border-radius: 22px 22px 0 0;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 0;
+  background: var(--bg2);
+  box-shadow: 0 -24px 60px rgba(0,0,0,0.36);
+  transition: transform var(--motion-sheet-exit) var(--ease-snappy);
+}
+.apt-loan-sheet.open {
+  transform: translate(-50%, 0);
+  transition-duration: var(--motion-sheet-enter);
+  transition-timing-function: var(--ease-enter);
+}
+.apt-loan-sheet-handle {
+  width: 36px;
+  height: 4px;
+  margin: 12px auto 0;
+  border-radius: 999px;
+  background: var(--separator);
+}
+.apt-loan-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 0;
+}
+.apt-loan-sheet-kicker {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: -0.1px;
+}
+.apt-loan-sheet-title {
+  margin: 5px 0 0;
+  color: var(--label1);
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+.apt-loan-sheet-close {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg3);
+  color: var(--label3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.apt-loan-sheet-body {
+  padding: 14px 20px max(env(safe-area-inset-bottom), 24px);
+}
+.apt-loan-sheet-desc {
+  margin: 0 0 18px;
+  color: var(--label2);
+  font-size: 13px;
+  line-height: 1.55;
+  letter-spacing: -0.1px;
+}
+.apt-loan-price-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--label3);
+  font-size: 12px;
+  font-weight: 700;
+}
+.apt-loan-price-field {
+  height: 58px;
+  padding: 0 16px;
+  border-radius: 16px;
+  border: 1.5px solid var(--separator);
+  background: var(--bg3);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition:
+    border-color var(--motion-focus-out) var(--ease-snappy),
+    box-shadow var(--motion-focus-out) var(--ease-snappy);
+}
+.apt-loan-price-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: none;
+  transition-duration: var(--motion-focus-in);
+  transition-timing-function: var(--ease-smooth);
+}
+.apt-loan-price-field input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--label1);
+  font-family: 'Pretendard Variable', sans-serif;
+  font-size: 24px;
+  font-weight: 760;
+  letter-spacing: -0.4px;
+}
+.apt-loan-price-field span {
+  color: var(--label2);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.apt-loan-type-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.apt-loan-type {
+  min-height: 86px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1.5px solid var(--separator);
+  background: var(--bg3);
+  color: var(--label1);
+  font-family: 'Pretendard Variable', sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.apt-loan-type.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.apt-loan-type span,
+.apt-loan-type em {
+  display: block;
+}
+.apt-loan-type span {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+.apt-loan-type em {
+  margin-top: 7px;
+  color: var(--label3);
+  font-style: normal;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.apt-loan-submit {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 14px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--accent);
+  color: #fff;
+  font-family: 'Pretendard Variable', sans-serif;
+  font-size: 15px;
+  font-weight: 780;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+}
+.apt-loan-submit:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
 @media (max-width: 640px) {
   .db-apt-page-sticky,
   .db-apt-page-body {
@@ -4312,3 +4810,56 @@
   transition: opacity 0.18s;
 }
 .db-cta:active { opacity: 0.8; }
+
+/* ── Motion token final cascade for dashboard/search ───────────────────── */
+.db-apt-search-input:focus,
+.db-apt-search-trigger:focus-visible {
+  border-color: var(--focus-accent);
+  box-shadow: var(--focus-ring);
+  transition-duration: var(--motion-focus-in);
+  transition-timing-function: var(--ease-smooth);
+}
+
+.db-apt-search-toast-layer {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  transform: translate(-50%, 120%);
+  transition:
+    opacity var(--motion-toast-exit) var(--ease-snappy),
+    transform var(--motion-toast-exit) var(--ease-snappy);
+}
+
+.db-apt-search-toast-layer.is-visible {
+  transform: translate(-50%, 0);
+  transition-duration: var(--motion-toast-enter);
+  transition-timing-function: var(--ease-enter);
+}
+
+.db-skeleton-shimmer {
+  background: #1c1c1e;
+}
+
+.db-skeleton-shimmer::after {
+  background: linear-gradient(90deg, #1c1c1e 0%, rgba(255,255,255,0.06) 50%, #1c1c1e 100%);
+  animation: dbShimmer var(--motion-shimmer) linear infinite;
+}
+
+.db-region-btn:active,
+.db-chart-tab:active,
+.db-period-tab:active,
+.db-deal-scope-tab:active,
+.db-query-btn:active,
+.db-apt-grade-return:active,
+.db-cta:active {
+  transform: scale(var(--scale-button-active));
+  transition-duration: var(--motion-button-active);
+  transition-timing-function: var(--ease-snappy);
+}
+
+.db-apt-search-item:active,
+.db-deal-list-card:active,
+.db-actual-chip:active,
+.db-fact-card:active {
+  transform: scale(var(--scale-card-active));
+  transition-duration: var(--motion-card-active);
+  transition-timing-function: var(--ease-snappy);
+}
