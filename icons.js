@@ -61,4 +61,62 @@
   } else {
     window.AppIcons.hydrate();
   }
+
+  function initPressedState() {
+    const buttonSelector = [
+      'button:not(:disabled)',
+      '[role="button"]',
+      '.calc-topbar-btn',
+      '.db-back-btn',
+      '.db-region-btn',
+      '.db-chart-tab',
+      '.db-period-tab',
+      '.db-deal-scope-tab',
+      '.db-apt-grade-return',
+      '.db-query-btn',
+      '.db-cta',
+      '.db-apt-loan-cta',
+      '.apt-loan-submit:not(:disabled)',
+      '.btn-next:not(:disabled)',
+      '.btn-restart',
+    ].join(',');
+    const cardSelector = [
+      '.option-card',
+      '.result-tab',
+      '.bank-card',
+      '.db-apt-search-item',
+      '.db-deal-list-card',
+      '.db-actual-chip',
+      '.db-fact-card',
+      '.db-apt-grade-chip',
+      '.apt-loan-type',
+    ].join(',');
+    const pressableSelector = `${buttonSelector},${cardSelector}`;
+    let pressedEl = null;
+
+    function clearPressed() {
+      if (!pressedEl) return;
+      pressedEl.classList.remove('is-pressed-button', 'is-pressed-card');
+      pressedEl = null;
+    }
+
+    document.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      const target = event.target.closest(pressableSelector);
+      if (!target || target.matches(':disabled') || target.getAttribute('aria-disabled') === 'true') return;
+      clearPressed();
+      pressedEl = target;
+      pressedEl.classList.add(target.matches(cardSelector) ? 'is-pressed-card' : 'is-pressed-button');
+    }, { passive: true });
+
+    ['pointerup', 'pointercancel', 'scroll'].forEach(type => {
+      document.addEventListener(type, clearPressed, { passive: true, capture: true });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPressedState, { once: true });
+  } else {
+    initPressedState();
+  }
 })();

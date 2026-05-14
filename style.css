@@ -2731,6 +2731,7 @@
 
 .app button:active:not(:disabled),
 .app [role="button"]:active,
+.is-pressed-button,
 .pay-overlay button:active:not(:disabled),
 .restart-confirm-overlay button:active:not(:disabled),
 .sch-sheet button:active:not(:disabled),
@@ -2765,6 +2766,7 @@
 .option-card:active,
 .result-tab:active,
 .bank-card:active,
+.is-pressed-card,
 .db-apt-search-item:active,
 .db-deal-list-card:active,
 .db-actual-chip:active,
@@ -2919,10 +2921,10 @@
   flex-direction: column;
   margin: -8px -20px 0;
   padding-top: env(safe-area-inset-top, 0px);
-  background: rgba(11, 14, 21, 0.94);
+  background: color-mix(in srgb, var(--surface-1) 94%, transparent);
   backdrop-filter: blur(10px) saturate(118%);
   -webkit-backdrop-filter: blur(10px) saturate(118%);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--border-subtle);
   box-shadow: 0 8px 20px rgba(0,0,0,0.18);
   isolation: isolate;
   transition:
@@ -2938,15 +2940,15 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(255,255,255,0.018), rgba(255,255,255,0));
+  background: linear-gradient(180deg, var(--neutral-500), transparent);
   opacity: 1;
   transition: opacity 220ms ease;
 }
 .db-sticky-shell.is-floating {
-  background: rgba(11, 14, 21, 0.96);
+  background: color-mix(in srgb, var(--surface-1) 96%, var(--surface-2));
   backdrop-filter: blur(14px) saturate(122%);
   -webkit-backdrop-filter: blur(14px) saturate(122%);
-  border-bottom-color: rgba(255,255,255,0.06);
+  border-bottom-color: var(--border-default);
   box-shadow: 0 12px 28px rgba(0,0,0,0.24);
   transform: translateY(0);
 }
@@ -4893,6 +4895,7 @@
 .db-chart-tab:active,
 .db-period-tab:active,
 .db-deal-scope-tab:active,
+.is-pressed-button,
 .db-query-btn:active,
 .db-apt-grade-return:active,
 .db-cta:active,
@@ -4908,6 +4911,7 @@
 .db-deal-list-card:active,
 .db-actual-chip:active,
 .db-fact-card:active,
+.is-pressed-card,
 .db-apt-grade-chip:active {
   transform: scale(var(--scale-card-active));
   transition-duration: var(--motion-card-active);
