@@ -101,14 +101,14 @@
       <div class="options">
         <div class="option-card" data-group="loanType" data-val="fund" onclick="selectLoanType('fund')">
           <div>
-            <div class="option-title">🏛️ 기금 대출</div>
-            <div class="option-desc">디딤돌 · 보금자리론 · 신생아특례 — 정부 정책 상품</div>
+            <div class="option-title">기금 대출</div>
+            <div class="option-desc">디딤돌 · 보금자리론 · 신생아특례 - 정부 정책 상품</div>
           </div>
           <div class="option-check"></div>
         </div>
         <div class="option-card" data-group="loanType" data-val="bank" onclick="selectLoanType('bank')">
           <div>
-            <div class="option-title"><span data-icon="landmark" data-icon-size="18"></span> 시중 대출</div>
+            <div class="option-title"></span> 시중 대출</div>
             <div class="option-desc">주요 은행 · 저축 은행 - 시중 주담대 상품</div>
           </div>
           <div class="option-check"></div>
@@ -301,22 +301,22 @@
           <input type="number" id="otherLoanPrincipal" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="updateNextBtn()">
           <span class="number-unit">억원 (대출금액)</span>
         </div>
-        <div class="number-field" style="margin-top:10px">
+        <div class="number-field number-field-spaced">
           <input type="number" id="otherLoanRate" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="updateNextBtn()">
           <span class="number-unit">% (금리)</span>
         </div>
-        <div class="number-field" style="margin-top:10px">
+        <div class="number-field number-field-spaced">
           <input type="number" id="otherLoanYears" placeholder="0" step="1" min="1" inputmode="numeric" oninput="updateNextBtn()">
           <span class="number-unit">년 (기간)</span>
         </div>
         <div class="err-msg" id="otherLoanErr"></div>
       </div>
-      <label style="display:flex;align-items:center;gap:12px;margin-top:18px;cursor:pointer;padding:14px 16px;background:var(--bg3);border:1.5px solid var(--separator);border-radius:14px;transition:border-color 0.18s" id="otherLoanNoneLabel">
-        <span style="position:relative;width:24px;height:24px;flex-shrink:0">
-          <input type="checkbox" id="otherLoanNone" onchange="toggleOtherLoanNone()" style="position:absolute;opacity:0;width:24px;height:24px;margin:0;cursor:pointer;z-index:1">
-          <span id="otherLoanNoneBox" style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:8px;border:1.5px solid var(--separator);background:var(--bg2);transition:background 0.18s,border-color 0.18s;font-size:14px"></span>
+      <label class="other-loan-none-toggle" id="otherLoanNoneLabel">
+        <span class="other-loan-none-hit">
+          <input type="checkbox" id="otherLoanNone" onchange="toggleOtherLoanNone()" class="other-loan-none-input">
+          <span id="otherLoanNoneBox" class="other-loan-none-box" aria-hidden="true"></span>
         </span>
-        <span style="font-size:14px;color:var(--label2);font-family:'Pretendard Variable',sans-serif">보유하고 있는 다른 대출이 없어요</span>
+        <span class="other-loan-none-text">보유하고 있는 다른 대출이 없어요</span>
       </label>
     </div>
 
@@ -328,7 +328,12 @@
   </div>
 
   <div class="bottom-nav" id="bottomNav">
-    <button class="btn-back" id="btnBack" disabled onclick="goBack()">←</button>
+    <button class="btn-back" id="btnBack" type="button" disabled onclick="goBack()" aria-label="이전 단계로 돌아가기">
+      <svg class="ui-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="m12 19-7-7 7-7"></path>
+        <path d="M19 12H5"></path>
+      </svg>
+    </button>
     <button class="btn-next" id="btnNext" disabled onclick="goNext()">다음</button>
   </div>
 
@@ -501,10 +506,10 @@
     }, SCREEN_TRANSITION_MS);
   }
 </script>
-<script src="icons.js"></script>
-<script src="calculator.js"></script>
-<script src="dashboard.js"></script>
-<script src="dashboard-apt-search.js"></script>
+<script src="icons.js?v=20260514c"></script>
+<script src="calculator.js?v=20260514c"></script>
+<script src="dashboard.js?v=20260514c"></script>
+<script src="dashboard-apt-search.js?v=20260514c"></script>
 <script>
   (function () {
     const params = new URLSearchParams(window.location.search);

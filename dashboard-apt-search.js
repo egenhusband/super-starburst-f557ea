@@ -1073,78 +1073,101 @@ function renderDashboardSelectedApartment() {
     delete target.dataset.renderedEntryId;
     return;
   }
-
-  const insight = dashboardAptSearchState.selectedInsight;
-  const gradeData = insight?.ready ? computeDashboardApartmentGrade(entry, insight) : null;
-  const businessDistrictData = insight?.ready ? computeBusinessDistrictScore(entry, insight) : null;
-  const isGradeReady = gradeData?.ready && gradeData?.grade;
-  const isGradeWithheld = Boolean(gradeData?.withheld);
-  const gradeClass = isGradeReady ? `grade-${formatGradeClassName(gradeData.grade)}` : isGradeWithheld ? 'grade-pending' : 'grade-pending';
-  const stationText = formatStationSummary(entry, insight);
-  const schoolDistance = getSchoolMetaDistance(entry);
-  const schoolText = entry.schoolName && Number.isFinite(schoolDistance)
-    ? `${entry.schoolName} · 직선 ${formatDistance(schoolDistance)}`
-    : '초등학교 거리 확인 중';
-  const schoolParts = splitDistanceLabel(schoolText);
-  const stationParts = splitDistanceLabel(stationText);
-  const statusText = !insight?.ready
-    ? '단지 입지 데이터를 불러오는 중이에요.'
-    : gradeData?.withheld
-      ? '핵심 축이 너무 적어서 등급은 잠시 보류하고, 확보된 정보만 먼저 보여드려요.'
-      : '선택한 단지 기준으로 정적 입지 데이터를 묶어서 정리했어요.';
-  target.innerHTML = `
-    <article class="db-apt-grade-card">
-      <div class="db-apt-grade-head">
-        <div>
-          <div class="db-fact-label">단지 간단 등급</div>
-          <strong>${escapeHtml(entry.aptName)}</strong>
-          <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
+  try {
+    const insight = dashboardAptSearchState.selectedInsight;
+    const gradeData = insight?.ready ? computeDashboardApartmentGrade(entry, insight) : null;
+    const businessDistrictData = insight?.ready ? computeBusinessDistrictScore(entry, insight) : null;
+    const isGradeReady = gradeData?.ready && gradeData?.grade;
+    const isGradeWithheld = Boolean(gradeData?.withheld);
+    const gradeClass = isGradeReady ? `grade-${formatGradeClassName(gradeData.grade)}` : isGradeWithheld ? 'grade-pending' : 'grade-pending';
+    const stationText = formatStationSummary(entry, insight);
+    const schoolDistance = getSchoolMetaDistance(entry);
+    const schoolText = entry.schoolName && Number.isFinite(schoolDistance)
+      ? `${entry.schoolName} · 직선 ${formatDistance(schoolDistance)}`
+      : '초등학교 거리 확인 중';
+    const schoolParts = splitDistanceLabel(schoolText);
+    const stationParts = splitDistanceLabel(stationText);
+    const statusText = !insight?.ready
+      ? '단지 입지 데이터를 불러오는 중이에요.'
+      : gradeData?.withheld
+        ? '핵심 축이 너무 적어서 등급은 잠시 보류하고, 확보된 정보만 먼저 보여드려요.'
+        : '선택한 단지 기준으로 정적 입지 데이터를 묶어서 정리했어요.';
+    const calculatorIcon = typeof icon === 'function' ? icon('calculator', 18) : '';
+    target.innerHTML = `
+      <article class="db-apt-grade-card">
+        <div class="db-apt-grade-head">
+          <div>
+            <div class="db-fact-label">단지 간단 등급</div>
+            <strong>${escapeHtml(entry.aptName)}</strong>
+            <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
+          </div>
+          <div class="db-apt-grade-badge ${gradeClass}">
+            <span>등급</span>
+            <strong>${isGradeReady ? gradeData.grade : '보류'}</strong>
+          </div>
         </div>
-        <div class="db-apt-grade-badge ${gradeClass}">
-          <span>등급</span>
-          <strong>${isGradeReady ? gradeData.grade : '보류'}</strong>
+        <p class="db-apt-grade-status">${escapeHtml(statusText)}</p>
+        <div class="db-apt-grade-grid">
+          <div class="db-apt-grade-chip">
+            <span>초품아</span>
+            <strong>${escapeHtml(schoolParts.primary || schoolText)}</strong>
+            ${schoolParts.secondary ? `<em>${escapeHtml(schoolParts.secondary)}</em>` : ''}
+          </div>
+          <div class="db-apt-grade-chip">
+            <span>가까운 역</span>
+            <strong>${escapeHtml(stationParts.primary || stationText)}</strong>
+            ${stationParts.secondary ? `<em>${escapeHtml(stationParts.secondary)}</em>` : ''}
+          </div>
+          <div class="db-apt-grade-chip">
+            <span>세대수</span>
+            <strong>${escapeHtml(formatHouseholdLabel(entry.householdCount))}</strong>
+          </div>
+          <div class="db-apt-grade-chip">
+            <span>준공</span>
+            <strong>${escapeHtml(formatBuildYearLabel(entry.buildYear))}</strong>
+          </div>
+          <div class="db-apt-grade-chip">
+            <span>핵심 업무지구</span>
+            <strong class="db-apt-grade-business-lines">${renderBusinessDistrictSummaryHtml(businessDistrictData)}</strong>
+          </div>
+          <div class="db-apt-grade-chip">
+            <span>가격 레벨</span>
+            <strong>${escapeHtml(formatPriceLevelSummary(entry))}</strong>
+          </div>
         </div>
-      </div>
-      <p class="db-apt-grade-status">${escapeHtml(statusText)}</p>
-      <div class="db-apt-grade-grid">
-        <div class="db-apt-grade-chip">
-          <span>초품아</span>
-          <strong>${escapeHtml(schoolParts.primary || schoolText)}</strong>
-          ${schoolParts.secondary ? `<em>${escapeHtml(schoolParts.secondary)}</em>` : ''}
+        <div class="db-apt-grade-summary">
+          <div class="db-apt-grade-reasons">
+            ${(gradeData?.reasons || ['초품아 거리와 가까운 역 거리를 우선 정리하는 중이에요.']).map(reason => `<p>${escapeHtml(reason)}</p>`).join('')}
+          </div>
         </div>
-        <div class="db-apt-grade-chip">
-          <span>가까운 역</span>
-          <strong>${escapeHtml(stationParts.primary || stationText)}</strong>
-          ${stationParts.secondary ? `<em>${escapeHtml(stationParts.secondary)}</em>` : ''}
+        <button class="db-apt-loan-cta" type="button" onclick='openAptLoanSheet(${JSON.stringify(entry.id)})'>
+          <span>${calculatorIcon}</span>
+          이 단지로 대출 계산하기
+        </button>
+      </article>
+    `;
+  } catch (error) {
+    target.innerHTML = `
+      <article class="db-apt-grade-card">
+        <div class="db-apt-grade-head">
+          <div>
+            <div class="db-fact-label">단지 간단 등급</div>
+            <strong>${escapeHtml(entry.aptName)}</strong>
+            <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
+          </div>
+          <div class="db-apt-grade-badge grade-pending">
+            <span>등급</span>
+            <strong>보류</strong>
+          </div>
         </div>
-        <div class="db-apt-grade-chip">
-          <span>세대수</span>
-          <strong>${escapeHtml(formatHouseholdLabel(entry.householdCount))}</strong>
-        </div>
-        <div class="db-apt-grade-chip">
-          <span>준공</span>
-          <strong>${escapeHtml(formatBuildYearLabel(entry.buildYear))}</strong>
-        </div>
-        <div class="db-apt-grade-chip">
-          <span>핵심 업무지구</span>
-          <strong class="db-apt-grade-business-lines">${renderBusinessDistrictSummaryHtml(businessDistrictData)}</strong>
-        </div>
-        <div class="db-apt-grade-chip">
-          <span>가격 레벨</span>
-          <strong>${escapeHtml(formatPriceLevelSummary(entry))}</strong>
-        </div>
-      </div>
-      <div class="db-apt-grade-summary">
-        <div class="db-apt-grade-reasons">
-          ${(gradeData?.reasons || ['초품아 거리와 가까운 역 거리를 우선 정리하는 중이에요.']).map(reason => `<p>${escapeHtml(reason)}</p>`).join('')}
-        </div>
-      </div>
-      <button class="db-apt-loan-cta" type="button" onclick='openAptLoanSheet(${JSON.stringify(entry.id)})'>
-        <span>${icon('calculator', 18)}</span>
-        이 단지로 대출 계산하기
-      </button>
-    </article>
-  `;
+        <p class="db-apt-grade-status">단지 분석 데이터를 정리하는 중이에요. 다시 선택하면 최신 상태로 불러올게요.</p>
+        <button class="db-apt-loan-cta" type="button" onclick='openAptLoanSheet(${JSON.stringify(entry.id)})'>
+          이 단지로 대출 계산하기
+        </button>
+      </article>
+    `;
+    console.error(error);
+  }
 
   target.dataset.renderedEntryId = entry.id;
 }
@@ -1395,6 +1418,8 @@ function pickDashboardApartment(id) {
 
   const input = document.getElementById('dbAptSearchInput');
   if (input) input.value = dashboardAptSearchState.query;
+  const body = document.querySelector('.db-apt-page-body');
+  if (body) body.scrollTo({ top: 0, behavior: 'smooth' });
   hydrateDashboardApartmentInsight(entry);
 }
 

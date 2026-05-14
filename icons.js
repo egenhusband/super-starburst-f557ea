@@ -22,7 +22,9 @@
     alertTriangle: '<path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path>',
     chevronDown: '<path d="m6 9 6 6 6-6"></path>',
     chevronRight: '<path d="m9 18 6-6-6-6"></path>',
+    chevronLeft: '<path d="m15 18-6-6 6-6"></path>',
     arrowLeft: '<path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path>',
+    back: '<path d="m12 19-7-7 7-7"></path><path d="M19 12H5"></path>',
     rotateCcw: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path>',
   };
 
@@ -30,12 +32,22 @@
     return String(name || '').replace(/-([a-z])/g, (_, c) => c.toUpperCase());
   }
 
+  function sizeClass(size) {
+    const value = Number(size || 0);
+    if (value <= 14) return 'ui-icon--xs';
+    if (value <= 16) return 'ui-icon--sm';
+    if (value <= 20) return 'ui-icon--md';
+    if (value <= 24) return 'ui-icon--lg';
+    if (value <= 28) return 'ui-icon--xl';
+    return 'ui-icon--2xl';
+  }
+
   function icon(name, size = 20, extraClass = '') {
     const key = normalizeName(name);
     const body = ICONS[key];
     if (!body) return '';
-    const className = ['ui-icon', extraClass].filter(Boolean).join(' ');
-    return `<svg class="${className}" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${body}</svg>`;
+    const className = ['ui-icon', sizeClass(size), extraClass].filter(Boolean).join(' ');
+    return `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
   }
 
   window.AppIcons = {

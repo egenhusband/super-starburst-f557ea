@@ -311,14 +311,8 @@ function buildTopComplexInsightCopy({ complex, aptTrade, station }) {
   const tradeFocus = getComplexTradeFocus(complex, aptTrade);
   const priceGap = getComplexPriceGap(complex, aptTrade);
   const area = Number(complex?.avgArea);
-  const subwayDistanceText = String(complex?.subwayDistance || '').trim();
-  const busDistanceText = String(complex?.busDistance || '').trim();
-  const convenientSummary = buildInfraSummary(complex);
 
   const reasons = [];
-  if (subwayDistanceText) reasons.push(`지하철 접근 정보가 확인돼 이동 편의 해석에 참고할 수 있는 단지`);
-  if (busDistanceText) reasons.push(`버스 정류장 거리 정보도 확인돼 대중교통 접근성을 함께 볼 수 있는 편`);
-  if (convenientSummary) reasons.push(`${convenientSummary} 접근성이 확인되는 편`);
 
   if (Number.isFinite(tradeFocus) && tradeFocus >= 8) reasons.push(`같은 지역 거래 중 ${tradeFocus}%가 이 단지에 몰릴 만큼 거래 집중도가 높음`);
   else if (Number.isFinite(tradeFocus) && tradeFocus >= 4) reasons.push(`지역 안에서 반복 거래가 이어진 단지로 관심이 유지된 편`);
@@ -338,46 +332,48 @@ function buildTopComplexInsightCopy({ complex, aptTrade, station }) {
   return reasons.slice(0, 3);
 }
 
-function buildInfraSummary(complex) {
-  const compact = (text) => String(text || '').replace(/\s+/g, ' ').trim();
-  const pickItems = (text, { limit = 2, separator = ',', mode = 'comma' } = {}) => {
-    const source = compact(text);
-    if (!source) return '';
-
-    if (mode === 'paren') {
-      const matches = [...source.matchAll(/([가-힣A-Za-z]+)\(([^)]+)\)/g)]
-        .slice(0, limit)
-        .map(([, label, value]) => `${label} ${value.split(',')[0].trim()}`);
-      return matches.join(' · ');
-    }
-
-    return source.split(separator).map(item => item.trim()).filter(Boolean).slice(0, limit).join(' · ');
-  };
-
-  const convenient = pickItems(complex?.convenientFacility, { mode: 'paren', limit: 2 });
-  return convenient ? `편의 ${convenient}` : '';
-}
-
 function buildTopComplexInsightPayload({ aptTrade, complex, station = null }) {
   const tradeFocus = getComplexTradeFocus(complex, aptTrade);
   const reasons = buildTopComplexInsightCopy({ complex, aptTrade, station });
-  const primaryArea = Number.isFinite(Number(complex?.avgArea)) ? formatAreaToPyeong(complex.avgArea) : '확인 중';
+  const primaryArea = Number.isFinite(Number(complex?.latestTradeArea))
+    ? formatAreaToPyeong(complex.latestTradeArea)
+    : Number.isFinite(Number(complex?.avgArea))
+      ? formatAreaToPyeong(complex.avgArea)
+      : '확인 중';
   const householdCount = Number(complex?.householdCount);
-  const subwayLabel = [complex?.subwayLine, complex?.subwayStation].filter(Boolean).join(' ');
-  const subwayDistanceText = String(complex?.subwayDistance || '').trim();
-  const busDistanceText = String(complex?.busDistance || '').trim();
+  const tradeCount = Number(complex?.tradeCount);
+  const latestTradePrice = Number(complex?.latestTradePrice);
+  const latestDealDate = String(complex?.latestDealDate || '').trim();
+  const metricCards = [
+    {
+      key: 'tradeCount',
+      label: '거래량',
+      value: Number.isFinite(tradeCount) && tradeCount > 0 ? `${tradeCount.toLocaleString()}건` : '',
+    },
+    {
+      key: 'latestTradePrice',
+      label: '최근 실거래가',
+      value: Number.isFinite(latestTradePrice) && latestTradePrice > 0 ? formatTradePrice(latestTradePrice) : '',
+    },
+    {
+      key: 'area',
+      label: '대표 평형',
+      value: primaryArea !== '확인 중' ? primaryArea : '',
+    },
+    {
+      key: 'latestDealDate',
+      label: '최근 거래일',
+      value: latestDealDate,
+    },
+  ].filter(item => String(item.value || '').trim());
+
   return {
-    householdText: Number.isFinite(householdCount) && householdCount > 0 ? `${householdCount.toLocaleString()}세대` : '준비중',
-    stationText: subwayLabel
-      ? [subwayLabel, subwayDistanceText].filter(Boolean).join(' · ')
-      : '준비중',
-    busText: busDistanceText || '준비중',
+    householdText: Number.isFinite(householdCount) && householdCount > 0 ? `${householdCount.toLocaleString()}세대` : '정보 확인 중',
     focusText: Number.isFinite(tradeFocus) ? `${tradeFocus}%` : '확인 중',
     primaryAreaText: primaryArea,
     reasons: reasons.length ? reasons : ['현재는 거래량과 가격 패턴을 중심으로 참고 해석을 제공합니다.'],
+    metricCards: metricCards.slice(0, 4),
     hasHousehold: Number.isFinite(householdCount) && householdCount > 0,
-    hasStation: Boolean(subwayLabel),
-    hasBus: Boolean(busDistanceText),
   };
 }
 
@@ -389,22 +385,11 @@ function renderTopComplexInsight(target, payload) {
       <span>TOP1 기준</span>
     </div>
     <div class="db-deal-insight-strip">
+      ${payload.metricCards.map(card => `
       <div class="db-deal-insight-chip">
-        <span class="db-deal-insight-k">세대수</span>
-        <strong>${escapeHtml(payload.householdText)}</strong>
-      </div>
-      <div class="db-deal-insight-chip">
-        <span class="db-deal-insight-k">평형</span>
-        <strong>${payload.primaryAreaText}</strong>
-      </div>
-      <div class="db-deal-insight-chip">
-        <span class="db-deal-insight-k">지하철역</span>
-        <strong>${escapeHtml(payload.stationText)}</strong>
-      </div>
-      <div class="db-deal-insight-chip">
-        <span class="db-deal-insight-k">버스 정류장</span>
-        <strong>${escapeHtml(payload.busText)}</strong>
-      </div>
+        <span class="db-deal-insight-k">${escapeHtml(card.label)}</span>
+        <strong>${escapeHtml(card.value)}</strong>
+      </div>`).join('')}
     </div>
     <ul class="db-deal-insight-list">
       ${payload.reasons.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}
@@ -470,6 +455,17 @@ async function hydrateTopComplexInsight({ aptTrade, complex, allowNetwork = fals
   const fallbackPayload = buildTopComplexInsightPayload({ aptTrade, complex, station: null });
   topComplexInsightCache.set(cacheKey, fallbackPayload);
   renderTopComplexInsight(target, fallbackPayload);
+
+  if (!allowNetwork) return;
+
+  try {
+    const location = await searchComplexLocation(complex);
+    const station = await searchNearestStation(location);
+    if (!station) return;
+    const enrichedPayload = buildTopComplexInsightPayload({ aptTrade, complex, station });
+    topComplexInsightCache.set(cacheKey, enrichedPayload);
+    renderTopComplexInsight(target, enrichedPayload);
+  } catch {}
 }
 
 function hydrateMarketBundle(bundle) {

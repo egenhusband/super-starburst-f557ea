@@ -113,17 +113,12 @@
   function toggleOtherLoanNone() {
     const checked = document.getElementById('otherLoanNone')?.checked;
     const wrap    = document.getElementById('otherLoanInputWrap');
-    const box     = document.getElementById('otherLoanNoneBox');
     const label   = document.getElementById('otherLoanNoneLabel');
-    if (wrap)  wrap.style.opacity  = checked ? '0.4' : '1';
-    if (box)   {
-      box.style.background    = checked ? 'var(--accent)' : 'var(--bg2)';
-      box.style.borderColor   = checked ? 'var(--accent)' : 'var(--separator)';
-      box.textContent         = checked ? '✓' : '';
-      box.style.color         = checked ? '#fff' : '';
-      box.style.fontWeight    = checked ? '700' : '';
+    if (wrap) {
+      wrap.style.opacity = checked ? '0.4' : '1';
+      wrap.classList.toggle('is-disabled', checked);
     }
-    if (label) label.style.borderColor = checked ? 'var(--accent)' : 'var(--separator)';
+    if (label) label.classList.toggle('is-checked', !!checked);
     if (checked) {
       document.getElementById('otherLoanPrincipal').value = '';
       document.getElementById('otherLoanRate').value = '';
@@ -2233,7 +2228,7 @@
       amountEl.dataset.motionTarget = String(nextLimitWon);
       setAnimatedAmount(amountEl, nextLimitWon, formatLimitWon);
     }
-    document.querySelectorAll('[data-room-sync="' + box.dataset.product + '"]').forEach(function(el) {
+    document.querySelectorAll('.room-sync-' + box.dataset.product).forEach(function(el) {
       el.textContent = formatLimit(state.finalLimit);
     });
 
@@ -2456,20 +2451,16 @@
     // 탭 버튼 HTML
     function makeTabBtn(id, badge, name, limit, colorCls) {
       var isFirst = id === firstTab;
-      var cls = 'result-tab' + (isFirst && colorCls !== 'nb' ? ' active-' + colorCls : '');
-      var styleAttr = (isFirst && colorCls === 'nb') ? ' style="background:rgba(255,107,157,0.15);border-color:#ff6b9d;color:#ff6b9d"' : '';
-      var badgeStyle = colorCls === 'nb' ? ' style="background:rgba(255,107,157,0.15);color:#ff6b9d"' : '';
-      var badgeCls = colorCls === 'nb' ? 'result-tab-badge' : 'result-tab-badge ' + colorCls;
-      return '<button class="' + cls + '"' + styleAttr + ' data-tab="' + id + '" onclick="switchTab3(this.dataset.tab)">'
-        + '<span class="' + badgeCls + '"' + badgeStyle + '>' + badge + '</span>'
+      var cls = 'result-tab' + (isFirst ? ' is-active' : '');
+      return '<button class="' + cls + '" data-tab="' + id + '" onclick="switchTab3(this.dataset.tab)">'
+        + '<span class="result-tab-badge">' + badge + '</span>'
         + '<span class="result-tab-name">' + name + '</span>'
-        + '<span class="result-tab-limit">' + limit + '</span>'
         + '</button>';
     }
 
-    var tabsHtml = '<div class="result-tabs" id="tabs3-wrap">';
-    if (newbornOk)    tabsHtml += makeTabBtn('newborn',    '금리 최저', '신생아 디딤돌',  '<span data-room-sync="newborn">' + formatLimit(nbDisplayLimit) + '</span>', 'nb');
-    if (didimdolOk)   tabsHtml += makeTabBtn('didimdol',   newbornOk ? '차선책' : '금리 낮음', '디딤돌 대출', '<span data-room-sync="didimdol">' + formatLimit(dDisplayLimit) + '</span>', 'blue');
+    var tabsHtml = '<div class="result-tabs" id="tabs3-wrap" data-active-product="' + firstTab + '" style="--tabs-count:' + tabs.length + ';--active-index:0"><span class="result-tabs-indicator" aria-hidden="true"></span>';
+    if (newbornOk)    tabsHtml += makeTabBtn('newborn',    '금리 최저', '신생아 디딤돌',  '<span class="room-sync-newborn">' + formatLimit(nbDisplayLimit) + '</span>', 'nb');
+    if (didimdolOk)   tabsHtml += makeTabBtn('didimdol',   newbornOk ? '차선책' : '금리 낮음', '디딤돌 대출', '<span class="room-sync-didimdol">' + formatLimit(dDisplayLimit) + '</span>', 'blue');
     if (bogeumjariOk) tabsHtml += makeTabBtn('bogeumjari', (newbornOk || didimdolOk) ? '한도 우위' : '추천', '보금자리론', formatLimit(bFinalLimit), 'green');
     tabsHtml += '</div>';
 
@@ -2482,7 +2473,7 @@
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
         + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val" style="color:#ff6b9d">' + rateInfo.min + '~' + rateInfo.max + '%</span></div>'
-        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val" style="color:#ff6b9d" data-room-sync="newborn">' + formatLimit(nbDisplayLimit) + '</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val" style="color:#ff6b9d"><span class="room-sync-newborn">' + formatLimit(nbDisplayLimit) + '</span></span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30, income, household, region)
@@ -2516,7 +2507,7 @@
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
         + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val blue">' + getDidimdolRateLabel(household, house) + '</span></div>'
-        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue" data-room-sync="didimdol">' + formatLimit(dDisplayLimit) + '</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue"><span class="room-sync-didimdol">' + formatLimit(dDisplayLimit) + '</span></span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income)
@@ -2769,6 +2760,10 @@
   function renderResult(income, price, asset, otherLoanInterest) {
     otherLoanInterest = otherLoanInterest || 0;
     const { household, house, children, region } = answers;
+    const bottomNav = document.getElementById('bottomNav');
+    const progressWrap = document.getElementById('progressWrap');
+    if (bottomNav) bottomNav.style.display = 'none';
+    if (progressWrap) progressWrap.style.display = 'none';
 
     // 신생아 여부
     const isNewborn = children === '신생아';
@@ -2860,16 +2855,15 @@
         </div>
 
         <!-- 탭 -->
-        <div class="result-tabs">
-          <button class="result-tab active-blue" onclick="switchTab('didimdol')">
-            <span class="result-tab-badge blue">금리 최저</span>
+        <div class="result-tabs" id="tabs2-wrap" data-active-product="didimdol" style="--tabs-count:2;--active-index:0">
+          <span class="result-tabs-indicator" aria-hidden="true"></span>
+          <button class="result-tab is-active" data-tab="didimdol" onclick="switchTab('didimdol')">
+            <span class="result-tab-badge">금리 최저</span>
             <span class="result-tab-name">디딤돌 대출</span>
-            <span class="result-tab-limit"><span data-room-sync="didimdol">${formatLimit(dDisplayLimit)}</span></span>
           </button>
-          <button class="result-tab" onclick="switchTab('bogeumjari')">
-            <span class="result-tab-badge green">한도 우위</span>
+          <button class="result-tab" data-tab="bogeumjari" onclick="switchTab('bogeumjari')">
+            <span class="result-tab-badge">한도 우위</span>
             <span class="result-tab-name">보금자리론</span>
-            <span class="result-tab-limit">${formatLimit(bFinalLimit)}</span>
           </button>
         </div>
 
@@ -2886,7 +2880,7 @@
               </div>
               <div class="info-pill">
                 <span class="info-pill-label">예상 한도</span>
-                <span class="info-pill-val blue" data-room-sync="didimdol">${formatLimit(dDisplayLimit)}</span>
+                <span class="info-pill-val blue"><span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span></span>
               </div>
             </div>
           </div>
@@ -2977,7 +2971,7 @@
             </div>
             <div class="info-pill">
               <span class="info-pill-label">예상 한도</span>
-              <span class="info-pill-val blue" data-room-sync="didimdol">${formatLimit(dDisplayLimit)}</span>
+              <span class="info-pill-val blue"><span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span></span>
             </div>
           </div>
         </div>
@@ -3143,35 +3137,42 @@
 
   function switchTab(tab) {
     const panes = document.querySelectorAll('.tab-pane');
-    const tabs  = document.querySelectorAll('.result-tab');
+    const tabsWrap = document.getElementById('tabs2-wrap');
+    const tabs  = tabsWrap ? tabsWrap.querySelectorAll('.result-tab') : document.querySelectorAll('.result-tab');
     panes.forEach(p => p.classList.remove('active'));
-    tabs.forEach(t  => t.classList.remove('active-blue', 'active-green'));
+    tabs.forEach(t  => t.classList.remove('is-active'));
 
     if (tab === 'didimdol') {
       document.getElementById('pane-didimdol').classList.add('active');
-      tabs[0].classList.add('active-blue');
+      if (tabs[0]) tabs[0].classList.add('is-active');
+      if (tabsWrap) {
+        tabsWrap.style.setProperty('--active-index', '0');
+        tabsWrap.dataset.activeProduct = 'didimdol';
+      }
     } else {
       document.getElementById('pane-bogeumjari').classList.add('active');
-      tabs[1].classList.add('active-green');
+      if (tabs[1]) tabs[1].classList.add('is-active');
+      if (tabsWrap) {
+        tabsWrap.style.setProperty('--active-index', '1');
+        tabsWrap.dataset.activeProduct = 'bogeumjari';
+      }
     }
   }
 
   function switchTab3(tab) {
+    var tabsWrap = document.getElementById('tabs3-wrap');
     document.querySelectorAll('.tab-pane3').forEach(function(p) { p.classList.remove('active'); });
     document.querySelectorAll('#tabs3-wrap .result-tab').forEach(function(t) {
-      t.classList.remove('active-blue', 'active-green');
-      t.removeAttribute('style');
+      t.classList.remove('is-active');
     });
     var pane = document.getElementById('pane3-' + tab);
     if (pane) pane.classList.add('active');
-    document.querySelectorAll('#tabs3-wrap .result-tab').forEach(function(t) {
+    document.querySelectorAll('#tabs3-wrap .result-tab').forEach(function(t, index) {
       if (t.dataset.tab === tab) {
-        if (tab === 'newborn') {
-          t.style.cssText = 'background:rgba(255,107,157,0.15);border-color:#ff6b9d;color:#ff6b9d';
-        } else if (tab === 'didimdol') {
-          t.classList.add('active-blue');
-        } else {
-          t.classList.add('active-green');
+        t.classList.add('is-active');
+        if (tabsWrap) {
+          tabsWrap.style.setProperty('--active-index', String(index));
+          tabsWrap.dataset.activeProduct = tab;
         }
       }
     });
@@ -3374,12 +3375,13 @@
     });
     var noneChk = document.getElementById('otherLoanNone');
     if (noneChk) { noneChk.checked = false; }
-    var noneBox = document.getElementById('otherLoanNoneBox');
-    if (noneBox) { noneBox.textContent = ''; noneBox.style.background = 'var(--bg2)'; noneBox.style.borderColor = 'var(--separator)'; }
     var noneLabel = document.getElementById('otherLoanNoneLabel');
-    if (noneLabel) noneLabel.style.borderColor = 'var(--separator)';
+    if (noneLabel) noneLabel.classList.remove('is-checked');
     var wrap = document.getElementById('otherLoanInputWrap');
-    if (wrap) wrap.style.opacity = '';
+    if (wrap) {
+      wrap.style.opacity = '';
+      wrap.classList.remove('is-disabled');
+    }
     var calc = document.getElementById('otherLoanCalcResult');
     if (calc) calc.style.display = 'none';
     ['incomeErr','priceErr','assetErr','otherLoanErr'].forEach(id => {
