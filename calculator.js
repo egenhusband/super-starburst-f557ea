@@ -53,6 +53,14 @@
     document.getElementById('progressLabel').textContent = step2 < TOTAL && step > 0 ? `${step2 + 1} / ${TOTAL}` : (step >= TOTAL + 1 ? '완료' : '');
   }
 
+  function resetResultScroll() {
+    const resultSlide = document.querySelector('.result-slide');
+    if (!resultSlide) return;
+    resultSlide.scrollTop = 0;
+    requestAnimationFrame(() => { resultSlide.scrollTop = 0; });
+    window.setTimeout(() => { resultSlide.scrollTop = 0; }, 280);
+  }
+
   function goNext() {
     // intro 슬라이드: 선택에 따라 분기
     if (current === 0) {
@@ -93,6 +101,7 @@
       }
       renderResult(income, price, asset, otherLoanInterest);
       navigateTo(9, 'forward');
+      resetResultScroll();
       document.getElementById('bottomNav').style.display = 'none';
       document.getElementById('progressWrap').style.display = 'none';
       if (isGuestMode) setTimeout(showPayPopup, 400);
@@ -236,6 +245,7 @@
     const resultSlide = document.querySelector('[data-slide="8"]');
     resultSlide.classList.add('active');
     resultSlide.innerHTML = buildBankLoanFormHtml();
+    resetResultScroll();
     current = allSlides.length - 1;
     setTimeout(showBankNotice, 400); // 슬라이드 전환 후 팝업
   }
@@ -3100,6 +3110,7 @@
 
     const resultContent = document.getElementById('resultContent');
     resultContent.innerHTML = html;
+    resetResultScroll();
     resultContent.querySelectorAll('[data-motion-target]').forEach(function(el) {
       const target = Number(el.dataset.motionTarget || 0);
       const formatter = el.hasAttribute('data-room-final-amount') ? formatLimitWon : formatWon;
@@ -3410,14 +3421,29 @@
 
   // 초기 진입 처리는 dashboard.js 로드 후 실행됨
 
+  function hasRenderedResult() {
+    const resultContent = document.getElementById('resultContent');
+    const bankResultArea = document.getElementById('bankResultArea');
+    const fundResultReady = Boolean(resultContent && resultContent.innerHTML.trim() !== '');
+    const bankResultReady = Boolean(bankResultArea && bankResultArea.innerHTML.trim() !== '');
+    return fundResultReady || bankResultReady;
+  }
+
   function submitPassword() {
     const val = document.getElementById('pwInput').value;
     if (val === CORRECT_PW) {
+      const shouldPreserveResult = hasRenderedResult();
       isGuestMode = false;
       localStorage.setItem('authVerified', '1');
       document.getElementById('pwScreen').style.display = 'none';
+      document.getElementById('payOverlay')?.classList.remove('open');
       document.getElementById('pwErr').textContent = '';
-      startCalculatorFlow();
+      if (shouldPreserveResult) {
+        showCalculator();
+        resetResultScroll();
+      } else {
+        startCalculatorFlow();
+      }
       if (typeof preloadMarketBundle === 'function') preloadMarketBundle().catch(() => {});
     } else {
       document.getElementById('pwErr').textContent = '비밀번호가 올바르지 않아요.';
@@ -3429,12 +3455,7 @@
   function enterAsGuest() {
     isGuestMode = true;
     document.getElementById('pwScreen').style.display = 'none';
-    // 이미 결과화면이 렌더링된 상태면 즉시 결제 팝업 노출
-    const resultContent = document.getElementById('resultContent');
-    const bankResultArea = document.getElementById('bankResultArea');
-    const hasResult = (resultContent && resultContent.innerHTML.trim() !== '') ||
-                      (bankResultArea && bankResultArea.innerHTML.trim() !== '');
-    if (hasResult) setTimeout(showPayPopup, 200);
+    if (hasRenderedResult()) setTimeout(showPayPopup, 200);
     else {
       startCalculatorFlow();
       if (typeof preloadMarketBundle === 'function') preloadMarketBundle().catch(() => {});

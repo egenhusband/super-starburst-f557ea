@@ -1052,7 +1052,6 @@ function renderDashboardAptSearchResults() {
       </div>
       <div class="db-apt-search-item-side">
         <span>${escapeHtml(entry.regionLabel)}</span>
-        <em>${escapeHtml(formatLatestTradeSummary(entry))}</em>
       </div>
     </button>
   `).join('');

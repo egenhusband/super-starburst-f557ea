@@ -411,6 +411,49 @@ function renderTopComplexInsight(target, payload) {
     </ul>
     <p class="db-deal-insight-note">이 해석은 최근 실거래와 공공 주택 데이터를 바탕으로 한 참고 정보이며, 학군·개발계획·실제 도보 동선은 반영하지 않습니다.</p>
   `;
+  bindDashboardHorizontalScroll(target.querySelector('.db-deal-insight-strip'));
+}
+
+function bindDashboardHorizontalScroll(scroller) {
+  if (!scroller || scroller.dataset.dragScrollBound === '1') return;
+  scroller.dataset.dragScrollBound = '1';
+  let pointerDown = false;
+  let pointerId = null;
+  let startX = 0;
+  let startScrollLeft = 0;
+
+  scroller.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    pointerDown = true;
+    pointerId = event.pointerId;
+    startX = event.clientX;
+    startScrollLeft = scroller.scrollLeft;
+    scroller.classList.add('is-dragging');
+    if (typeof scroller.setPointerCapture === 'function') {
+      scroller.setPointerCapture(pointerId);
+    }
+  });
+
+  scroller.addEventListener('pointermove', event => {
+    if (!pointerDown || event.pointerId !== pointerId) return;
+    const deltaX = event.clientX - startX;
+    if (Math.abs(deltaX) > 3) event.preventDefault();
+    scroller.scrollLeft = startScrollLeft - deltaX;
+  });
+
+  const endDrag = event => {
+    if (!pointerDown || event.pointerId !== pointerId) return;
+    pointerDown = false;
+    pointerId = null;
+    scroller.classList.remove('is-dragging');
+  };
+  scroller.addEventListener('pointerup', endDrag);
+  scroller.addEventListener('pointercancel', endDrag);
+  scroller.addEventListener('lostpointercapture', () => {
+    pointerDown = false;
+    pointerId = null;
+    scroller.classList.remove('is-dragging');
+  });
 }
 
 async function hydrateTopComplexInsight({ aptTrade, complex, allowNetwork = false }) {
