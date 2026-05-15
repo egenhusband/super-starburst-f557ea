@@ -2701,6 +2701,43 @@
   .pref-toast-icon {
     margin-right: 6px;
   }
+  .entry-toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 108px);
+    z-index: 320;
+    width: min(calc(100% - 40px), 390px);
+    min-height: 48px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+    border: 1px solid var(--border-subtle);
+    color: var(--neutral-100);
+    box-shadow: 0 16px 36px rgba(0,0,0,0.34);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.16px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, 120%);
+    transition:
+      opacity var(--motion-toast-exit) var(--ease-snappy),
+      transform var(--motion-toast-exit) var(--ease-snappy);
+  }
+  .entry-toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    transition-duration: var(--motion-toast-enter);
+    transition-timing-function: var(--ease-enter);
+  }
+  .entry-toast-icon {
+    color: var(--accent);
+    display: inline-flex;
+  }
   /* 상환 스케줄 버튼 */
   .sch-open-btn {
     width: 100%;
@@ -2896,6 +2933,9 @@
 .restart-confirm-overlay button,
 .sch-sheet button,
 .apt-loan-sheet button,
+.apt-analysis-paywall-sheet button,
+.apt-analysis-paywall-submit,
+.db-apt-analysis-paywall-btn,
 .calc-topbar-btn,
 .db-back-btn,
 .db-region-btn,
@@ -2919,6 +2959,9 @@
 .restart-confirm-overlay button:active:not(:disabled),
 .sch-sheet button:active:not(:disabled),
 .apt-loan-sheet button:active:not(:disabled),
+.apt-analysis-paywall-sheet button:active:not(:disabled),
+.apt-analysis-paywall-submit:active,
+.db-apt-analysis-paywall-btn:active,
 .calc-topbar-btn:active,
 .db-back-btn:active,
 .db-region-btn:active,
@@ -4782,6 +4825,77 @@
   margin: 0;
   color: inherit;
 }
+.db-apt-analysis-lock-wrap {
+  position: relative;
+}
+.db-apt-analysis-lock-content {
+  transition:
+    filter var(--motion-sheet-exit) var(--ease-snappy),
+    opacity var(--motion-sheet-exit) var(--ease-snappy);
+}
+.db-apt-analysis-lock-wrap.is-locked .db-apt-analysis-lock-content {
+  filter: blur(7px);
+  opacity: 0.46;
+  pointer-events: none;
+  user-select: none;
+}
+.db-apt-analysis-paywall {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(0,0,0,0.18);
+}
+.db-apt-analysis-paywall-card {
+  width: min(100%, 300px);
+  padding: 18px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.34);
+  text-align: center;
+}
+.db-apt-analysis-paywall-icon {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 10px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+.db-apt-analysis-paywall-card strong {
+  display: block;
+  color: var(--neutral-0);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.28px;
+}
+.db-apt-analysis-paywall-card p {
+  margin: 8px 0 14px;
+  color: var(--neutral-200);
+  font-size: 12px;
+  line-height: 1.55;
+  letter-spacing: -0.1px;
+}
+.db-apt-analysis-paywall-btn {
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 780;
+  cursor: pointer;
+}
 .apt-loan-sheet-overlay {
   display: none;
   position: fixed;
@@ -4960,6 +5074,130 @@
 .apt-loan-submit:disabled {
   opacity: 0.38;
   cursor: default;
+}
+.apt-analysis-paywall-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 244;
+  background: var(--sheet-overlay-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.apt-analysis-paywall-overlay.open {
+  display: block;
+}
+.apt-analysis-paywall-sheet {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 245;
+  width: min(100%, 430px);
+  transform: translate(-50%, 100%);
+  border-radius: 22px 22px 0 0;
+  border: 1px solid var(--border-subtle);
+  border-bottom: 0;
+  background: var(--surface-2);
+  box-shadow: 0 -24px 60px rgba(0,0,0,0.36);
+  transition: transform var(--motion-sheet-exit) var(--ease-snappy);
+}
+.apt-analysis-paywall-sheet.open {
+  transform: translate(-50%, 0);
+  transition-duration: var(--motion-sheet-enter);
+  transition-timing-function: var(--ease-enter);
+}
+.apt-analysis-paywall-handle {
+  width: 36px;
+  height: 4px;
+  margin: 12px auto 0;
+  border-radius: 999px;
+  background: var(--border-default);
+}
+.apt-analysis-paywall-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 0;
+}
+.apt-analysis-paywall-kicker {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: -0.1px;
+}
+.apt-analysis-paywall-title {
+  margin: 5px 0 0;
+  color: var(--neutral-0);
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+.apt-analysis-paywall-close {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--neutral-400);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.apt-analysis-paywall-body {
+  padding: 14px 20px max(env(safe-area-inset-bottom), 24px);
+}
+.apt-analysis-paywall-desc {
+  margin: 0 0 14px;
+  color: var(--neutral-200);
+  font-size: 13px;
+  line-height: 1.58;
+  letter-spacing: -0.1px;
+}
+.apt-analysis-paywall-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.apt-analysis-paywall-list span {
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  color: var(--neutral-200);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+}
+.apt-analysis-paywall-submit,
+.apt-analysis-paywall-pw {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 16px;
+  font-family: 'Pretendard Variable', sans-serif;
+  font-size: 15px;
+  font-weight: 780;
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.apt-analysis-paywall-submit {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+}
+.apt-analysis-paywall-pw {
+  margin-top: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-3);
+  color: var(--neutral-200);
 }
 @media (max-width: 640px) {
   .db-apt-page-sticky,

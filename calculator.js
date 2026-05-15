@@ -3435,6 +3435,9 @@
     const val = document.getElementById('pwInput').value;
     if (val === CORRECT_PW) {
       const shouldPreserveResult = hasRenderedResult();
+      const shouldPreserveAptAnalysis = !shouldPreserveResult
+        && typeof hasDashboardAptSelection === 'function'
+        && hasDashboardAptSelection();
       isGuestMode = false;
       localStorage.setItem('authVerified', '1');
       document.getElementById('pwScreen').style.display = 'none';
@@ -3443,6 +3446,8 @@
       if (shouldPreserveResult) {
         showCalculator();
         resetResultScroll();
+      } else if (shouldPreserveAptAnalysis && typeof revealDashboardAptAnalysisAfterAuth === 'function') {
+        revealDashboardAptAnalysisAfterAuth();
       } else {
         startCalculatorFlow();
       }

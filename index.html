@@ -16,7 +16,7 @@
   <div id="aptSearchScreen" style="display:none"></div>
 
   <!-- 비밀번호 진입 화면 -->
-  <div class="pw-screen" id="pwScreen">
+  <div class="pw-screen" id="pwScreen" style="display:none">
     <div style="width:100%;max-width:390px;display:flex;flex-direction:column;align-items:center">
     <div class="pw-logo" data-icon="coffee" data-icon-size="34"></div>
     <div style="margin-bottom:12px;text-align:center">
@@ -598,6 +598,11 @@
   <span class="pref-toast-icon" data-icon="alertTriangle" data-icon-size="16"></span>우대금리 상한을 초과할 수 없어요
 </div>
 
+<div class="entry-toast" id="entryToast">
+  <span class="entry-toast-icon" data-icon="sparkle" data-icon-size="16"></span>
+  계산은 무료로 시작하고 상세 결과에서 결제 안내가 떠요
+</div>
+
   <!-- 단지 기준 대출 계산 바텀시트 -->
   <div class="apt-loan-sheet-overlay" id="aptLoanSheetOverlay" onclick="closeAptLoanSheet()"></div>
   <div class="apt-loan-sheet" id="aptLoanSheet" role="dialog" aria-modal="true" aria-labelledby="aptLoanSheetTitle">
@@ -629,6 +634,38 @@
         </button>
       </div>
       <button class="apt-loan-submit" id="aptLoanSubmitBtn" type="button" onclick="submitAptLoanSheet()" disabled>기금대출 조건 확인하기</button>
+    </div>
+  </div>
+
+  <!-- 단지 분석 결제 유도 바텀시트 -->
+  <div class="apt-analysis-paywall-overlay" id="aptAnalysisPaywallOverlay" onclick="closeAptAnalysisPaywallSheet()"></div>
+  <div class="apt-analysis-paywall-sheet" id="aptAnalysisPaywallSheet" role="dialog" aria-modal="true" aria-labelledby="aptAnalysisPaywallTitle">
+    <div class="apt-analysis-paywall-handle"></div>
+    <div class="apt-analysis-paywall-head">
+      <div>
+        <div class="apt-analysis-paywall-kicker">단지 상세 분석</div>
+        <h2 class="apt-analysis-paywall-title" id="aptAnalysisPaywallTitle">단지 분석 보기</h2>
+      </div>
+      <button class="apt-analysis-paywall-close" type="button" onclick="closeAptAnalysisPaywallSheet()" aria-label="닫기">
+        <span data-icon="x" data-icon-size="14"></span>
+      </button>
+    </div>
+    <div class="apt-analysis-paywall-body">
+      <p class="apt-analysis-paywall-desc">입지 등급, 가격 레벨, 역/학교/업무지구 해석, 단지 기준 대출 계산까지 확인할 수 있어요.</p>
+      <div class="apt-analysis-paywall-list">
+        <span>입지 등급</span>
+        <span>가격 레벨</span>
+        <span>업무지구 접근성</span>
+        <span>단지 기준 대출 계산</span>
+      </div>
+      <a class="apt-analysis-paywall-submit" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">
+        <span data-icon="creditCard" data-icon-size="16"></span>
+        8,900원으로 단지 분석 열기
+      </a>
+      <button class="apt-analysis-paywall-pw" type="button" onclick="openAptAnalysisPassword()">
+        <span data-icon="keyRound" data-icon-size="16"></span>
+        이미 구매했어요
+      </button>
     </div>
   </div>
 

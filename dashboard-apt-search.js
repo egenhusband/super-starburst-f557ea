@@ -1057,6 +1057,25 @@ function renderDashboardAptSearchResults() {
   `).join('');
 }
 
+function isDashboardAptAnalysisUnlocked() {
+  return localStorage.getItem('authVerified') === '1';
+}
+
+function renderDashboardAptAnalysisPaywall() {
+  return `
+    <div class="db-apt-analysis-paywall">
+      <div class="db-apt-analysis-paywall-card">
+        <div class="db-apt-analysis-paywall-icon">${typeof icon === 'function' ? icon('lockKeyhole', 22) || icon('keyRound', 22) : ''}</div>
+        <strong>단지 분석 보기</strong>
+        <p>입지 등급, 가격 레벨, 역/학교/업무지구 해석, 단지 기준 대출 계산까지 확인할 수 있어요.</p>
+        <button class="db-apt-analysis-paywall-btn" type="button" onclick="openAptAnalysisPaywallSheet()">
+          8,900원으로 열기
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function renderDashboardSelectedApartment() {
   const target = document.getElementById('dbAptSearchSelected');
   if (!target) return;
@@ -1093,57 +1112,65 @@ function renderDashboardSelectedApartment() {
         ? '핵심 축이 너무 적어서 등급은 잠시 보류하고, 확보된 정보만 먼저 보여드려요.'
         : '선택한 단지 기준으로 정적 입지 데이터를 묶어서 정리했어요.';
     const calculatorIcon = typeof icon === 'function' ? icon('calculator', 18) : '';
+    const isUnlocked = isDashboardAptAnalysisUnlocked();
+    const lockClass = isUnlocked ? '' : ' is-locked';
+    const lockOverlay = isUnlocked ? '' : renderDashboardAptAnalysisPaywall();
     target.innerHTML = `
       <article class="db-apt-grade-card">
-        <div class="db-apt-grade-head">
-          <div>
-            <div class="db-fact-label">단지 간단 등급</div>
-            <strong>${escapeHtml(entry.aptName)}</strong>
-            <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
+        <div class="db-apt-analysis-lock-wrap${lockClass}">
+          <div class="db-apt-analysis-lock-content">
+            <div class="db-apt-grade-head">
+              <div>
+                <div class="db-fact-label">단지 간단 등급</div>
+                <strong>${escapeHtml(entry.aptName)}</strong>
+                <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
+              </div>
+              <div class="db-apt-grade-badge ${gradeClass}">
+                <span>등급</span>
+                <strong>${isGradeReady ? gradeData.grade : '보류'}</strong>
+              </div>
+            </div>
+            <p class="db-apt-grade-status">${escapeHtml(statusText)}</p>
+            <div class="db-apt-grade-grid">
+              <div class="db-apt-grade-chip">
+                <span>초품아</span>
+                <strong>${escapeHtml(schoolParts.primary || schoolText)}</strong>
+                ${schoolParts.secondary ? `<em>${escapeHtml(schoolParts.secondary)}</em>` : ''}
+              </div>
+              <div class="db-apt-grade-chip">
+                <span>가까운 역</span>
+                <strong>${escapeHtml(stationParts.primary || stationText)}</strong>
+                ${stationParts.secondary ? `<em>${escapeHtml(stationParts.secondary)}</em>` : ''}
+              </div>
+              <div class="db-apt-grade-chip">
+                <span>세대수</span>
+                <strong>${escapeHtml(formatHouseholdLabel(entry.householdCount))}</strong>
+              </div>
+              <div class="db-apt-grade-chip">
+                <span>준공</span>
+                <strong>${escapeHtml(formatBuildYearLabel(entry.buildYear))}</strong>
+              </div>
+              <div class="db-apt-grade-chip">
+                <span>핵심 업무지구</span>
+                <strong class="db-apt-grade-business-lines">${renderBusinessDistrictSummaryHtml(businessDistrictData)}</strong>
+              </div>
+              <div class="db-apt-grade-chip">
+                <span>가격 레벨</span>
+                <strong>${escapeHtml(formatPriceLevelSummary(entry))}</strong>
+              </div>
+            </div>
+            <div class="db-apt-grade-summary">
+              <div class="db-apt-grade-reasons">
+                ${(gradeData?.reasons || ['초품아 거리와 가까운 역 거리를 우선 정리하는 중이에요.']).map(reason => `<p>${escapeHtml(reason)}</p>`).join('')}
+              </div>
+            </div>
+            <button class="db-apt-loan-cta" type="button" onclick='openAptLoanSheet(${JSON.stringify(entry.id)})'>
+              <span>${calculatorIcon}</span>
+              이 단지로 대출 계산하기
+            </button>
           </div>
-          <div class="db-apt-grade-badge ${gradeClass}">
-            <span>등급</span>
-            <strong>${isGradeReady ? gradeData.grade : '보류'}</strong>
-          </div>
+          ${lockOverlay}
         </div>
-        <p class="db-apt-grade-status">${escapeHtml(statusText)}</p>
-        <div class="db-apt-grade-grid">
-          <div class="db-apt-grade-chip">
-            <span>초품아</span>
-            <strong>${escapeHtml(schoolParts.primary || schoolText)}</strong>
-            ${schoolParts.secondary ? `<em>${escapeHtml(schoolParts.secondary)}</em>` : ''}
-          </div>
-          <div class="db-apt-grade-chip">
-            <span>가까운 역</span>
-            <strong>${escapeHtml(stationParts.primary || stationText)}</strong>
-            ${stationParts.secondary ? `<em>${escapeHtml(stationParts.secondary)}</em>` : ''}
-          </div>
-          <div class="db-apt-grade-chip">
-            <span>세대수</span>
-            <strong>${escapeHtml(formatHouseholdLabel(entry.householdCount))}</strong>
-          </div>
-          <div class="db-apt-grade-chip">
-            <span>준공</span>
-            <strong>${escapeHtml(formatBuildYearLabel(entry.buildYear))}</strong>
-          </div>
-          <div class="db-apt-grade-chip">
-            <span>핵심 업무지구</span>
-            <strong class="db-apt-grade-business-lines">${renderBusinessDistrictSummaryHtml(businessDistrictData)}</strong>
-          </div>
-          <div class="db-apt-grade-chip">
-            <span>가격 레벨</span>
-            <strong>${escapeHtml(formatPriceLevelSummary(entry))}</strong>
-          </div>
-        </div>
-        <div class="db-apt-grade-summary">
-          <div class="db-apt-grade-reasons">
-            ${(gradeData?.reasons || ['초품아 거리와 가까운 역 거리를 우선 정리하는 중이에요.']).map(reason => `<p>${escapeHtml(reason)}</p>`).join('')}
-          </div>
-        </div>
-        <button class="db-apt-loan-cta" type="button" onclick='openAptLoanSheet(${JSON.stringify(entry.id)})'>
-          <span>${calculatorIcon}</span>
-          이 단지로 대출 계산하기
-        </button>
       </article>
     `;
   } catch (error) {
@@ -1213,6 +1240,11 @@ function setAptLoanType(type) {
 }
 
 function openAptLoanSheet(entryId) {
+  if (!isDashboardAptAnalysisUnlocked()) {
+    openAptAnalysisPaywallSheet();
+    return;
+  }
+
   const entry = dashboardAptSearchState.entriesById.get(entryId) || getDashboardSelectedEntry();
   if (!entry) return;
 
@@ -1243,6 +1275,40 @@ function openAptLoanSheet(entryId) {
 function closeAptLoanSheet() {
   document.getElementById('aptLoanSheetOverlay')?.classList.remove('open');
   document.getElementById('aptLoanSheet')?.classList.remove('open');
+}
+
+function openAptAnalysisPaywallSheet() {
+  const overlay = document.getElementById('aptAnalysisPaywallOverlay');
+  const sheet = document.getElementById('aptAnalysisPaywallSheet');
+  if (!overlay || !sheet) return;
+  overlay.classList.add('open');
+  sheet.classList.add('open');
+  if (typeof window.renderIcons === 'function') window.renderIcons(sheet);
+}
+
+function closeAptAnalysisPaywallSheet() {
+  document.getElementById('aptAnalysisPaywallOverlay')?.classList.remove('open');
+  document.getElementById('aptAnalysisPaywallSheet')?.classList.remove('open');
+}
+
+function openAptAnalysisPassword() {
+  closeAptAnalysisPaywallSheet();
+  if (typeof closePayAndShowPw === 'function') {
+    closePayAndShowPw();
+  } else {
+    const pwScreen = document.getElementById('pwScreen');
+    if (pwScreen) pwScreen.style.display = 'flex';
+  }
+}
+
+function hasDashboardAptSelection() {
+  return Boolean(dashboardAptSearchState.selectedId && getDashboardSelectedEntry());
+}
+
+function revealDashboardAptAnalysisAfterAuth() {
+  closeAptAnalysisPaywallSheet();
+  renderDashboardSelectedApartment();
+  if (typeof showAptSearchScreen === 'function') showAptSearchScreen();
 }
 
 function submitAptLoanSheet() {
@@ -1465,6 +1531,11 @@ window.pickDashboardApartment = pickDashboardApartment;
 window.returnToDashboardAptResults = returnToDashboardAptResults;
 window.openAptLoanSheet = openAptLoanSheet;
 window.closeAptLoanSheet = closeAptLoanSheet;
+window.openAptAnalysisPaywallSheet = openAptAnalysisPaywallSheet;
+window.closeAptAnalysisPaywallSheet = closeAptAnalysisPaywallSheet;
+window.openAptAnalysisPassword = openAptAnalysisPassword;
+window.hasDashboardAptSelection = hasDashboardAptSelection;
+window.revealDashboardAptAnalysisAfterAuth = revealDashboardAptAnalysisAfterAuth;
 window.setAptLoanType = setAptLoanType;
 window.updateAptLoanSheetState = updateAptLoanSheetState;
 window.submitAptLoanSheet = submitAptLoanSheet;

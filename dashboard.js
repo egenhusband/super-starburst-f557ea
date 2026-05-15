@@ -1591,14 +1591,32 @@ function formatPrice(val) {
   return `약 ${Math.round(val * 82.6).toLocaleString()}만원`;
 }
 
+function showEntryToast() {
+  const toast = document.getElementById('entryToast');
+  if (!toast) return;
+  window.clearTimeout(showEntryToast._timer);
+  toast.classList.add('show');
+  showEntryToast._timer = window.setTimeout(() => {
+    toast.classList.remove('show');
+  }, 3800);
+}
+
 // ── 진입점 ───────────────────────────────────────────
 (function() {
   const cachedBundle = getMarketBundleCache();
   if (cachedBundle) renderCalculatorMarquee(cachedBundle);
 
+  const pwScreen = document.getElementById('pwScreen');
+  if (pwScreen) pwScreen.style.display = 'none';
   if (localStorage.getItem('authVerified') === '1') {
-    document.getElementById('pwScreen').style.display = 'none';
-    showCalculator();
-    preloadMarketBundle().catch(() => {});
+    startCalculatorFlow();
+  } else {
+    enterAsGuest();
   }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', showEntryToast, { once: true });
+  } else {
+    showEntryToast();
+  }
+  preloadMarketBundle().catch(() => {});
 })();
