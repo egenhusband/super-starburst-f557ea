@@ -211,8 +211,19 @@
       allSlides[current].classList.add('active');
       void allSlides[current].offsetWidth;
       allSlides[current].style.transition = '';
-      const inp = allSlides[current].querySelector('input');
-      if (inp) setTimeout(() => inp.focus(), 350);
+      const shouldAutoFocusInput = current !== 9;
+      const inp = shouldAutoFocusInput
+        ? allSlides[current].querySelector('input:not([type="hidden"]):not([disabled])')
+        : null;
+      if (inp) {
+        setTimeout(() => {
+          try {
+            inp.focus({ preventScroll: true });
+          } catch (_) {
+            inp.focus();
+          }
+        }, 350);
+      }
     }, 240);
   }
 
@@ -3443,7 +3454,7 @@
       localStorage.setItem('authVerified', '1');
       const pwScreen = document.getElementById('pwScreen');
       if (pwScreen) pwScreen.style.display = 'none';
-      closePaySheet();
+      closePaySheet(true);
       const pwErr = document.getElementById('pwErr');
       if (pwErr) pwErr.textContent = '';
       if (shouldPreserveResult) {
@@ -3477,6 +3488,8 @@
   }
 
   // ── 결제 팝업 ──
+  let paySheetCloseTimer = null;
+  let paySheetOpenRaf = null;
   function openPaySheet(context = 'result') {
     payUnlockContext = context || 'result';
     const overlay = document.getElementById('payOverlay');
@@ -3484,15 +3497,57 @@
     const submit = document.getElementById('btnPwSubmit');
     const err = document.getElementById('pwErr');
     if (!overlay) return;
+    if (paySheetCloseTimer) {
+      clearTimeout(paySheetCloseTimer);
+      paySheetCloseTimer = null;
+    }
+    if (paySheetOpenRaf) {
+      cancelAnimationFrame(paySheetOpenRaf);
+      paySheetOpenRaf = null;
+    }
+    overlay.classList.remove('is-closing');
+    overlay.classList.remove('open');
     if (pwInput) pwInput.value = '';
     if (submit) submit.disabled = true;
     if (err) err.textContent = '';
-    overlay.classList.add('open');
+    void overlay.offsetWidth;
+    paySheetOpenRaf = requestAnimationFrame(() => {
+      overlay.classList.add('open');
+      paySheetOpenRaf = null;
+    });
     if (typeof window.renderIcons === 'function') window.renderIcons(overlay);
   }
 
-  function closePaySheet() {
-    document.getElementById('payOverlay')?.classList.remove('open');
+  function closePaySheet(preserveContext = false) {
+    const overlay = document.getElementById('payOverlay');
+    if (!overlay) return;
+    if (paySheetCloseTimer) {
+      clearTimeout(paySheetCloseTimer);
+      paySheetCloseTimer = null;
+    }
+    overlay.classList.remove('open');
+    overlay.classList.add('is-closing');
+
+    const afterClose = () => {
+      overlay.classList.remove('is-closing');
+      if (preserveContext) return;
+      if (payUnlockContext === 'apt-analysis' && typeof window.returnToDashboardAptResults === 'function') {
+        window.returnToDashboardAptResults();
+        return;
+      }
+      if (payUnlockContext === 'result' && current === 9) {
+        const bottomNav = document.getElementById('bottomNav');
+        const progressWrap = document.getElementById('progressWrap');
+        if (bottomNav) bottomNav.style.display = 'flex';
+        if (progressWrap) progressWrap.style.display = 'block';
+        navigateTo(8, 'back');
+      }
+    };
+
+    paySheetCloseTimer = setTimeout(() => {
+      paySheetCloseTimer = null;
+      afterClose();
+    }, 340);
   }
 
   function showPayPopup(context = 'result') {

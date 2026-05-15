@@ -373,11 +373,12 @@ function searchNearestElementarySchool(location) {
   }));
 }
 
-function buildTopComplexInsightCopy({ complex, aptTrade, station, meta }) {
+function buildTopComplexInsightCopy({ complex, aptTrade, station, school = null, meta }) {
   const tradeFocus = getComplexTradeFocus(complex, aptTrade);
   const priceGap = getComplexPriceGap(complex, aptTrade);
   const area = Number(complex?.avgArea);
-  const schoolDistance = Number(meta?.schoolDistance);
+  const schoolDistance = Number(school?.distance || meta?.schoolDistance);
+  const schoolName = String(school?.placeName || meta?.schoolName || '').trim();
   const householdCount = Number(meta?.householdCount || complex?.householdCount);
   const stationDistance = Number(station?.distance);
   const subwayDistance = String(meta?.subwayDistance || '').trim();
@@ -388,8 +389,8 @@ function buildTopComplexInsightCopy({ complex, aptTrade, station, meta }) {
   else if (Number.isFinite(tradeFocus) && tradeFocus >= 4) reasons.push(`지역 안에서 반복 거래가 이어진 단지로 관심이 유지된 편`);
 
   if (Number.isFinite(schoolDistance) && schoolDistance > 0) {
-    if (schoolDistance <= 300) reasons.push(`초등학교가 직선 ${formatDistance(schoolDistance)}로 가까워 실거주 수요가 붙기 쉬운 조건`);
-    else if (schoolDistance <= 700) reasons.push(`초등학교가 직선 ${formatDistance(schoolDistance)} 범위라 가족 실수요가 검토하기 좋은 조건`);
+    if (schoolDistance <= 300) reasons.push(`${schoolName || '초등학교'}가 직선 ${formatDistance(schoolDistance)}로 가까워 실거주 수요가 붙기 쉬운 조건`);
+    else if (schoolDistance <= 700) reasons.push(`${schoolName || '초등학교'}가 직선 ${formatDistance(schoolDistance)} 범위라 가족 실수요가 검토하기 좋은 조건`);
   }
 
   if (station?.placeName && Number.isFinite(stationDistance)) {
@@ -419,9 +420,9 @@ function buildTopComplexInsightCopy({ complex, aptTrade, station, meta }) {
   return reasons.slice(0, 3);
 }
 
-function buildTopComplexInsightPayload({ aptTrade, complex, station = null, meta = null }) {
+function buildTopComplexInsightPayload({ aptTrade, complex, station = null, school = null, meta = null }) {
   const tradeFocus = getComplexTradeFocus(complex, aptTrade);
-  const reasons = buildTopComplexInsightCopy({ complex, aptTrade, station, meta });
+  const reasons = buildTopComplexInsightCopy({ complex, aptTrade, station, school, meta });
   const primaryArea = Number.isFinite(Number(complex?.latestTradeArea))
     ? formatAreaToPyeong(complex.latestTradeArea)
     : Number.isFinite(Number(complex?.avgArea))
@@ -431,7 +432,8 @@ function buildTopComplexInsightPayload({ aptTrade, complex, station = null, meta
   const tradeCount = Number(complex?.tradeCount);
   const latestTradePrice = Number(complex?.latestTradePrice);
   const latestDealDate = String(complex?.latestDealDate || '').trim();
-  const schoolDistance = Number(meta?.schoolDistance);
+  const schoolDistance = Number(school?.distance || meta?.schoolDistance);
+  const schoolName = String(school?.placeName || meta?.schoolName || '').trim();
   const stationDistance = Number(station?.distance);
   const subwayDistance = String(meta?.subwayDistance || '').trim();
   const metricCards = [
@@ -453,8 +455,8 @@ function buildTopComplexInsightPayload({ aptTrade, complex, station = null, meta
     {
       key: 'school',
       label: '초등학교',
-      value: meta?.schoolName && Number.isFinite(schoolDistance) && schoolDistance > 0
-        ? `${meta.schoolName} · ${formatDistance(schoolDistance)}`
+      value: schoolName && Number.isFinite(schoolDistance) && schoolDistance > 0
+        ? `${schoolName} · ${formatDistance(schoolDistance)}`
         : '',
     },
     {
@@ -521,17 +523,18 @@ async function hydrateTopComplexInsight({ aptTrade, complex, allowNetwork = fals
   }
 
   const seq = ++topComplexInsightSeq;
-  const fallbackPayload = buildTopComplexInsightPayload({ aptTrade, complex, station: null, meta: null });
+  const fallbackPayload = buildTopComplexInsightPayload({ aptTrade, complex, station: null, school: null, meta: null });
   topComplexInsightCache.set(cacheKey, fallbackPayload);
   renderTopComplexInsight(target, fallbackPayload);
 
   let meta = null;
+  let school = null;
   try {
     const metaIndex = await loadTopComplexMetaIndex();
     if (seq !== topComplexInsightSeq) return;
     meta = findTopComplexMeta(metaIndex, complex);
     if (meta) {
-      const metaPayload = buildTopComplexInsightPayload({ aptTrade, complex, station: null, meta });
+      const metaPayload = buildTopComplexInsightPayload({ aptTrade, complex, station: null, school: null, meta });
       topComplexInsightCache.set(cacheKey, metaPayload);
       renderTopComplexInsight(target, metaPayload);
     }
@@ -542,9 +545,15 @@ async function hydrateTopComplexInsight({ aptTrade, complex, allowNetwork = fals
   try {
     const location = await searchComplexLocation(complex);
     if (seq !== topComplexInsightSeq) return;
-    const station = await searchNearestStation(location);
-    if (seq !== topComplexInsightSeq || !station) return;
-    const enrichedPayload = buildTopComplexInsightPayload({ aptTrade, complex, station, meta });
+    const [nextStation, nextSchool] = await Promise.all([
+      searchNearestStation(location),
+      searchNearestElementarySchool(location),
+    ]);
+    if (seq !== topComplexInsightSeq) return;
+    const station = nextStation || null;
+    school = nextSchool || null;
+    if (!station && !school) return;
+    const enrichedPayload = buildTopComplexInsightPayload({ aptTrade, complex, station, school, meta });
     topComplexInsightCache.set(cacheKey, enrichedPayload);
     renderTopComplexInsight(target, enrichedPayload);
   } catch {}
@@ -555,7 +564,16 @@ function hydrateMarketBundle(bundle) {
   hydrateDashboardData(bundle.detail);
 }
 
-function buildNationalMarqueeItems(summary) {
+function formatCompactMonth(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^\d{6}$/.test(raw)) return `${raw.slice(0, 4)}.${raw.slice(4, 6)}`;
+  const match = raw.match(/(\d{4})\D*(\d{1,2})/);
+  if (!match) return raw.replace(/[년월\s]/g, '').trim();
+  return `${match[1]}.${String(match[2]).padStart(2, '0')}`;
+}
+
+function buildNationalMarqueeItems(summary, latestTradeMonth = '') {
   if (!summary) return ['전국 시장 데이터 준비 중'];
   const items = [];
   const formatTrendHtml = (value, digits = 0) => {
@@ -564,18 +582,33 @@ function buildNationalMarqueeItems(summary) {
     const symbol = value > 0 ? '▲' : value < 0 ? '▼' : '±';
     return `<strong class="calc-marquee-trend ${dirClass}">${symbol}${Math.abs(value).toFixed(digits)}%</strong>`;
   };
-  if (summary.latestMonth) items.push(`전국 · <strong>${summary.latestMonth}</strong>`);
-  if (Number.isFinite(summary.tradeVolume)) items.push(`거래량 <strong>${summary.tradeVolume.toLocaleString()}건</strong>`);
+  const latestMonthLabel = formatCompactMonth(summary.latestMonth);
+  const latestTradeMonthLabel = formatCompactMonth(latestTradeMonth);
+  if (summary.latestMonth) items.push(`전국 · <strong>${latestMonthLabel || summary.latestMonth}</strong>`);
+  if (Number.isFinite(summary.tradeVolume)) items.push(`거래량 · <strong>${latestTradeMonthLabel || latestMonthLabel || '최신'}</strong> · <strong>${summary.tradeVolume.toLocaleString()}건</strong>`);
   if (Number.isFinite(summary.tradeChange)) items.push(`거래량 ${formatTrendHtml(summary.tradeChange, 0)} 지난달보다`);
   if (Number.isFinite(summary.priceChange)) items.push(`최근 가격 변화 ${formatTrendHtml(summary.priceChange, 2)} 지난달보다`);
   if (Number.isFinite(summary.avgBuyPrice)) items.push(`지역 평균 가격 <strong>${formatPrice(summary.avgBuyPrice)}</strong>`);
   return items.length ? items : ['전국 시장 데이터 준비 중'];
 }
 
-function renderCalculatorMarquee(bundle) {
+function getLatestTradeMonthForMarquee(aptTrades) {
+  if (!aptTrades) return '';
+  return String(
+    aptTrades.latestDealMonth
+    || aptTrades.meta?.summaryMonth
+    || aptTrades.summaryMonth
+    || ''
+  ).trim();
+}
+
+function renderCalculatorMarquee(bundle, aptTrades = aptTradeSummary) {
   const track = document.getElementById('calcMarketTrack');
   if (!track) return;
-  const items = buildNationalMarqueeItems(bundle?.summary?.national);
+  const items = buildNationalMarqueeItems(
+    bundle?.summary?.national,
+    getLatestTradeMonthForMarquee(aptTrades)
+  );
   const pills = items.map(item => `<span class="calc-marquee-pill">${item}</span>`).join('');
   if (!bundle?.summary?.national) {
     track.classList.add('is-placeholder');
@@ -593,7 +626,7 @@ function renderCalculatorMarquee(bundle) {
 async function fetchMarketBundle() {
   const cached = getMarketBundleCache();
   if (cached) {
-    renderCalculatorMarquee(cached);
+    renderCalculatorMarquee(cached, getAptTradesCache());
     return cached;
   }
 
@@ -610,18 +643,26 @@ async function fetchMarketBundle() {
   }
 
   setMarketBundleCache(bundle);
-  renderCalculatorMarquee(bundle);
+  renderCalculatorMarquee(bundle, getAptTradesCache());
   return bundle;
 }
 
 async function fetchAptTradesSummary() {
   const cached = getAptTradesCache();
-  if (cached) return cached;
+  if (cached) {
+    aptTradeSummary = cached;
+    const cachedBundle = getMarketBundleCache();
+    if (cachedBundle) renderCalculatorMarquee(cachedBundle, cached);
+    return cached;
+  }
 
   const res = await fetch(`${APT_TRADES_DATA_URL}?v=${APT_TRADES_DATA_VERSION}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('실거래 데이터를 불러오지 못했어요.');
   const data = await res.json();
   setAptTradesCache(data);
+  aptTradeSummary = data;
+  const cachedBundle = getMarketBundleCache();
+  if (cachedBundle) renderCalculatorMarquee(cachedBundle, data);
   return data;
 }
 
@@ -1709,7 +1750,7 @@ function initEntryToastLottie() {
 // ── 진입점 ───────────────────────────────────────────
 (function() {
   const cachedBundle = getMarketBundleCache();
-  if (cachedBundle) renderCalculatorMarquee(cachedBundle);
+  if (cachedBundle) renderCalculatorMarquee(cachedBundle, getAptTradesCache());
 
   const pwScreen = document.getElementById('pwScreen');
   if (pwScreen) pwScreen.style.display = 'none';
