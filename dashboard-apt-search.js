@@ -1061,21 +1061,6 @@ function isDashboardAptAnalysisUnlocked() {
   return localStorage.getItem('authVerified') === '1';
 }
 
-function renderDashboardAptAnalysisPaywall() {
-  return `
-    <div class="db-apt-analysis-paywall">
-      <div class="db-apt-analysis-paywall-icon">${typeof icon === 'function' ? icon('keyRound', 22) : ''}</div>
-      <div class="db-apt-analysis-paywall-copy">
-        <strong>단지 분석 보기</strong>
-        <p>입지 등급, 가격 레벨, 업무지구 접근성, 단지 기준 대출 계산까지 이어서 확인할 수 있어요.</p>
-      </div>
-      <button class="db-apt-analysis-paywall-btn" type="button" onclick="openAptAnalysisPaywallSheet()">
-        8,900원으로 열기
-      </button>
-    </div>
-  `;
-}
-
 function renderDashboardSelectedApartment() {
   const target = document.getElementById('dbAptSearchSelected');
   if (!target) return;
@@ -1112,30 +1097,6 @@ function renderDashboardSelectedApartment() {
         ? '핵심 축이 너무 적어서 등급은 잠시 보류하고, 확보된 정보만 먼저 보여드려요.'
         : '선택한 단지 기준으로 정적 입지 데이터를 묶어서 정리했어요.';
     const calculatorIcon = typeof icon === 'function' ? icon('calculator', 18) : '';
-    const isUnlocked = isDashboardAptAnalysisUnlocked();
-    if (!isUnlocked) {
-      target.innerHTML = `
-        <article class="db-apt-grade-card">
-          <div class="db-apt-grade-head">
-            <div>
-              <div class="db-fact-label">단지 상세 분석</div>
-              <strong>${escapeHtml(entry.aptName)}</strong>
-              <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
-            </div>
-            <div class="db-apt-grade-badge grade-pending">
-              <span>분석</span>
-              <strong>잠김</strong>
-            </div>
-          </div>
-          <p class="db-apt-grade-status">선택한 단지 기준으로 입지와 가격, 대출 계산 흐름을 이어서 볼 수 있어요.</p>
-          ${renderDashboardAptAnalysisPaywall()}
-        </article>
-      `;
-      target.dataset.renderedEntryId = entry.id;
-      if (typeof window.renderIcons === 'function') window.renderIcons(target);
-      return;
-    }
-
     target.innerHTML = `
       <article class="db-apt-grade-card">
         <div class="db-apt-grade-head">
@@ -1490,6 +1451,9 @@ function pickDashboardApartment(id) {
   if (input) input.value = dashboardAptSearchState.query;
   const body = document.querySelector('.db-apt-page-body');
   if (body) body.scrollTo({ top: 0, behavior: 'smooth' });
+  if (!isDashboardAptAnalysisUnlocked()) {
+    window.setTimeout(openAptAnalysisPaywallSheet, 180);
+  }
   hydrateDashboardApartmentInsight(entry);
 }
 

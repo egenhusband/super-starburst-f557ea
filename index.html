@@ -493,10 +493,11 @@
     }, SCREEN_TRANSITION_MS);
   }
 </script>
-<script src="icons.js?v=20260514c"></script>
-<script src="calculator.js?v=20260514c"></script>
-<script src="dashboard.js?v=20260514c"></script>
-<script src="dashboard-apt-search.js?v=20260514c"></script>
+<script src="https://cdn.jsdelivr.net/npm/lottie-web@5.12.2/build/player/lottie.min.js"></script>
+<script src="icons.js?v=20260515b"></script>
+<script src="calculator.js?v=20260515b"></script>
+<script src="dashboard.js?v=20260515b"></script>
+<script src="dashboard-apt-search.js?v=20260515b"></script>
 <script>
   (function () {
     const params = new URLSearchParams(window.location.search);
@@ -586,8 +587,8 @@
 </div>
 
 <div class="entry-toast" id="entryToast">
-  <span class="entry-toast-icon" data-icon="sparkle" data-icon-size="16"></span>
-  계산은 무료로 시작하고 상세 결과에서 결제 안내가 떠요
+  <span class="entry-toast-lottie" id="entryToastLottie" aria-hidden="true"></span>
+  먼저 둘러보고 결과가 궁금하면 그 때 결제해도 돼요!
 </div>
 
   <!-- 단지 기준 대출 계산 바텀시트 -->

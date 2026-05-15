@@ -67,6 +67,8 @@ const JEONSE_SUPPLY_REGION_ID_MAP = {
 const MARKET_DATA_URL = '/data/market-dashboard.json';
 const APT_TRADES_DATA_URL = '/data/apt-trades-summary.json';
 const APT_TRADES_DATA_VERSION = '20260424c';
+const TOP_COMPLEX_HOUSEHOLDS_URL = '/data/apt-households.json?v=20260506b';
+const TOP_COMPLEX_SCHOOL_META_URL = '/data/apt-school-meta.json?v=20260507a';
 const MARKET_CACHE_ENDPOINT = '/.netlify/functions/market-cache';
 const KAKAO_MAP_APP_KEY = 'd8d6691b19d2ac9e50014fd9ebc79367';
 const GEO_CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
@@ -90,6 +92,7 @@ let topComplexInsightSeq = 0;
 let regionSwapSeq = 0;
 let pendingRegionStageEnter = false;
 const topComplexInsightCache = new Map();
+let topComplexMetaPromise = null;
 let dealCitySwapSeq = 0;
 
 // ── 캐시 ─────────────────────────────────────────────
@@ -164,6 +167,69 @@ function getComplexPriceGap(complex, aptTrade) {
     return null;
   }
   return Number((((complex.medianPrice - aptTrade.medianPrice) / aptTrade.medianPrice) * 100).toFixed(1));
+}
+
+function getTopComplexMetaKey(sigunguName, umdName, aptName) {
+  return [
+    normalizePlaceToken(sigunguName),
+    normalizePlaceToken(umdName),
+    normalizePlaceToken(aptName),
+  ].join('|');
+}
+
+function getTopComplexFallbackKey(sigunguName, aptName) {
+  return [
+    normalizePlaceToken(sigunguName),
+    normalizePlaceToken(aptName),
+  ].join('|');
+}
+
+async function loadTopComplexMetaIndex() {
+  if (topComplexMetaPromise) return topComplexMetaPromise;
+
+  topComplexMetaPromise = Promise.all([
+    fetch(TOP_COMPLEX_HOUSEHOLDS_URL, { cache: 'no-store' }),
+    fetch(TOP_COMPLEX_SCHOOL_META_URL, { cache: 'no-store' }),
+  ]).then(async ([householdsRes, schoolsRes]) => {
+    if (!householdsRes.ok || !schoolsRes.ok) throw new Error('TOP1 단지 메타 데이터를 불러오지 못했어요.');
+    const [households, schools] = await Promise.all([householdsRes.json(), schoolsRes.json()]);
+    const schoolByKaptCode = new Map();
+    (schools?.entries || []).forEach(entry => {
+      if (entry?.kaptCode) schoolByKaptCode.set(entry.kaptCode, entry);
+    });
+
+    const byKey = new Map();
+    const byFallbackKey = new Map();
+    (households?.entries || []).forEach(household => {
+      const school = household.kaptCode ? schoolByKaptCode.get(household.kaptCode) : null;
+      const meta = {
+        ...household,
+        schoolName: school?.schoolName || '',
+        schoolDistance: Number(school?.schoolDistance || 0) || null,
+      };
+      const key = getTopComplexMetaKey(household.sigunguName, household.umdName, household.aptName);
+      if (key && !byKey.has(key)) byKey.set(key, meta);
+      const fallbackKey = getTopComplexFallbackKey(household.sigunguName, household.aptName);
+      if (fallbackKey && !byFallbackKey.has(fallbackKey)) byFallbackKey.set(fallbackKey, meta);
+    });
+
+    return { byKey, byFallbackKey };
+  }).catch(error => {
+    topComplexMetaPromise = null;
+    throw error;
+  });
+
+  return topComplexMetaPromise;
+}
+
+function findTopComplexMeta(metaIndex, complex) {
+  if (!metaIndex || !complex) return null;
+  const exactKey = getTopComplexMetaKey(complex.sigunguName, complex.umdName, complex.aptName);
+  const exact = metaIndex.byKey.get(exactKey);
+  if (exact) return exact;
+
+  const fallbackKey = getTopComplexFallbackKey(complex.sigunguName, complex.aptName);
+  return metaIndex.byFallbackKey.get(fallbackKey) || null;
 }
 
 function loadKakaoMapsSdk() {
@@ -307,20 +373,41 @@ function searchNearestElementarySchool(location) {
   }));
 }
 
-function buildTopComplexInsightCopy({ complex, aptTrade, station }) {
+function buildTopComplexInsightCopy({ complex, aptTrade, station, meta }) {
   const tradeFocus = getComplexTradeFocus(complex, aptTrade);
   const priceGap = getComplexPriceGap(complex, aptTrade);
   const area = Number(complex?.avgArea);
+  const schoolDistance = Number(meta?.schoolDistance);
+  const householdCount = Number(meta?.householdCount || complex?.householdCount);
+  const stationDistance = Number(station?.distance);
+  const subwayDistance = String(meta?.subwayDistance || '').trim();
 
   const reasons = [];
 
   if (Number.isFinite(tradeFocus) && tradeFocus >= 8) reasons.push(`같은 지역 거래 중 ${tradeFocus}%가 이 단지에 몰릴 만큼 거래 집중도가 높음`);
   else if (Number.isFinite(tradeFocus) && tradeFocus >= 4) reasons.push(`지역 안에서 반복 거래가 이어진 단지로 관심이 유지된 편`);
 
+  if (Number.isFinite(schoolDistance) && schoolDistance > 0) {
+    if (schoolDistance <= 300) reasons.push(`초등학교가 직선 ${formatDistance(schoolDistance)}로 가까워 실거주 수요가 붙기 쉬운 조건`);
+    else if (schoolDistance <= 700) reasons.push(`초등학교가 직선 ${formatDistance(schoolDistance)} 범위라 가족 실수요가 검토하기 좋은 조건`);
+  }
+
+  if (station?.placeName && Number.isFinite(stationDistance)) {
+    if (stationDistance <= 700) reasons.push(`${station.placeName} 직선 ${formatDistance(stationDistance)} 접근성으로 출퇴근 수요를 설명할 수 있음`);
+    else if (stationDistance <= 1300) reasons.push(`${station.placeName} 접근성이 확인되어 교통 조건이 거래 신호에 일부 반영됐을 가능성`);
+  } else if (subwayDistance && subwayDistance !== '20분초과') {
+    reasons.push(`관리 정보 기준 지하철 접근 시간이 ${subwayDistance}로 표시되는 단지`);
+  }
+
   if (Number.isFinite(priceGap)) {
     if (priceGap <= -8) reasons.push('지역 체감 가격보다 진입 가격대가 낮아 비교적 접근성이 있었을 가능성');
     else if (priceGap >= 8) reasons.push('지역 중앙값보다 높은 가격대에서도 거래가 이어져 선호도가 유지된 편');
     else reasons.push('지역 중앙값과 비슷한 가격대라 실수요 비교 대상으로 많이 선택됐을 가능성');
+  }
+
+  if (Number.isFinite(householdCount) && householdCount > 0) {
+    if (householdCount >= 1000) reasons.push(`${householdCount.toLocaleString()}세대 규모라 단지 인지도와 매물 회전성이 함께 작동했을 가능성`);
+    else if (householdCount < 300) reasons.push(`${householdCount.toLocaleString()}세대 단지는 거래 몇 건에도 집중도가 크게 보일 수 있어 해석에 주의`);
   }
 
   if (Number.isFinite(area)) {
@@ -332,18 +419,21 @@ function buildTopComplexInsightCopy({ complex, aptTrade, station }) {
   return reasons.slice(0, 3);
 }
 
-function buildTopComplexInsightPayload({ aptTrade, complex, station = null }) {
+function buildTopComplexInsightPayload({ aptTrade, complex, station = null, meta = null }) {
   const tradeFocus = getComplexTradeFocus(complex, aptTrade);
-  const reasons = buildTopComplexInsightCopy({ complex, aptTrade, station });
+  const reasons = buildTopComplexInsightCopy({ complex, aptTrade, station, meta });
   const primaryArea = Number.isFinite(Number(complex?.latestTradeArea))
     ? formatAreaToPyeong(complex.latestTradeArea)
     : Number.isFinite(Number(complex?.avgArea))
       ? formatAreaToPyeong(complex.avgArea)
       : '확인 중';
-  const householdCount = Number(complex?.householdCount);
+  const householdCount = Number(meta?.householdCount || complex?.householdCount);
   const tradeCount = Number(complex?.tradeCount);
   const latestTradePrice = Number(complex?.latestTradePrice);
   const latestDealDate = String(complex?.latestDealDate || '').trim();
+  const schoolDistance = Number(meta?.schoolDistance);
+  const stationDistance = Number(station?.distance);
+  const subwayDistance = String(meta?.subwayDistance || '').trim();
   const metricCards = [
     {
       key: 'tradeCount',
@@ -351,14 +441,35 @@ function buildTopComplexInsightPayload({ aptTrade, complex, station = null }) {
       value: Number.isFinite(tradeCount) && tradeCount > 0 ? `${tradeCount.toLocaleString()}건` : '',
     },
     {
+      key: 'tradeFocus',
+      label: '거래 집중',
+      value: Number.isFinite(tradeFocus) ? `${tradeFocus}%` : '',
+    },
+    {
       key: 'latestTradePrice',
       label: '최근 실거래가',
       value: Number.isFinite(latestTradePrice) && latestTradePrice > 0 ? formatTradePrice(latestTradePrice) : '',
     },
     {
-      key: 'area',
-      label: '대표 평형',
-      value: primaryArea !== '확인 중' ? primaryArea : '',
+      key: 'school',
+      label: '초등학교',
+      value: meta?.schoolName && Number.isFinite(schoolDistance) && schoolDistance > 0
+        ? `${meta.schoolName} · ${formatDistance(schoolDistance)}`
+        : '',
+    },
+    {
+      key: 'station',
+      label: '가까운 역',
+      value: station?.placeName && Number.isFinite(stationDistance)
+        ? `${station.placeName} · ${formatDistance(stationDistance)}`
+        : subwayDistance
+          ? `관리정보 ${subwayDistance}`
+          : '',
+    },
+    {
+      key: 'household',
+      label: '세대수',
+      value: Number.isFinite(householdCount) && householdCount > 0 ? `${householdCount.toLocaleString()}세대` : '',
     },
     {
       key: 'latestDealDate',
@@ -372,7 +483,7 @@ function buildTopComplexInsightPayload({ aptTrade, complex, station = null }) {
     focusText: Number.isFinite(tradeFocus) ? `${tradeFocus}%` : '확인 중',
     primaryAreaText: primaryArea,
     reasons: reasons.length ? reasons : ['현재는 거래량과 가격 패턴을 중심으로 참고 해석을 제공합니다.'],
-    metricCards: metricCards.slice(0, 4),
+    metricCards: metricCards.slice(0, 6),
     hasHousehold: Number.isFinite(householdCount) && householdCount > 0,
   };
 }
@@ -396,49 +507,6 @@ function renderTopComplexInsight(target, payload) {
     </ul>
     <p class="db-deal-insight-note">이 해석은 최근 실거래와 공공 주택 데이터를 바탕으로 한 참고 정보이며, 학군·개발계획·실제 도보 동선은 반영하지 않습니다.</p>
   `;
-  bindDashboardHorizontalScroll(target.querySelector('.db-deal-insight-strip'));
-}
-
-function bindDashboardHorizontalScroll(scroller) {
-  if (!scroller || scroller.dataset.dragScrollBound === '1') return;
-  scroller.dataset.dragScrollBound = '1';
-  let pointerDown = false;
-  let pointerId = null;
-  let startX = 0;
-  let startScrollLeft = 0;
-
-  scroller.addEventListener('pointerdown', event => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    pointerDown = true;
-    pointerId = event.pointerId;
-    startX = event.clientX;
-    startScrollLeft = scroller.scrollLeft;
-    scroller.classList.add('is-dragging');
-    if (typeof scroller.setPointerCapture === 'function') {
-      scroller.setPointerCapture(pointerId);
-    }
-  });
-
-  scroller.addEventListener('pointermove', event => {
-    if (!pointerDown || event.pointerId !== pointerId) return;
-    const deltaX = event.clientX - startX;
-    if (Math.abs(deltaX) > 3) event.preventDefault();
-    scroller.scrollLeft = startScrollLeft - deltaX;
-  });
-
-  const endDrag = event => {
-    if (!pointerDown || event.pointerId !== pointerId) return;
-    pointerDown = false;
-    pointerId = null;
-    scroller.classList.remove('is-dragging');
-  };
-  scroller.addEventListener('pointerup', endDrag);
-  scroller.addEventListener('pointercancel', endDrag);
-  scroller.addEventListener('lostpointercapture', () => {
-    pointerDown = false;
-    pointerId = null;
-    scroller.classList.remove('is-dragging');
-  });
 }
 
 async function hydrateTopComplexInsight({ aptTrade, complex, allowNetwork = false }) {
@@ -452,17 +520,31 @@ async function hydrateTopComplexInsight({ aptTrade, complex, allowNetwork = fals
     return;
   }
 
-  const fallbackPayload = buildTopComplexInsightPayload({ aptTrade, complex, station: null });
+  const seq = ++topComplexInsightSeq;
+  const fallbackPayload = buildTopComplexInsightPayload({ aptTrade, complex, station: null, meta: null });
   topComplexInsightCache.set(cacheKey, fallbackPayload);
   renderTopComplexInsight(target, fallbackPayload);
+
+  let meta = null;
+  try {
+    const metaIndex = await loadTopComplexMetaIndex();
+    if (seq !== topComplexInsightSeq) return;
+    meta = findTopComplexMeta(metaIndex, complex);
+    if (meta) {
+      const metaPayload = buildTopComplexInsightPayload({ aptTrade, complex, station: null, meta });
+      topComplexInsightCache.set(cacheKey, metaPayload);
+      renderTopComplexInsight(target, metaPayload);
+    }
+  } catch {}
 
   if (!allowNetwork) return;
 
   try {
     const location = await searchComplexLocation(complex);
+    if (seq !== topComplexInsightSeq) return;
     const station = await searchNearestStation(location);
-    if (!station) return;
-    const enrichedPayload = buildTopComplexInsightPayload({ aptTrade, complex, station });
+    if (seq !== topComplexInsightSeq || !station) return;
+    const enrichedPayload = buildTopComplexInsightPayload({ aptTrade, complex, station, meta });
     topComplexInsightCache.set(cacheKey, enrichedPayload);
     renderTopComplexInsight(target, enrichedPayload);
   } catch {}
@@ -1594,11 +1676,34 @@ function formatPrice(val) {
 function showEntryToast() {
   const toast = document.getElementById('entryToast');
   if (!toast) return;
+  initEntryToastLottie();
   window.clearTimeout(showEntryToast._timer);
+  window.clearTimeout(showEntryToast._exitTimer);
+  toast.classList.remove('is-hiding');
   toast.classList.add('show');
   showEntryToast._timer = window.setTimeout(() => {
+    toast.classList.add('is-hiding');
     toast.classList.remove('show');
+    showEntryToast._exitTimer = window.setTimeout(() => {
+      toast.classList.remove('is-hiding');
+    }, 260);
   }, 3800);
+}
+
+function initEntryToastLottie() {
+  const target = document.getElementById('entryToastLottie');
+  if (!target || target.dataset.lottieReady === '1' || typeof window.lottie?.loadAnimation !== 'function') return;
+  target.dataset.lottieReady = '1';
+  window.lottie.loadAnimation({
+    container: target,
+    renderer: 'svg',
+    loop: true,
+    autoplay: true,
+    path: '/data/sparkles-loop-loader.json',
+    rendererSettings: {
+      preserveAspectRatio: 'xMidYMid meet',
+    },
+  });
 }
 
 // ── 진입점 ───────────────────────────────────────────
