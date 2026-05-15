@@ -90,8 +90,6 @@
       '.db-apt-loan-cta',
       '.apt-loan-submit:not(:disabled)',
       '.db-apt-analysis-paywall-btn',
-      '.apt-analysis-paywall-submit',
-      '.apt-analysis-paywall-pw',
       '.btn-next:not(:disabled)',
       '.btn-restart',
     ].join(',');

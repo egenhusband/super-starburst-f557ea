@@ -3420,6 +3420,7 @@
   // ── 비밀번호 & 게스트 모드 ──
   const CORRECT_PW = 'egenhusband^^';
   let isGuestMode  = false;
+  let payUnlockContext = 'result';
 
   // 초기 진입 처리는 dashboard.js 로드 후 실행됨
 
@@ -3434,15 +3435,17 @@
   function submitPassword() {
     const val = document.getElementById('pwInput').value;
     if (val === CORRECT_PW) {
-      const shouldPreserveResult = hasRenderedResult();
-      const shouldPreserveAptAnalysis = !shouldPreserveResult
+      const shouldPreserveAptAnalysis = payUnlockContext === 'apt-analysis'
         && typeof hasDashboardAptSelection === 'function'
         && hasDashboardAptSelection();
+      const shouldPreserveResult = !shouldPreserveAptAnalysis && hasRenderedResult();
       isGuestMode = false;
       localStorage.setItem('authVerified', '1');
-      document.getElementById('pwScreen').style.display = 'none';
-      document.getElementById('payOverlay')?.classList.remove('open');
-      document.getElementById('pwErr').textContent = '';
+      const pwScreen = document.getElementById('pwScreen');
+      if (pwScreen) pwScreen.style.display = 'none';
+      closePaySheet();
+      const pwErr = document.getElementById('pwErr');
+      if (pwErr) pwErr.textContent = '';
       if (shouldPreserveResult) {
         showCalculator();
         resetResultScroll();
@@ -3453,15 +3456,19 @@
       }
       if (typeof preloadMarketBundle === 'function') preloadMarketBundle().catch(() => {});
     } else {
-      document.getElementById('pwErr').textContent = '비밀번호가 올바르지 않아요.';
-      document.getElementById('pwInput').value = '';
-      document.getElementById('btnPwSubmit').disabled = true;
+      const pwErr = document.getElementById('pwErr');
+      const pwInput = document.getElementById('pwInput');
+      const submit = document.getElementById('btnPwSubmit');
+      if (pwErr) pwErr.textContent = '비밀번호가 올바르지 않아요.';
+      if (pwInput) pwInput.value = '';
+      if (submit) submit.disabled = true;
     }
   }
 
   function enterAsGuest() {
     isGuestMode = true;
-    document.getElementById('pwScreen').style.display = 'none';
+    const pwScreen = document.getElementById('pwScreen');
+    if (pwScreen) pwScreen.style.display = 'none';
     if (hasRenderedResult()) setTimeout(showPayPopup, 200);
     else {
       startCalculatorFlow();
@@ -3470,20 +3477,31 @@
   }
 
   // ── 결제 팝업 ──
-  function showPayPopup() {
-    if (!isGuestMode) return;
+  function openPaySheet(context = 'result') {
+    payUnlockContext = context || 'result';
     const overlay = document.getElementById('payOverlay');
+    const pwInput = document.getElementById('pwInput');
+    const submit = document.getElementById('btnPwSubmit');
+    const err = document.getElementById('pwErr');
+    if (!overlay) return;
+    if (pwInput) pwInput.value = '';
+    if (submit) submit.disabled = true;
+    if (err) err.textContent = '';
     overlay.classList.add('open');
+    if (typeof window.renderIcons === 'function') window.renderIcons(overlay);
+  }
+
+  function closePaySheet() {
+    document.getElementById('payOverlay')?.classList.remove('open');
+  }
+
+  function showPayPopup(context = 'result') {
+    if (!isGuestMode && context !== 'apt-analysis') return;
+    openPaySheet(context);
   }
 
   function closePayAndShowPw() {
-    document.getElementById('payOverlay').classList.remove('open');
-    isGuestMode = false; // 결제 팝업 → 비번 화면 복귀 시 게스트 초기화
-    const pwScreen = document.getElementById('pwScreen');
-    pwScreen.style.display = 'flex';
-    document.getElementById('pwInput').value = '';
-    document.getElementById('btnPwSubmit').disabled = true;
-    document.getElementById('pwErr').textContent = '';
+    openPaySheet(payUnlockContext);
   }
 
   // 기금대출 결과 진입 시 팝업 — goNext()에서 renderResult 호출 후 훅
@@ -3499,6 +3517,9 @@
     if (isGuestMode) { showPayPopup(); return; }
     return _origSearchBankLoans();
   };
+
+  window.openPaySheet = openPaySheet;
+  window.closePaySheet = closePaySheet;
 
   document.addEventListener('click', function(event) {
     if (!event.target.closest('.rate-dropdown-box')) {

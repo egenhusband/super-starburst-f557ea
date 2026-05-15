@@ -15,38 +15,25 @@
   <div id="dashboardScreen" style="display:none"></div>
   <div id="aptSearchScreen" style="display:none"></div>
 
-  <!-- 비밀번호 진입 화면 -->
-  <div class="pw-screen" id="pwScreen" style="display:none">
-    <div style="width:100%;max-width:390px;display:flex;flex-direction:column;align-items:center">
-    <div class="pw-logo" data-icon="coffee" data-icon-size="34"></div>
-    <div style="margin-bottom:12px;text-align:center">
-      <div class="pw-copy-line">커피 한 잔 값으로</div>
-      <div class="pw-copy-line">나한테 맞는 대출 상품</div>
-      <div class="pw-copy-line"><span class="pw-shimmer">3초 만에</span> 찾아보세요</div>
-    </div>
-    <div class="pw-sub">지금 바로 구매하지 않아도 괜찮아요.<br>먼저 둘러보고 결정하셔도 돼요</div>
-    <div class="pw-input-wrap">
-      <input class="pw-input" id="pwInput" type="password" placeholder="비밀번호 입력"
-        oninput="document.getElementById('btnPwSubmit').disabled = this.value.length === 0"
-        onkeydown="if(event.key==='Enter') submitPassword()">
-      <button class="btn-pw-submit" id="btnPwSubmit" onclick="submitPassword()" disabled>입장하기</button>
-    </div>
-    <div class="pw-err" id="pwErr"></div>
-    <a class="btn-pw-pay" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener"><span data-icon="creditCard" data-icon-size="16"></span>결제하러 가기</a>
-    <button class="btn-pw-guest" onclick="enterAsGuest()">둘러볼게요</button>
-    </div>
-  </div>
+  <div class="pw-screen" id="pwScreen" style="display:none"></div>
 
   <!-- 결제 유도 팝업 -->
   <div class="pay-overlay" id="payOverlay">
     <div class="pay-sheet">
       <div class="pay-icon" data-icon="coffee" data-icon-size="28"></div>
       <div class="pay-copy"><span class="shimmer-text">커피 한 잔</span> 값으로<br>실시간 규제 반영한<br>계산기 사용해 보세요!</div>
-      <div class="pay-copy-sub">대출 분석 결과는 구매 후 이용하실 수 있어요.<br>이미 구매하셨다면 비밀번호로 입장해 주세요.</div>
+      <div class="pay-copy-sub">상세 결과와 단지 분석은 구매 후 이용할 수 있어요.<br>이미 구매하셨다면 아래에 비밀번호를 입력해 주세요.</div>
       <a class="btn-pay-go" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">
         <span data-icon="creditCard" data-icon-size="16"></span>결제하러 가기
       </a>
-      <button class="btn-pay-pw" onclick="closePayAndShowPw()"><span data-icon="keyRound" data-icon-size="16"></span>비밀번호 입력하러 가기</button>
+      <div class="pw-input-wrap pay-pw-input-wrap">
+        <input class="pw-input" id="pwInput" type="password" placeholder="비밀번호 입력"
+          oninput="document.getElementById('btnPwSubmit').disabled = this.value.length === 0"
+          onkeydown="if(event.key==='Enter') submitPassword()">
+        <button class="btn-pw-submit" id="btnPwSubmit" onclick="submitPassword()" disabled>열기</button>
+      </div>
+      <div class="pw-err pay-pw-err" id="pwErr"></div>
+      <button class="btn-pay-later" onclick="closePaySheet()"><span data-icon="x" data-icon-size="16"></span>다음에 결제할게요</button>
     </div>
   </div>
 
@@ -634,38 +621,6 @@
         </button>
       </div>
       <button class="apt-loan-submit" id="aptLoanSubmitBtn" type="button" onclick="submitAptLoanSheet()" disabled>기금대출 조건 확인하기</button>
-    </div>
-  </div>
-
-  <!-- 단지 분석 결제 유도 바텀시트 -->
-  <div class="apt-analysis-paywall-overlay" id="aptAnalysisPaywallOverlay" onclick="closeAptAnalysisPaywallSheet()"></div>
-  <div class="apt-analysis-paywall-sheet" id="aptAnalysisPaywallSheet" role="dialog" aria-modal="true" aria-labelledby="aptAnalysisPaywallTitle">
-    <div class="apt-analysis-paywall-handle"></div>
-    <div class="apt-analysis-paywall-head">
-      <div>
-        <div class="apt-analysis-paywall-kicker">단지 상세 분석</div>
-        <h2 class="apt-analysis-paywall-title" id="aptAnalysisPaywallTitle">단지 분석 보기</h2>
-      </div>
-      <button class="apt-analysis-paywall-close" type="button" onclick="closeAptAnalysisPaywallSheet()" aria-label="닫기">
-        <span data-icon="x" data-icon-size="14"></span>
-      </button>
-    </div>
-    <div class="apt-analysis-paywall-body">
-      <p class="apt-analysis-paywall-desc">입지 등급, 가격 레벨, 역/학교/업무지구 해석, 단지 기준 대출 계산까지 확인할 수 있어요.</p>
-      <div class="apt-analysis-paywall-list">
-        <span>입지 등급</span>
-        <span>가격 레벨</span>
-        <span>업무지구 접근성</span>
-        <span>단지 기준 대출 계산</span>
-      </div>
-      <a class="apt-analysis-paywall-submit" href="https://www.latpeed.com/products/n04c5" target="_blank" rel="noopener">
-        <span data-icon="creditCard" data-icon-size="16"></span>
-        8,900원으로 단지 분석 열기
-      </a>
-      <button class="apt-analysis-paywall-pw" type="button" onclick="openAptAnalysisPassword()">
-        <span data-icon="keyRound" data-icon-size="16"></span>
-        이미 구매했어요
-      </button>
     </div>
   </div>
 
