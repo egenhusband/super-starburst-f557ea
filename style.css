@@ -4759,12 +4759,6 @@
   border-color: var(--focus-accent);
   box-shadow: var(--focus-ring);
 }
-.db-apt-search-hint {
-  margin-top: 10px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--label3);
-}
 .db-apt-search-results {
   display: flex;
   flex-direction: column;

@@ -998,41 +998,12 @@ function renderAptSearchScreenLayout() {
       </div>
       <div class="db-apt-page-body">
         <div class="db-apt-finder-copy">단지명과 지역명을 함께 입력하면 초품아 거리, 가까운 역, 세대수, 신축 여부와 핵심 업무지구 접근성을 함께 보여드려요.</div>
-        <div class="db-apt-search-hint" id="dbAptSearchHint"></div>
         <div class="db-apt-search-results" id="dbAptSearchResults"></div>
         <div class="db-apt-search-selected" id="dbAptSearchSelected"></div>
       </div>
       <div class="db-apt-search-toast-layer" id="dbAptSearchToast"></div>
     </div>
   `;
-}
-
-function renderDashboardAptSearchHint() {
-  const hint = document.getElementById('dbAptSearchHint');
-  if (!hint) return;
-
-  if (dashboardAptSearchState.error) {
-    hint.textContent = dashboardAptSearchState.error;
-    return;
-  }
-
-  if (dashboardAptSearchState.loading && !dashboardAptSearchState.ready) {
-    hint.textContent = '검색 인덱스를 준비하는 중이에요.';
-    return;
-  }
-
-  const scopeLabel = getDashboardAptRegionLabel();
-  if (!dashboardAptSearchState.query.trim()) {
-    hint.textContent = `${scopeLabel} 단지 기준으로 자동완성을 보여드려요. 예: 마포, 위례, 광교, 경희궁자이`;
-    return;
-  }
-
-  if (!dashboardAptSearchState.results.length) {
-    hint.textContent = `입력한 조건과 가까운 ${scopeLabel} 단지를 아직 찾지 못했어요. 지역명과 단지명을 함께 넣어보세요.`;
-    return;
-  }
-
-  hint.textContent = `${scopeLabel} 범위에서 ${dashboardAptSearchState.results.length}개 후보를 찾았어요.`;
 }
 
 function renderDashboardAptSearchResults() {
@@ -1351,7 +1322,6 @@ function renderDashboardAptSearchToast() {
 function syncDashboardAptSearchUi() {
   renderDashboardAptSearchBar();
   renderAptSearchScreenLayout();
-  renderDashboardAptSearchHint();
   renderDashboardAptSearchResults();
   renderDashboardSelectedApartment();
   renderDashboardAptSearchToast();
@@ -1373,7 +1343,6 @@ function handleDashboardAptSearchInput(event) {
     dashboardAptSearchState.lastSearchQuery = '';
   }
   updateDashboardAptSearchResults();
-  renderDashboardAptSearchHint();
   renderDashboardAptSearchResults();
   renderDashboardSelectedApartment();
   renderDashboardAptSearchToast();
@@ -1382,7 +1351,6 @@ function handleDashboardAptSearchInput(event) {
 function handleDashboardAptSearchFocus() {
   dashboardAptSearchState.isEditing = true;
   updateDashboardAptSearchResults();
-  renderDashboardAptSearchHint();
   renderDashboardAptSearchResults();
   renderDashboardSelectedApartment();
   renderDashboardAptSearchToast();
@@ -1464,7 +1432,6 @@ function returnToDashboardAptResults() {
   dashboardAptSearchState.query = query;
   dashboardAptSearchState.isEditing = true;
   updateDashboardAptSearchResults();
-  renderDashboardAptSearchHint();
   renderDashboardAptSearchResults();
   renderDashboardSelectedApartment();
   renderDashboardAptSearchToast();
