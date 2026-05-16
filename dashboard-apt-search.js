@@ -1242,7 +1242,6 @@ function hasDashboardAptSelection() {
 }
 
 function revealDashboardAptAnalysisAfterAuth() {
-  if (typeof window.closePaySheet === 'function') window.closePaySheet();
   renderDashboardSelectedApartment();
   if (typeof showAptSearchScreen === 'function') showAptSearchScreen();
 }

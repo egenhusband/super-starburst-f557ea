@@ -1714,9 +1714,20 @@ function formatPrice(val) {
   return `약 ${Math.round(val * 82.6).toLocaleString()}만원`;
 }
 
+function isPaywallUnlocked() {
+  return localStorage.getItem('authVerified') === '1'
+    || localStorage.getItem('paywallUnlocked') === '1';
+}
+
 function showEntryToast() {
   const toast = document.getElementById('entryToast');
   if (!toast) return;
+  if (isPaywallUnlocked()) {
+    window.clearTimeout(showEntryToast._timer);
+    window.clearTimeout(showEntryToast._exitTimer);
+    toast.classList.remove('show', 'is-hiding');
+    return;
+  }
   initEntryToastLottie();
   window.clearTimeout(showEntryToast._timer);
   window.clearTimeout(showEntryToast._exitTimer);
@@ -1754,7 +1765,7 @@ function initEntryToastLottie() {
 
   const pwScreen = document.getElementById('pwScreen');
   if (pwScreen) pwScreen.style.display = 'none';
-  if (localStorage.getItem('authVerified') === '1') {
+  if (isPaywallUnlocked()) {
     startCalculatorFlow();
   } else {
     enterAsGuest();
