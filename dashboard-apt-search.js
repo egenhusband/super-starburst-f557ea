@@ -60,19 +60,23 @@ const CORE_BUSINESS_DISTRICTS = [
 ];
 
 const NINE_LINE_944_BENEFIT_NAMES = [
-  '미사강변 리슈빌',
-  '미사강변 센트리버',
+  '미사강변리슈빌nhf',
+  '미사강변센트리버',
   '미사강변스타힐스',
-  '미사강변 리버뷰자이',
-  '미사강변 베라체',
-  '미사강변 대원칸타빌',
-  '미사강변 루나리움',
-  '미사강변 푸르지오 2차',
-  '미사강변 더샵 리버포레',
-  '미사강변 한신휴플러스',
+  '미사강변리버뷰자이',
+  '미사강변도시베라체아파트',
+  '미사강변대원칸타빌',
+  '미사강변루나리움',
+  '미사강변2차푸르지오',
+  '미사강변더샵리버포레아파트',
+  '미사강변한신휴플러스',
   '리버나인',
-  '리버나인 RIVERNINE',
+  '리버나인rivernine',
 ];
+const NINE_LINE_944_BENEFIT_CODES = new Set([
+  'A10026523', // 미사강변리슈빌NHF
+  'A10028065', // 미사강변도시 베라체 아파트
+]);
 
 let dashboardAptSearchIndexPromise = null;
 let dashboardSubwayTimesPromise = null;
@@ -199,7 +203,10 @@ function parseLineNameCandidates(rawValue) {
 }
 
 function hasNineLineBenefitCandidate(entry) {
-  const name = String(entry?.aptName || '').trim();
+  if (entry?.kaptCode && NINE_LINE_944_BENEFIT_CODES.has(String(entry.kaptCode))) {
+    return true;
+  }
+  const name = normalizePlaceToken(entry?.aptName || '');
   return NINE_LINE_944_BENEFIT_NAMES.some(candidate => name.includes(candidate));
 }
 
