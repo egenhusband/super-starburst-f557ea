@@ -9,6 +9,11 @@ const INPUT_PATH = process.env.SUBWAY_SEOUL_CSV_INPUT
   || '/Users/deukgyunman/Desktop/서울교통공사 역간거리 및 소요시간_240810.csv';
 const LINE_EXTENSION_INPUTS = [
   {
+    path: '/Users/deukgyunman/Desktop/국가철도공단_수도권5호선_역간거리_20250630.csv',
+    lineName: '5호선',
+    minutesPerKm: 1.55,
+  },
+  {
     path: '/Users/deukgyunman/Desktop/국가철도공단_수도권8호선_역간거리_20250630.csv',
     lineName: '8호선',
     minutesPerKm: 1.45,
@@ -48,6 +53,7 @@ const OUTPUT_PATH = process.env.SUBWAY_SEOUL_JSON_OUTPUT
   || path.join('data', 'subway-seoul-times.json');
 const TRANSFER_MINUTES = Math.max(1, Number(process.env.SUBWAY_TRANSFER_MINUTES || 4));
 const EXTENSION_LINE_COVERAGE = [
+  { lineName: '5호선', purpose: '미사·하남풍산·하남시청·하남검단산 등 하남 연장 구간 보강' },
   { lineName: '8호선', purpose: '장자호수공원·별내 등 동북권 연장 구간 보강' },
   { lineName: '9호선', purpose: '여의도·마곡·강남축 보강' },
   { lineName: '신분당선', purpose: '강남·판교축 보강' },
@@ -96,6 +102,35 @@ function addUniqueRideEdge(rideEdges, rideEdgeIds, edge) {
   rideEdges.push(edge);
   rideEdgeIds.add(directKey);
   return true;
+}
+
+function removeLineData(stations, rideEdges, stationNameMap, stationIds, rideEdgeIds, lineName) {
+  const remainingStations = stations.filter(station => station.lineName !== lineName);
+  const remainingStationIds = new Set(remainingStations.map(station => station.id));
+  const remainingStationNameMap = new Map();
+  remainingStations.forEach(station => {
+    ensureArrayMap(remainingStationNameMap, station.stationNameNormalized, station.id);
+  });
+
+  const remainingRideEdges = rideEdges.filter(edge => {
+    const fromStation = edge.from.split(':')[0];
+    const toStation = edge.to.split(':')[0];
+    return fromStation !== lineName && toStation !== lineName;
+  });
+  const remainingRideEdgeIds = new Set(
+    remainingRideEdges.map(edge => `${edge.from}>${edge.to}:${edge.type}`)
+  );
+
+  stations.length = 0;
+  stations.push(...remainingStations);
+  stationIds.clear();
+  remainingStationIds.forEach(id => stationIds.add(id));
+  stationNameMap.clear();
+  remainingStationNameMap.forEach((value, key) => stationNameMap.set(key, value));
+  rideEdges.length = 0;
+  rideEdges.push(...remainingRideEdges);
+  rideEdgeIds.clear();
+  remainingRideEdgeIds.forEach(id => rideEdgeIds.add(id));
 }
 
 async function main() {
@@ -175,6 +210,9 @@ async function main() {
       const extensionLines = extensionCsvText.split(/\r?\n/).filter(Boolean);
       const extensionRows = extensionLines.slice(1).map(line => line.split(','));
 
+      // When we have a fresh CSV for a line, prefer it over any stale fallback graph entries.
+      removeLineData(stations, rideEdges, stationNameMap, stationIds, rideEdgeIds, extension.lineName);
+
       const extensionStationIds = [];
       extensionRows.forEach(row => {
         const stationName = String(row[2] || '').trim();
@@ -198,6 +236,11 @@ async function main() {
         const currentId = extensionStationIds[index];
         const nextId = extensionStationIds[index + 1];
         if (!currentId || !nextId) return;
+        const currentCumulativeKm = Number((extensionRows[index] || [])[3] || 0) || 0;
+        const nextCumulativeKm = Number((extensionRows[index + 1] || [])[3] || 0) || 0;
+        // Some files restart from line origin between branch segments (for example 5호선 방화 재시작).
+        // In that case, the next row is a new segment, not a real adjacent edge.
+        if (nextCumulativeKm === 0 && currentCumulativeKm > 0) return;
         const distanceKm = Number((extensionRows[index + 1] || [])[3] || 0)
           || Number((extensionRows[index] || [])[4] || 0)
           || 0;

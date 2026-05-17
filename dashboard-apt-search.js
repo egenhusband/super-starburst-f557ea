@@ -1,11 +1,12 @@
 const DASHBOARD_APT_CODE_MAP_URL = '/data/apt-code-map.json?v=20260506b';
 const DASHBOARD_APT_HOUSEHOLDS_URL = '/data/apt-households.json?v=20260506b';
 const DASHBOARD_APT_SCHOOL_META_URL = '/data/apt-school-meta.json?v=20260507a';
-const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260510a';
-const DASHBOARD_SUBWAY_TIMES_URL = '/data/subway-seoul-times.json?v=20260509b';
-const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v7';
+const DASHBOARD_APT_STATION_META_URL = '/data/apt-station-meta.json?v=20260517a';
+const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260517a';
+const DASHBOARD_SUBWAY_TIMES_URL = '/data/subway-seoul-times.json?v=20260517b';
+const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v9';
 const DASHBOARD_APT_SEARCH_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
-const DASHBOARD_SUBWAY_TIMES_CACHE_KEY = 'dashboard_subway_times_v3';
+const DASHBOARD_SUBWAY_TIMES_CACHE_KEY = 'dashboard_subway_times_v5';
 const DASHBOARD_SUBWAY_TIMES_CACHE_TTL = 90 * 24 * 60 * 60 * 1000;
 const CORE_BUSINESS_DISTRICTS = [
   {
@@ -56,6 +57,21 @@ const CORE_BUSINESS_DISTRICTS = [
     shortLabel: '판교',
     stationNames: ['판교역'],
   },
+];
+
+const NINE_LINE_944_BENEFIT_NAMES = [
+  '미사강변 리슈빌',
+  '미사강변 센트리버',
+  '미사강변스타힐스',
+  '미사강변 리버뷰자이',
+  '미사강변 베라체',
+  '미사강변 대원칸타빌',
+  '미사강변 루나리움',
+  '미사강변 푸르지오 2차',
+  '미사강변 더샵 리버포레',
+  '미사강변 한신휴플러스',
+  '리버나인',
+  '리버나인 RIVERNINE',
 ];
 
 let dashboardAptSearchIndexPromise = null;
@@ -115,8 +131,10 @@ function formatHouseholdLabel(householdCount) {
 }
 
 function formatStationFallback(entry) {
-  const stationLabel = [entry.subwayLine, entry.subwayStation].filter(Boolean).join(' ');
-  const stationDistance = String(entry.subwayDistance || '').trim();
+  const stationLabel = [entry.stationMetaName || entry.subwayStation, entry.subwayLine].filter(Boolean).join(' ');
+  const stationDistance = Number.isFinite(entry.stationMetaDistance)
+    ? `직선 ${formatDistance(entry.stationMetaDistance)}`
+    : String(entry.subwayDistance || '').trim();
   if (stationLabel && stationDistance) return `${stationLabel} · ${stationDistance}`;
   if (stationLabel) return stationLabel;
   if (stationDistance) return stationDistance;
@@ -165,11 +183,24 @@ function parseStationNameCandidates(rawValue) {
     .filter(Boolean);
 }
 
+function hasSubwayGraphStationMatch(rawValue) {
+  if (!dashboardSubwayGraph) return false;
+  return parseStationNameCandidates(rawValue)
+    .map(normalizeStationToken)
+    .filter(Boolean)
+    .some(token => (dashboardSubwayGraph.nameToStationIds.get(token) || []).length > 0);
+}
+
 function parseLineNameCandidates(rawValue) {
   return String(rawValue || '')
     .split(/[,/]/)
     .map(value => value.trim())
     .filter(Boolean);
+}
+
+function hasNineLineBenefitCandidate(entry) {
+  const name = String(entry?.aptName || '').trim();
+  return NINE_LINE_944_BENEFIT_NAMES.some(candidate => name.includes(candidate));
 }
 
 function parseTransitWalkDistance(rawValue) {
@@ -426,10 +457,10 @@ function computeStationScore(distance) {
 
 function computeSchoolScore(distance) {
   if (!Number.isFinite(distance)) return { score: 8, label: '초품아 거리 확인 중' };
-  if (distance <= 300) return { score: 40, label: '초품아 성격이 아주 강한 거리' };
-  if (distance <= 500) return { score: 34, label: '도보 통학 체감이 좋은 편' };
+  if (distance <= 300) return { score: 36, label: '초품아 성격이 아주 강한 거리' };
+  if (distance <= 500) return { score: 32, label: '도보 통학 체감이 좋은 편' };
   if (distance <= 700) return { score: 24, label: '가까운 초등학교 접근성이 무난한 편' };
-  if (distance <= 1000) return { score: 14, label: '통학 거리가 아주 짧지는 않은 편' };
+  if (distance <= 1000) return { score: 16, label: '통학 거리가 아주 짧지는 않은 편' };
   return { score: 6, label: '초등학교 접근성은 비교가 필요한 편' };
 }
 
@@ -465,7 +496,7 @@ function computeBusinessDistrictScore(entry, insight) {
       .map(normalizeLineToken)
       .filter(Boolean),
   );
-  const shouldRestrictLineMatch = lineTokens.size > 0 && parseStationNameCandidates(entry?.subwayStation).length > 0;
+  const shouldRestrictLineMatch = lineTokens.size > 0 && hasSubwayGraphStationMatch(entry?.subwayStation);
 
   const originIds = [];
   stationTokens.forEach(token => {
@@ -658,6 +689,12 @@ function computeDashboardApartmentGrade(entry, insight) {
     Number.isFinite(entry.householdCount) && entry.householdCount >= 300,
     Number.isFinite(age) && age <= 20,
   ].filter(Boolean).length;
+  const isLargeRecentMidPriceComplex = (
+    Number.isFinite(priceLevel) && priceLevel >= 50000
+    && Number.isFinite(entry.householdCount) && entry.householdCount >= 1000
+    && Number.isFinite(age) && age <= 12
+    && Number.isFinite(stationDistance) && stationDistance <= 1600
+  );
 
   const missingLabels = dimensions
     .filter(item => !item.available)
@@ -688,8 +725,10 @@ function computeDashboardApartmentGrade(entry, insight) {
     } else if (
       (Number.isFinite(priceLevel) && priceLevel >= 200000)
       || (
-        Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 20
+        Number.isFinite(priceLevel) && priceLevel >= 70000
+        && Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 18
         && Number.isFinite(stationDistance) && stationDistance <= 400
+        && Number.isFinite(age) && age <= 10
         && sConditions >= 2
       )
     ) {
@@ -709,6 +748,7 @@ function computeDashboardApartmentGrade(entry, insight) {
     } else if (
       (Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 45)
       || (Number.isFinite(priceLevel) && priceLevel >= 100000)
+      || isLargeRecentMidPriceComplex
     ) {
       grade = 'B+';
     } else if (
@@ -732,10 +772,10 @@ function computeDashboardApartmentGrade(entry, insight) {
       ...(shouldHold ? ['아직 핵심 축이 너무 적어서 등급 판단을 잠시 미뤘어요.'] : []),
       ...(hasOfficialFallback ? ['실거래 커버리지가 얇아 가격 레벨은 공시가격으로 우선 보완했어요.'] : []),
       ...(grade === 'S+' ? ['30억 이상 초고가이면서 핵심 업무지구와 역세권 조건까지 모두 강한 최상위 입지'] : []),
-      ...(grade === 'S' ? ['20억 이상 초고가이거나 핵심 업무지구 20분 내 직주근접이 강한 단지'] : []),
+      ...(grade === 'S' ? ['20억 이상 초고가이거나 핵심 업무지구·역세권·가격대가 모두 강한 단지'] : []),
       ...(grade === 'A+' ? ['핵심 업무지구와 역 접근이 모두 좋은 상급 입지'] : []),
       ...(grade === 'A' ? ['역세권과 업무지구 접근성 중 핵심 조건이 안정적으로 받쳐주는 단지'] : []),
-      ...(grade === 'B+' ? ['직주근접 또는 가격 레벨 중 하나가 분명한 단지'] : []),
+      ...(grade === 'B+' ? ['직주근접·가격대·단지 체급 중 하나 이상이 분명한 단지'] : []),
       ...(grade === 'B' ? ['핵심 업무지구 또는 역 접근성에서 기본 경쟁력이 있는 단지'] : []),
       ...(grade === 'C+' ? ['강점 축은 제한적이지만 생활 조건에서 일부 장점이 보이는 단지'] : []),
       ...availableDimensions.map(item => item.result.label),
@@ -744,7 +784,7 @@ function computeDashboardApartmentGrade(entry, insight) {
   };
 }
 
-function buildDashboardSearchIndex({ codeMap, households, trades, schools, officialPrices }) {
+function buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices }) {
   const householdByCode = new Map();
   const householdByKey = new Map();
   (households?.entries || []).forEach(entry => {
@@ -758,6 +798,13 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, offic
     if (entry?.kaptCode) schoolByCode.set(entry.kaptCode, entry);
     const key = buildSchoolMetaCompositeKey(entry.sigunguName, entry.umdName, entry.aptName);
     if (key) schoolByKey.set(key, entry);
+  });
+  const stationByCode = new Map();
+  const stationByKey = new Map();
+  (stationMetas?.entries || []).forEach(entry => {
+    if (entry?.kaptCode) stationByCode.set(entry.kaptCode, entry);
+    const key = buildSchoolMetaCompositeKey(entry.sigunguName, entry.umdName, entry.aptName);
+    if (key) stationByKey.set(key, entry);
   });
   const officialByCode = new Map();
   const officialByKey = new Map();
@@ -808,6 +855,7 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, offic
     const compositeKey = buildDashboardAptCompositeKey(sigunguName, umdName, aptName);
     const household = householdByCode.get(item.kaptCode) || householdByKey.get(compositeKey) || null;
     const school = schoolByCode.get(item.kaptCode) || schoolByKey.get(compositeKey) || null;
+    const stationMeta = stationByCode.get(item.kaptCode) || stationByKey.get(compositeKey) || null;
     const officialPrice = officialByCode.get(item.kaptCode) || officialByKey.get(compositeKey) || null;
     const trade = tradeByKey.get(compositeKey) || null;
     const id = item.kaptCode || compositeKey;
@@ -842,7 +890,10 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, offic
       subwayLine: household?.subwayLine || '',
       subwayStation: household?.subwayStation || '',
       subwayDistance: household?.subwayDistance || '',
+      stationMetaName: stationMeta?.stationName || '',
+      stationMetaDistance: Number(stationMeta?.stationDistance || 0) || null,
       busDistance: household?.busDistance || '',
+      doroJuso: household?.doroJuso || '',
       schoolName: school?.schoolName || '',
       schoolDistance: Number(school?.schoolDistance || 0) || null,
       searchTextNormalized: normalizePlaceToken(searchTokens),
@@ -858,8 +909,9 @@ async function fetchDashboardAptSearchIndex() {
   const cached = getCache(DASHBOARD_APT_SEARCH_CACHE_KEY, DASHBOARD_APT_SEARCH_CACHE_TTL);
   if (cached?.entries?.length) return cached.entries;
 
-  const [schoolMetaRes, officialPriceRes, codeMapRes, householdsRes, trades] = await Promise.all([
+  const [schoolMetaRes, stationMetaRes, officialPriceRes, codeMapRes, householdsRes, trades] = await Promise.all([
     fetch(DASHBOARD_APT_SCHOOL_META_URL, { cache: 'no-store' }).catch(() => null),
+    fetch(DASHBOARD_APT_STATION_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_OFFICIAL_PRICE_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_CODE_MAP_URL, { cache: 'no-store' }),
     fetch(DASHBOARD_APT_HOUSEHOLDS_URL, { cache: 'no-store' }),
@@ -869,13 +921,14 @@ async function fetchDashboardAptSearchIndex() {
   if (!codeMapRes.ok) throw new Error('단지 목록을 불러오지 못했어요.');
   if (!householdsRes.ok) throw new Error('단지 기본정보를 불러오지 못했어요.');
 
-  const [codeMap, households, schools, officialPrices] = await Promise.all([
+  const [codeMap, households, schools, stationMetas, officialPrices] = await Promise.all([
     codeMapRes.json(),
     householdsRes.json(),
     schoolMetaRes?.ok ? schoolMetaRes.json() : Promise.resolve({ entries: [] }),
+    stationMetaRes?.ok ? stationMetaRes.json() : Promise.resolve({ entries: [] }),
     officialPriceRes?.ok ? officialPriceRes.json() : Promise.resolve({ entries: [] }),
   ]);
-  const entries = buildDashboardSearchIndex({ codeMap, households, trades, schools, officialPrices });
+  const entries = buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices });
   setCache(DASHBOARD_APT_SEARCH_CACHE_KEY, { entries });
   return entries;
 }
@@ -1062,6 +1115,7 @@ function renderDashboardSelectedApartment() {
       : '초등학교 거리 확인 중';
     const schoolParts = splitDistanceLabel(schoolText);
     const stationParts = splitDistanceLabel(stationText);
+    const hasNineLineBenefit = hasNineLineBenefitCandidate(entry);
     const statusText = !insight?.ready
       ? '단지 입지 데이터를 불러오는 중이에요.'
       : gradeData?.withheld
@@ -1082,6 +1136,12 @@ function renderDashboardSelectedApartment() {
           </div>
         </div>
         <p class="db-apt-grade-status">${escapeHtml(statusText)}</p>
+        ${hasNineLineBenefit ? `
+          <div class="db-apt-benefit-badges">
+            <span class="db-apt-benefit-badge">9호선 연장 수혜 예상</span>
+            <span class="db-apt-benefit-badge is-muted">강동하남남양주선 기본계획 기준</span>
+          </div>
+        ` : ''}
         <div class="db-apt-grade-grid">
           <div class="db-apt-grade-chip">
             <span>초품아</span>
@@ -1114,6 +1174,10 @@ function renderDashboardSelectedApartment() {
           <div class="db-apt-grade-reasons">
             ${(gradeData?.reasons || ['초품아 거리와 가까운 역 거리를 우선 정리하는 중이에요.']).map(reason => `<p>${escapeHtml(reason)}</p>`).join('')}
           </div>
+        </div>
+        <div class="db-apt-grade-disclaimer">
+          <p>입지 등급은 현재 확보된 실거래·공시가격·학교·역·업무지구 데이터 기준으로 계산해요.</p>
+          <p>원천 DB 특성상 일부 단지 정보가 다르게 들어가거나 늦게 반영될 수 있고, 지하철 연장·재개발 같은 미래 호재는 별도 배지 외에는 등급에 강하게 반영하지 않았어요.</p>
         </div>
         <button class="db-apt-loan-cta" type="button" onclick='openAptLoanSheet(${JSON.stringify(entry.id)})'>
           <span>${calculatorIcon}</span>
@@ -1373,7 +1437,9 @@ function hydrateDashboardApartmentInsight(entry) {
   const insight = {
     ready: true,
     failed: false,
-    station: null,
+    station: entry.stationMetaName && Number.isFinite(entry.stationMetaDistance)
+      ? { placeName: entry.stationMetaName, distance: entry.stationMetaDistance }
+      : null,
     school: entry.schoolName && Number.isFinite(schoolDistance)
       ? { placeName: entry.schoolName, distance: schoolDistance }
       : null,
@@ -1382,7 +1448,7 @@ function hydrateDashboardApartmentInsight(entry) {
   dashboardAptSearchState.selectedInsight = insight;
   renderDashboardSelectedApartment();
 
-  const needsStationBackfill = !parseStationNameCandidates(entry.subwayStation).length;
+  const needsStationBackfill = !hasSubwayGraphStationMatch(entry.subwayStation);
   const canBackfillStation = typeof searchComplexLocation === 'function' && typeof searchNearestStation === 'function';
   if (!needsStationBackfill || !canBackfillStation) return;
 
