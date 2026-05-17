@@ -4974,6 +4974,29 @@
   line-height: 1.6;
   color: rgba(219,227,239,0.72);
 }
+.db-apt-benefit-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.db-apt-benefit-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+.db-apt-benefit-badge.is-muted {
+  background: var(--surface-3);
+  color: var(--label2);
+  font-weight: 600;
+}
 .db-apt-grade-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5040,6 +5063,22 @@
   color: rgba(223,231,242,0.72);
 }
 .db-apt-grade-reasons p + p {
+  margin-top: 6px;
+}
+.db-apt-grade-disclaimer {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.018);
+}
+.db-apt-grade-disclaimer p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(214,223,236,0.56);
+  letter-spacing: -0.01em;
+}
+.db-apt-grade-disclaimer p + p {
   margin-top: 6px;
 }
 .db-apt-loan-cta {

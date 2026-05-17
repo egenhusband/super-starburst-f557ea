@@ -275,17 +275,40 @@ function loadKakaoMapsSdk() {
 }
 
 function searchComplexLocation(complex) {
-  if (!complex?.aptName) return Promise.resolve(null);
+  if (!complex?.aptName && !complex?.doroJuso) return Promise.resolve(null);
   const query = [complex.sigunguName, complex.umdName, complex.aptName].filter(Boolean).join(' ');
-  const cacheKey = `place_${query}`;
+  const fallbackAddress = String(complex?.doroJuso || '').trim();
+  const cacheKey = `place_${query || fallbackAddress}`;
   const cached = getGeoCache(cacheKey);
   if (cached) return Promise.resolve(cached);
 
   return loadKakaoMapsSdk().then(kakao => new Promise(resolve => {
     const places = new kakao.maps.services.Places();
+    const geocoder = new kakao.maps.services.Geocoder();
+    const resolveByAddress = () => {
+      if (!fallbackAddress) {
+        resolve(null);
+        return;
+      }
+      geocoder.addressSearch(fallbackAddress, (result, status) => {
+        if (status !== kakao.maps.services.Status.OK || !Array.isArray(result) || !result.length) {
+          resolve(null);
+          return;
+        }
+        const match = result[0];
+        const normalized = {
+          x: Number(match.x),
+          y: Number(match.y),
+          placeName: complex.aptName || fallbackAddress,
+          addressName: match.road_address?.address_name || match.address?.address_name || fallbackAddress,
+        };
+        setGeoCache(cacheKey, normalized);
+        resolve(normalized);
+      });
+    };
     places.keywordSearch(query, (result, status) => {
       if (status !== kakao.maps.services.Status.OK || !Array.isArray(result) || !result.length) {
-        resolve(null);
+        resolveByAddress();
         return;
       }
 
