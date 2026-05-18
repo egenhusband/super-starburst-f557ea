@@ -104,7 +104,7 @@
       resetResultScroll();
       document.getElementById('bottomNav').style.display = 'none';
       document.getElementById('progressWrap').style.display = 'none';
-      if (isGuestMode) setTimeout(showPayPopup, 400);
+      if (PaywallController.isGuestMode) setTimeout(showPayPopup, 400);
       return;
     }
     navigateTo(current + 1, 'forward');
@@ -3430,31 +3430,123 @@
 
   // ── 비밀번호 & 게스트 모드 ──
   const CORRECT_PW = 'egenhusband^^';
-  let isGuestMode  = false;
-  let payUnlockContext = 'result';
+  const PAY_CONTEXT = Object.freeze({
+    RESULT: 'result',
+    APT_ANALYSIS: 'apt-analysis',
+  });
+  const PaywallController = {
+    isGuestMode: false,
+    context: PAY_CONTEXT.RESULT,
+    closeTimer: null,
+    openRaf: null,
 
-  // 초기 진입 처리는 dashboard.js 로드 후 실행됨
+    isUnlocked() {
+      return localStorage.getItem('authVerified') === '1'
+        || localStorage.getItem('paywallUnlocked') === '1';
+    },
 
-  function hasRenderedResult() {
-    const resultContent = document.getElementById('resultContent');
-    const bankResultArea = document.getElementById('bankResultArea');
-    const fundResultReady = Boolean(resultContent && resultContent.innerHTML.trim() !== '');
-    const bankResultReady = Boolean(bankResultArea && bankResultArea.innerHTML.trim() !== '');
-    return fundResultReady || bankResultReady;
-  }
+    setGuestMode(value) {
+      this.isGuestMode = Boolean(value);
+    },
 
-  function submitPassword() {
-    const val = document.getElementById('pwInput').value;
-    if (val === CORRECT_PW) {
-      const shouldPreserveAptAnalysis = payUnlockContext === 'apt-analysis'
+    hasRenderedResult() {
+      const resultContent = document.getElementById('resultContent');
+      const bankResultArea = document.getElementById('bankResultArea');
+      const fundResultReady = Boolean(resultContent && resultContent.innerHTML.trim() !== '');
+      const bankResultReady = Boolean(bankResultArea && bankResultArea.innerHTML.trim() !== '');
+      return fundResultReady || bankResultReady;
+    },
+
+    resetPasswordForm() {
+      const pwInput = document.getElementById('pwInput');
+      const submit = document.getElementById('btnPwSubmit');
+      const err = document.getElementById('pwErr');
+      if (pwInput) pwInput.value = '';
+      if (submit) submit.disabled = true;
+      if (err) err.textContent = '';
+    },
+
+    open(context = PAY_CONTEXT.RESULT) {
+      this.context = context || PAY_CONTEXT.RESULT;
+      const overlay = document.getElementById('payOverlay');
+      if (!overlay) return;
+      if (this.closeTimer) {
+        clearTimeout(this.closeTimer);
+        this.closeTimer = null;
+      }
+      if (this.openRaf) {
+        cancelAnimationFrame(this.openRaf);
+        this.openRaf = null;
+      }
+      overlay.classList.remove('is-closing');
+      overlay.classList.remove('open');
+      this.resetPasswordForm();
+      void overlay.offsetWidth;
+      this.openRaf = requestAnimationFrame(() => {
+        overlay.classList.add('open');
+        this.openRaf = null;
+      });
+      if (typeof window.renderIcons === 'function') window.renderIcons(overlay);
+    },
+
+    close(preserveContext = false) {
+      const overlay = document.getElementById('payOverlay');
+      if (!overlay) return;
+      if (this.closeTimer) {
+        clearTimeout(this.closeTimer);
+        this.closeTimer = null;
+      }
+      overlay.classList.remove('open');
+      overlay.classList.add('is-closing');
+
+      this.closeTimer = setTimeout(() => {
+        this.closeTimer = null;
+        overlay.classList.remove('is-closing');
+        if (preserveContext) return;
+        this.handleDismissedContext();
+      }, 340);
+    },
+
+    handleDismissedContext() {
+      if (this.context === PAY_CONTEXT.APT_ANALYSIS && typeof window.returnToDashboardAptResults === 'function') {
+        window.returnToDashboardAptResults();
+        return;
+      }
+      if (this.context === PAY_CONTEXT.RESULT && current === 9) {
+        const bottomNav = document.getElementById('bottomNav');
+        const progressWrap = document.getElementById('progressWrap');
+        if (bottomNav) bottomNav.style.display = 'flex';
+        if (progressWrap) progressWrap.style.display = 'block';
+        navigateTo(8, 'back');
+      }
+    },
+
+    openIfAllowed(context = PAY_CONTEXT.RESULT) {
+      if (!this.isGuestMode && context !== PAY_CONTEXT.APT_ANALYSIS) return;
+      this.open(context);
+    },
+
+    submitPassword() {
+      const val = document.getElementById('pwInput')?.value || '';
+      if (val !== CORRECT_PW) {
+        const pwErr = document.getElementById('pwErr');
+        const pwInput = document.getElementById('pwInput');
+        const submit = document.getElementById('btnPwSubmit');
+        if (pwErr) pwErr.textContent = '비밀번호가 올바르지 않아요.';
+        if (pwInput) pwInput.value = '';
+        if (submit) submit.disabled = true;
+        return;
+      }
+
+      const shouldPreserveAptAnalysis = this.context === PAY_CONTEXT.APT_ANALYSIS
         && typeof hasDashboardAptSelection === 'function'
         && hasDashboardAptSelection();
-      const shouldPreserveResult = !shouldPreserveAptAnalysis && hasRenderedResult();
-      isGuestMode = false;
+      const shouldPreserveResult = !shouldPreserveAptAnalysis && this.hasRenderedResult();
+      this.setGuestMode(false);
       localStorage.setItem('authVerified', '1');
       const pwScreen = document.getElementById('pwScreen');
       if (pwScreen) pwScreen.style.display = 'none';
-      closePaySheet(true);
+      this.close(true);
       const pwErr = document.getElementById('pwErr');
       if (pwErr) pwErr.textContent = '';
       if (shouldPreserveResult) {
@@ -3466,18 +3558,23 @@
         startCalculatorFlow();
       }
       if (typeof preloadMarketBundle === 'function') preloadMarketBundle().catch(() => {});
-    } else {
-      const pwErr = document.getElementById('pwErr');
-      const pwInput = document.getElementById('pwInput');
-      const submit = document.getElementById('btnPwSubmit');
-      if (pwErr) pwErr.textContent = '비밀번호가 올바르지 않아요.';
-      if (pwInput) pwInput.value = '';
-      if (submit) submit.disabled = true;
-    }
+    },
+  };
+  window.PAY_CONTEXT = PAY_CONTEXT;
+  window.PaywallController = PaywallController;
+
+  // 초기 진입 처리는 dashboard.js 로드 후 실행됨
+
+  function hasRenderedResult() {
+    return PaywallController.hasRenderedResult();
+  }
+
+  function submitPassword() {
+    PaywallController.submitPassword();
   }
 
   function enterAsGuest() {
-    isGuestMode = true;
+    PaywallController.setGuestMode(true);
     const pwScreen = document.getElementById('pwScreen');
     if (pwScreen) pwScreen.style.display = 'none';
     if (hasRenderedResult()) setTimeout(showPayPopup, 200);
@@ -3488,88 +3585,33 @@
   }
 
   // ── 결제 팝업 ──
-  let paySheetCloseTimer = null;
-  let paySheetOpenRaf = null;
   function openPaySheet(context = 'result') {
-    payUnlockContext = context || 'result';
-    const overlay = document.getElementById('payOverlay');
-    const pwInput = document.getElementById('pwInput');
-    const submit = document.getElementById('btnPwSubmit');
-    const err = document.getElementById('pwErr');
-    if (!overlay) return;
-    if (paySheetCloseTimer) {
-      clearTimeout(paySheetCloseTimer);
-      paySheetCloseTimer = null;
-    }
-    if (paySheetOpenRaf) {
-      cancelAnimationFrame(paySheetOpenRaf);
-      paySheetOpenRaf = null;
-    }
-    overlay.classList.remove('is-closing');
-    overlay.classList.remove('open');
-    if (pwInput) pwInput.value = '';
-    if (submit) submit.disabled = true;
-    if (err) err.textContent = '';
-    void overlay.offsetWidth;
-    paySheetOpenRaf = requestAnimationFrame(() => {
-      overlay.classList.add('open');
-      paySheetOpenRaf = null;
-    });
-    if (typeof window.renderIcons === 'function') window.renderIcons(overlay);
+    PaywallController.open(context);
   }
 
   function closePaySheet(preserveContext = false) {
-    const overlay = document.getElementById('payOverlay');
-    if (!overlay) return;
-    if (paySheetCloseTimer) {
-      clearTimeout(paySheetCloseTimer);
-      paySheetCloseTimer = null;
-    }
-    overlay.classList.remove('open');
-    overlay.classList.add('is-closing');
-
-    const afterClose = () => {
-      overlay.classList.remove('is-closing');
-      if (preserveContext) return;
-      if (payUnlockContext === 'apt-analysis' && typeof window.returnToDashboardAptResults === 'function') {
-        window.returnToDashboardAptResults();
-        return;
-      }
-      if (payUnlockContext === 'result' && current === 9) {
-        const bottomNav = document.getElementById('bottomNav');
-        const progressWrap = document.getElementById('progressWrap');
-        if (bottomNav) bottomNav.style.display = 'flex';
-        if (progressWrap) progressWrap.style.display = 'block';
-        navigateTo(8, 'back');
-      }
-    };
-
-    paySheetCloseTimer = setTimeout(() => {
-      paySheetCloseTimer = null;
-      afterClose();
-    }, 340);
+    PaywallController.close(preserveContext);
   }
 
   function showPayPopup(context = 'result') {
-    if (!isGuestMode && context !== 'apt-analysis') return;
-    openPaySheet(context);
+    PaywallController.openIfAllowed(context);
   }
 
   function closePayAndShowPw() {
-    openPaySheet(payUnlockContext);
+    openPaySheet(PaywallController.context);
   }
 
   // 기금대출 결과 진입 시 팝업 — goNext()에서 renderResult 호출 후 훅
   const _origRenderResult = renderResult;
   renderResult = function(income, price, asset, otherLoanInterest) {
     _origRenderResult(income, price, asset, otherLoanInterest);
-    if (isGuestMode) setTimeout(showPayPopup, 400);
+    if (PaywallController.isGuestMode) setTimeout(showPayPopup, 400);
   };
 
   // 시중은행 조회 버튼 시 팝업 — searchBankLoans 래핑
   const _origSearchBankLoans = searchBankLoans;
   searchBankLoans = async function() {
-    if (isGuestMode) { showPayPopup(); return; }
+    if (PaywallController.isGuestMode) { showPayPopup(); return; }
     return _origSearchBankLoans();
   };
 

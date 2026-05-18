@@ -5081,6 +5081,53 @@
 .db-apt-grade-disclaimer p + p {
   margin-top: 6px;
 }
+.db-apt-convenience-section {
+  margin-top: 16px;
+}
+.db-apt-convenience-divider {
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(208,217,230,0.4);
+  text-align: center;
+}
+.db-apt-convenience-chips {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.db-apt-convenience-chip {
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  text-align: center;
+}
+.db-apt-convenience-chip span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(208,217,230,0.5);
+  letter-spacing: -0.01em;
+}
+.db-apt-convenience-chip strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.db-apt-convenience-chip.is-green strong {
+  color: #5ecb7e;
+}
+.db-apt-convenience-chip.is-yellow strong {
+  color: #e8c84a;
+}
+.db-apt-convenience-chip.is-gray strong {
+  color: rgba(214,223,236,0.38);
+}
 .db-apt-loan-cta {
   width: 100%;
   min-height: 52px;

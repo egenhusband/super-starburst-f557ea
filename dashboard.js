@@ -1738,6 +1738,7 @@ function formatPrice(val) {
 }
 
 function isPaywallUnlocked() {
+  if (window.PaywallController?.isUnlocked) return window.PaywallController.isUnlocked();
   return localStorage.getItem('authVerified') === '1'
     || localStorage.getItem('paywallUnlocked') === '1';
 }

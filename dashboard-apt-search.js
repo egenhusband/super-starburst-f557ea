@@ -1,10 +1,11 @@
 const DASHBOARD_APT_CODE_MAP_URL = '/data/apt-code-map.json?v=20260506b';
 const DASHBOARD_APT_HOUSEHOLDS_URL = '/data/apt-households.json?v=20260506b';
 const DASHBOARD_APT_SCHOOL_META_URL = '/data/apt-school-meta.json?v=20260507a';
-const DASHBOARD_APT_STATION_META_URL = '/data/apt-station-meta.json?v=20260517a';
+const DASHBOARD_APT_STATION_META_URL = '/data/apt-station-meta.json?v=20260518a';
 const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260517a';
+const DASHBOARD_APT_CONVENIENCE_META_URL = '/data/apt-convenience-meta.json?v=20260518a';
 const DASHBOARD_SUBWAY_TIMES_URL = '/data/subway-seoul-times.json?v=20260517b';
-const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v9';
+const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v11';
 const DASHBOARD_APT_SEARCH_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
 const DASHBOARD_SUBWAY_TIMES_CACHE_KEY = 'dashboard_subway_times_v5';
 const DASHBOARD_SUBWAY_TIMES_CACHE_TTL = 90 * 24 * 60 * 60 * 1000;
@@ -791,7 +792,42 @@ function computeDashboardApartmentGrade(entry, insight) {
   };
 }
 
-function buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices }) {
+function formatConvenienceDistance(meters) {
+  if (!Number.isFinite(meters) || meters <= 0) return null;
+  if (meters < 1000) return `${Math.round(meters)}m`;
+  return `${(meters / 1000).toFixed(1).replace(/\.0$/, '')}km`;
+}
+
+function getConvenienceChipClass(meters) {
+  if (!Number.isFinite(meters) || meters <= 0) return 'is-gray';
+  if (meters <= 500) return 'is-green';
+  if (meters <= 1500) return 'is-yellow';
+  return 'is-gray';
+}
+
+function renderConvenienceChip(emoji, label, item) {
+  const distText = item?.distance ? formatConvenienceDistance(item.distance) : null;
+  const chipClass = item?.distance ? getConvenienceChipClass(item.distance) : 'is-gray';
+  const valueText = distText || '없음';
+  return `<div class="db-apt-convenience-chip ${chipClass}"><span>${emoji} ${escapeHtml(label)}</span><strong>${escapeHtml(valueText)}</strong></div>`;
+}
+
+function renderConvenienceSectionHtml(entry) {
+  if (!entry.convenienceHospital && !entry.convenienceMart && !entry.convenienceDept && !entry.conveniencePark) return '';
+  return `
+    <div class="db-apt-convenience-section">
+      <div class="db-apt-convenience-divider">── 주변 생활편의 ──</div>
+      <div class="db-apt-convenience-chips">
+        ${renderConvenienceChip('🏥', '종합병원', entry.convenienceHospital)}
+        ${renderConvenienceChip('🛒', '대형마트', entry.convenienceMart)}
+        ${renderConvenienceChip('🏬', '백화점', entry.convenienceDept)}
+        ${renderConvenienceChip('🌳', '공원', entry.conveniencePark)}
+      </div>
+    </div>
+  `;
+}
+
+function buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas }) {
   const householdByCode = new Map();
   const householdByKey = new Map();
   (households?.entries || []).forEach(entry => {
@@ -820,6 +856,13 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
     const key = buildSchoolMetaCompositeKey(entry.sigunguName, entry.umdName, entry.aptName);
     if (key) officialByKey.set(key, entry);
   });
+  const convenienceByCode = new Map(
+    Object.entries(
+      typeof convenienceMetas === 'object' && convenienceMetas !== null && !Array.isArray(convenienceMetas)
+        ? convenienceMetas
+        : {},
+    ),
+  );
 
   const tradeByKey = new Map();
   const applyTrade = (payload) => {
@@ -864,6 +907,7 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
     const school = schoolByCode.get(item.kaptCode) || schoolByKey.get(compositeKey) || null;
     const stationMeta = stationByCode.get(item.kaptCode) || stationByKey.get(compositeKey) || null;
     const officialPrice = officialByCode.get(item.kaptCode) || officialByKey.get(compositeKey) || null;
+    const convenience = convenienceByCode.get(item.kaptCode) || null;
     const trade = tradeByKey.get(compositeKey) || null;
     const id = item.kaptCode || compositeKey;
     if (!id || seenIds.has(id)) return;
@@ -903,6 +947,10 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
       doroJuso: household?.doroJuso || '',
       schoolName: school?.schoolName || '',
       schoolDistance: Number(school?.schoolDistance || 0) || null,
+      convenienceHospital: convenience?.hospital || null,
+      convenienceMart: convenience?.mart || null,
+      convenienceDept: convenience?.dept || null,
+      conveniencePark: convenience?.park || null,
       searchTextNormalized: normalizePlaceToken(searchTokens),
       displayLocation: [sigunguName, umdName].filter(Boolean).join(' '),
     });
@@ -916,10 +964,11 @@ async function fetchDashboardAptSearchIndex() {
   const cached = getCache(DASHBOARD_APT_SEARCH_CACHE_KEY, DASHBOARD_APT_SEARCH_CACHE_TTL);
   if (cached?.entries?.length) return cached.entries;
 
-  const [schoolMetaRes, stationMetaRes, officialPriceRes, codeMapRes, householdsRes, trades] = await Promise.all([
+  const [schoolMetaRes, stationMetaRes, officialPriceRes, convenienceMetaRes, codeMapRes, householdsRes, trades] = await Promise.all([
     fetch(DASHBOARD_APT_SCHOOL_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_STATION_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_OFFICIAL_PRICE_META_URL, { cache: 'no-store' }).catch(() => null),
+    fetch(DASHBOARD_APT_CONVENIENCE_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_CODE_MAP_URL, { cache: 'no-store' }),
     fetch(DASHBOARD_APT_HOUSEHOLDS_URL, { cache: 'no-store' }),
     preloadAptTrades(),
@@ -928,14 +977,15 @@ async function fetchDashboardAptSearchIndex() {
   if (!codeMapRes.ok) throw new Error('단지 목록을 불러오지 못했어요.');
   if (!householdsRes.ok) throw new Error('단지 기본정보를 불러오지 못했어요.');
 
-  const [codeMap, households, schools, stationMetas, officialPrices] = await Promise.all([
+  const [codeMap, households, schools, stationMetas, officialPrices, convenienceMetas] = await Promise.all([
     codeMapRes.json(),
     householdsRes.json(),
     schoolMetaRes?.ok ? schoolMetaRes.json() : Promise.resolve({ entries: [] }),
     stationMetaRes?.ok ? stationMetaRes.json() : Promise.resolve({ entries: [] }),
     officialPriceRes?.ok ? officialPriceRes.json() : Promise.resolve({ entries: [] }),
+    convenienceMetaRes?.ok ? convenienceMetaRes.json().catch(() => ({})) : Promise.resolve({}),
   ]);
-  const entries = buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices });
+  const entries = buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas });
   setCache(DASHBOARD_APT_SEARCH_CACHE_KEY, { entries });
   return entries;
 }
@@ -1089,6 +1139,7 @@ function renderDashboardAptSearchResults() {
 }
 
 function isDashboardAptAnalysisUnlocked() {
+  if (window.PaywallController?.isUnlocked) return window.PaywallController.isUnlocked();
   return localStorage.getItem('authVerified') === '1';
 }
 
@@ -1177,6 +1228,7 @@ function renderDashboardSelectedApartment() {
             <strong>${escapeHtml(formatPriceLevelSummary(entry))}</strong>
           </div>
         </div>
+        ${renderConvenienceSectionHtml(entry)}
         <div class="db-apt-grade-summary">
           <div class="db-apt-grade-reasons">
             ${(gradeData?.reasons || ['초품아 거리와 가까운 역 거리를 우선 정리하는 중이에요.']).map(reason => `<p>${escapeHtml(reason)}</p>`).join('')}
