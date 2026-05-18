@@ -808,7 +808,7 @@ function getConvenienceChipClass(meters) {
 function renderConvenienceChip(emoji, label, item) {
   const distText = item?.distance ? formatConvenienceDistance(item.distance) : null;
   const chipClass = item?.distance ? getConvenienceChipClass(item.distance) : 'is-gray';
-  const valueText = distText || '없음';
+  const valueText = distText || (item ? '인근' : '없음');
   return `<div class="db-apt-convenience-chip ${chipClass}"><span>${emoji} ${escapeHtml(label)}</span><strong>${escapeHtml(valueText)}</strong></div>`;
 }
 

@@ -254,6 +254,18 @@ function sanitizeDepartmentStore(item) {
   return { ...item, name: canonicalName };
 }
 
+function extractConvenientFacilityValue(text, label) {
+  const source = String(text || '');
+  const match = source.match(new RegExp(`${label}\\(([^)]*)\\)`, 'u'));
+  return match ? match[1].trim() : '';
+}
+
+function getHouseholdDepartmentStoreFallback(household) {
+  const value = extractConvenientFacilityValue(household?.convenientFacility, '백화점');
+  const dept = sanitizeDepartmentStore({ name: value, distance: null, source: 'household' });
+  return dept ? { ...dept, source: 'household' } : null;
+}
+
 function sanitizeMart(item) {
   if (!item?.name) return null;
   if (hasAnyToken(item.name, ['편의점', '마트주차장', '주차장'])) return null;
@@ -267,12 +279,13 @@ function sanitizePark(item) {
   return item;
 }
 
-function sanitizeConvenienceEntry(entry) {
+function sanitizeConvenienceEntry(entry, household = null) {
   if (!entry || typeof entry !== 'object') return null;
+  const dept = sanitizeDepartmentStore(entry.dept) || getHouseholdDepartmentStoreFallback(household);
   return {
     hospital: sanitizeHospital(entry.hospital),
     mart: sanitizeMart(entry.mart),
-    dept: sanitizeDepartmentStore(entry.dept),
+    dept,
     park: sanitizePark(entry.park),
   };
 }
@@ -319,7 +332,7 @@ async function main() {
   const result = {};
   if (typeof existingData === 'object' && existingData !== null && !Array.isArray(existingData)) {
     Object.entries(existingData).forEach(([code, entry]) => {
-      result[code] = sanitizeConvenienceEntry(entry);
+      result[code] = sanitizeConvenienceEntry(entry, householdByKaptCode.get(String(code)));
     });
   }
 
@@ -374,7 +387,12 @@ async function main() {
         searchNearbyItem(buildKeywordNearbyUrl('공원', x, y, 1000, 10), sanitizePark),
       ]);
 
-      result[code] = { hospital, mart, dept, park };
+      result[code] = {
+        hospital,
+        mart,
+        dept: dept || getHouseholdDepartmentStoreFallback(householdByKaptCode.get(code)),
+        park,
+      };
       saved += 1;
     } catch (error) {
       skipped += 1;
