@@ -55,6 +55,7 @@
     --focus-accent: var(--accent);
     --sheet-overlay-bg: rgba(0,0,0,0.4);
     --topbar-blur-bg: rgba(18,18,18,0.72);
+    --icon-size-2xs: 12px;
     --icon-size-xs: 14px;
     --icon-size-sm: 16px;
     --icon-size-md: 18px;
@@ -79,6 +80,7 @@
     vertical-align: -0.125em;
   }
   .ui-icon--xs { --ui-icon-size: var(--icon-size-xs); }
+  .ui-icon--2xs { --ui-icon-size: var(--icon-size-2xs); }
   .ui-icon--sm { --ui-icon-size: var(--icon-size-sm); }
   .ui-icon--md { --ui-icon-size: var(--icon-size-md); }
   .ui-icon--lg { --ui-icon-size: var(--icon-size-lg); }
@@ -796,13 +798,44 @@
     flex-direction: column;
     gap: 4px;
   }
+  .limit-breakdown-item--info {
+    gap: 4px;
+  }
   .limit-breakdown-item:not(:last-child) {
     border-right: 1px solid var(--separator);
+  }
+  .limit-breakdown-topline {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    min-height: 12px;
   }
   .breakdown-label { font-size: 10px; color: var(--label3); letter-spacing: 0.4px; }
   .breakdown-val   { font-size: 13px; font-weight: 600; color: var(--label1); }
   .breakdown-val.applied      { color: var(--accent); }
   .breakdown-val.applied.green { color: var(--green); }
+  .limit-info-trigger {
+    width: 12px;
+    height: 12px;
+    border: 0;
+    background: transparent;
+    color: var(--label3);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  }
+  .limit-info-trigger .ui-icon {
+    --ui-icon-size: var(--icon-size-2xs);
+  }
+  .limit-info-trigger[aria-expanded="true"] {
+    color: var(--label1);
+    transform: none;
+  }
 
   .limit-applied-note {
     font-size: 11px;
@@ -1272,68 +1305,6 @@
   .schedule-summary { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--separator); margin-top: 4px; font-size: 11px; }
   .schedule-summary span:first-child { color: var(--label3); }
   .schedule-summary span:last-child { color: var(--label1); font-weight: 600; }
-
-  /* DTI 시뮬레이션 카드 */
-  .dti-card {
-    background: var(--bg3);
-    border: 1.5px solid var(--separator);
-    border-radius: 14px;
-    padding: 14px 16px;
-    margin-top: 12px;
-  }
-  .dti-card-title {
-    font-size: 12px; font-weight: 700; color: var(--label2);
-    margin-bottom: 10px; display: flex; align-items: center;
-    justify-content: space-between;
-  }
-  .dti-card-badge {
-    font-size: 10px; font-weight: 600; padding: 2px 8px;
-    border-radius: 20px; background: var(--bg4); color: var(--label3);
-  }
-  .dti-input-row {
-    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
-  }
-  .dti-input-label { font-size: 12px; color: var(--label3); flex-shrink: 0; }
-  .dti-input-field {
-    flex: 1; background: var(--bg4); border: 1.5px solid var(--separator);
-    border-radius: 10px; color: var(--label1); font-family: 'Pretendard Variable', sans-serif;
-    font-size: 13px; padding: 8px 12px; outline: none; text-align: right;
-    transition: border-color 0.15s;
-  }
-  .dti-input-field:focus { border-color: var(--accent); }
-  .dti-input-unit { font-size: 12px; color: var(--label3); flex-shrink: 0; }
-  .dti-rows { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
-  .dti-row {
-    display: flex; justify-content: space-between; align-items: center;
-    font-size: 12px;
-  }
-  .dti-row-label { color: var(--label3); }
-  .dti-row-val   { color: var(--label2); font-weight: 500; }
-  .dti-divider   { border: none; border-top: 1px solid var(--separator); margin: 6px 0; }
-  .dti-result-row {
-    display: flex; justify-content: space-between; align-items: center; font-size: 13px;
-  }
-  .dti-result-label { font-weight: 600; color: var(--label2); }
-  .dti-result-val   { font-size: 16px; font-weight: 700; }
-  .dti-result-val.ok   { color: var(--green); }
-  .dti-result-val.warn { color: #ff9500; }
-  .dti-result-val.over { color: #ff3b30; }
-  .dti-limit-row {
-    display: flex; justify-content: space-between; font-size: 11px;
-    color: var(--label3); margin-top: 4px;
-  }
-  .dti-compare-section { margin-top: 12px; }
-  .dti-compare-title { font-size: 11px; font-weight: 700; color: var(--label3); margin-bottom: 6px; }
-  .dti-compare-rows { display: flex; flex-direction: column; gap: 5px; }
-  .dti-compare-row {
-    display: flex; justify-content: space-between; align-items: center;
-    font-size: 12px; padding: 8px 10px; border-radius: 10px; background: var(--bg4);
-  }
-  .dti-compare-row.highlight { background: rgba(52,199,89,0.1); border: 1px solid rgba(52,199,89,0.25); }
-  .dti-compare-row-label { color: var(--label2); }
-  .dti-compare-row-val   { font-weight: 700; color: var(--label1); }
-  .dti-compare-row-val.ltv-only { color: var(--label3); }
-  .dti-note { font-size: 10.5px; color: var(--label3); margin-top: 8px; line-height: 1.5; }
 
   /* ── 상환 스케줄 카드 ── */
   .schedule-card { background: var(--bg3); border: 1.5px solid var(--separator); border-radius: 14px; margin-top: 12px; overflow: hidden; }
@@ -3246,6 +3217,7 @@
 .pay-overlay button,
 .restart-confirm-overlay button,
 .sch-sheet button,
+.dti-sheet button,
 .apt-loan-sheet button,
 .calc-topbar-btn,
 .db-back-btn,
@@ -3269,6 +3241,7 @@
 .pay-overlay button:active:not(:disabled),
 .restart-confirm-overlay button:active:not(:disabled),
 .sch-sheet button:active:not(:disabled),
+.dti-sheet button:active:not(:disabled),
 .apt-loan-sheet button:active:not(:disabled),
 .calc-topbar-btn:active,
 .db-back-btn:active,
@@ -3343,7 +3316,8 @@
 .bank-notice-overlay,
 .pay-overlay,
 .restart-confirm-overlay,
-.sch-sheet-overlay {
+.sch-sheet-overlay,
+.dti-sheet-overlay {
   background: var(--sheet-overlay-bg);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -3353,7 +3327,8 @@
 .bank-notice-sheet,
 .pay-sheet,
 .restart-confirm-sheet,
-.sch-sheet {
+.sch-sheet,
+.dti-sheet {
   transition: transform var(--motion-sheet-exit) var(--ease-snappy);
 }
 
@@ -3361,7 +3336,8 @@
 .bank-notice-overlay.open .bank-notice-sheet,
 .pay-overlay.open .pay-sheet,
 .restart-confirm-overlay.open .restart-confirm-sheet,
-.sch-sheet.open {
+.sch-sheet.open,
+.dti-sheet.open {
   transition-duration: var(--motion-sheet-enter);
   transition-timing-function: var(--ease-enter);
 }
@@ -5282,6 +5258,113 @@
   font-size: 13px;
   line-height: 1.55;
   letter-spacing: -0.1px;
+}
+.dti-sheet-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 242;
+}
+.dti-sheet-overlay.open {
+  display: block;
+}
+.dti-sheet {
+  display: none;
+  flex-direction: column;
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 243;
+  width: min(100%, 430px);
+  transform: translate(-50%, 100%);
+  border-radius: 22px 22px 0 0;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 0;
+  background: var(--bg2);
+  box-shadow: 0 -24px 60px rgba(0,0,0,0.36);
+}
+.dti-sheet.open {
+  transform: translate(-50%, 0);
+}
+.dti-sheet-handle {
+  width: 36px;
+  height: 4px;
+  margin: 12px auto 0;
+  border-radius: 999px;
+  background: var(--separator);
+}
+.dti-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 0;
+}
+.dti-sheet-title-group {
+  min-width: 0;
+}
+.dti-sheet-kicker {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: -0.1px;
+}
+.dti-sheet-title {
+  margin-top: 5px;
+  color: var(--label1);
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+.dti-sheet-close {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg3);
+  color: var(--label3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.dti-sheet-body {
+  padding: 14px 20px max(env(safe-area-inset-bottom), 24px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dti-sheet-copy {
+  margin: 0;
+  color: var(--label2);
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: -0.1px;
+}
+.dti-sheet-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.dti-sheet-metric {
+  background: var(--surface-3);
+  border: 1px solid var(--separator);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dti-sheet-metric-label {
+  color: var(--label3);
+  font-size: 11px;
+  letter-spacing: -0.05px;
+}
+.dti-sheet-metric-value {
+  color: var(--label1);
+  font-size: 14px;
+  font-weight: 760;
+  letter-spacing: -0.2px;
 }
 .apt-loan-price-label {
   display: block;

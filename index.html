@@ -676,5 +676,40 @@
     </div>
   </div>
 
+  <div class="dti-sheet-overlay" id="dtiInfoOverlay" onclick="closeDtiInfoSheet()"></div>
+  <div class="dti-sheet" id="dtiInfoSheet" role="dialog" aria-modal="true" aria-labelledby="dtiInfoTitle">
+    <div class="dti-sheet-handle"></div>
+    <div class="dti-sheet-head">
+      <div class="dti-sheet-title-group">
+        <div class="dti-sheet-kicker">대출 한도 설명</div>
+        <div class="dti-sheet-title" id="dtiInfoTitle">DTI 기준 한도</div>
+      </div>
+      <button class="dti-sheet-close" type="button" onclick="closeDtiInfoSheet()" aria-label="닫기">
+        <span data-icon="x" data-icon-size="14"></span>
+      </button>
+    </div>
+    <div class="dti-sheet-body">
+      <p class="dti-sheet-copy" id="dtiInfoCopy">소득과 기타대출의 연간 이자 추정치를 반영한 한도 설명이 여기에 표시됩니다.</p>
+      <div class="dti-sheet-metrics">
+        <div class="dti-sheet-metric">
+          <div class="dti-sheet-metric-label">기준 DTI</div>
+          <div class="dti-sheet-metric-value" id="dtiInfoMetricLimit">—</div>
+        </div>
+        <div class="dti-sheet-metric">
+          <div class="dti-sheet-metric-label">기타대출 연간 이자 추정</div>
+          <div class="dti-sheet-metric-value" id="dtiInfoMetricOther">—</div>
+        </div>
+        <div class="dti-sheet-metric">
+          <div class="dti-sheet-metric-label">조정 전 한도</div>
+          <div class="dti-sheet-metric-value" id="dtiInfoMetricBefore">—</div>
+        </div>
+        <div class="dti-sheet-metric">
+          <div class="dti-sheet-metric-label">조정 후 한도</div>
+          <div class="dti-sheet-metric-value" id="dtiInfoMetricAfter">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
