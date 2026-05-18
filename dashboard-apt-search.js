@@ -60,6 +60,33 @@ const CORE_BUSINESS_DISTRICTS = [
   },
 ];
 
+const LOCATION_GRADE_SCALE = [
+  { grade: 'C', min: 0 },
+  { grade: 'C+', min: 1 },
+  { grade: 'B', min: 3 },
+  { grade: 'B+', min: 6 },
+  { grade: 'A', min: 9 },
+  { grade: 'A+', min: 12 },
+  { grade: 'S', min: 15 },
+  { grade: 'S+', min: 18 },
+];
+
+const LOCATION_TIER_SCORES = {
+  T1: { base: 12, min: 9, max: 18, label: '서울 핵심 입지' },
+  T2: { base: 9, min: 9, max: 12, label: '서울 준핵심 입지' },
+  T3: { base: 6, min: 3, max: 9, label: '서울 일반·경기 핵심 생활권' },
+  T4: { base: 1, min: 0, max: 6, label: '서울 외곽·경기 일반 생활권' },
+  T5: { base: 0, min: 0, max: 3, label: '경기 외곽 생활권' },
+};
+
+const LOCATION_TIER_TRANSPORT_CAPS = {
+  T1: 2,
+  T2: 3,
+  T3: 3,
+  T4: 4,
+  T5: 4,
+};
+
 const NINE_LINE_944_BENEFIT_NAMES = [
   '미사강변리슈빌nhf',
   '미사강변센트리버',
@@ -610,6 +637,141 @@ function computePriceLevelScore(entry) {
   return { score: 8, label: '가격 레벨은 비교가 더 필요한 편' };
 }
 
+function clampNumber(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function gradeFromLocationScore(score) {
+  let grade = 'C';
+  LOCATION_GRADE_SCALE.forEach(item => {
+    if (score >= item.min) grade = item.grade;
+  });
+  return grade;
+}
+
+function getLocationTier(entry) {
+  const sigungu = normalizePlaceToken(entry?.sigunguName || '');
+  const umd = normalizePlaceToken(entry?.umdName || '');
+  const aptName = normalizePlaceToken(entry?.aptName || '');
+  const isSeoul = entry?.regionKey === 'seoul'
+    || ['강남구', '서초구', '송파구', '용산구', '마포구', '성동구', '양천구', '영등포구', '광진구', '동작구', '노원구', '도봉구', '강북구', '중랑구'].some(name => sigungu.includes(normalizePlaceToken(name)));
+  const isGyeonggi = entry?.regionKey === 'gyeonggi' || !isSeoul;
+
+  if (isSeoul) {
+    if (
+      ['강남구', '서초구', '송파구', '용산구'].some(name => sigungu.includes(normalizePlaceToken(name)))
+      || (sigungu.includes('영등포구') && umd.includes('여의도'))
+      || (sigungu.includes('성동구') && (umd.includes('성수') || umd.includes('옥수')))
+      || (sigungu.includes('용산구') && (umd.includes('한남') || umd.includes('이촌') || umd.includes('서빙고')))
+      || (sigungu.includes('마포구') && (umd.includes('아현') || umd.includes('공덕')))
+    ) {
+      return { tier: 'T1', label: LOCATION_TIER_SCORES.T1.label };
+    }
+    if (
+      ['양천구', '성동구', '마포구', '광진구', '동작구'].some(name => sigungu.includes(normalizePlaceToken(name)))
+      || (sigungu.includes('영등포구') && !umd.includes('여의도'))
+      || (sigungu.includes('노원구') && (umd.includes('중계') || umd.includes('상계')))
+    ) {
+      return { tier: 'T2', label: LOCATION_TIER_SCORES.T2.label };
+    }
+    if (['도봉구', '강북구', '중랑구'].some(name => sigungu.includes(normalizePlaceToken(name)))) {
+      return { tier: 'T4', label: LOCATION_TIER_SCORES.T4.label };
+    }
+    return { tier: 'T3', label: LOCATION_TIER_SCORES.T3.label };
+  }
+
+  if (isGyeonggi) {
+    if (
+      (sigungu.includes('성남분당구') && (umd.includes('백현') || umd.includes('삼평') || umd.includes('판교') || aptName.includes('판교')))
+      || sigungu.includes('과천')
+      || (sigungu.includes('성남분당구') && ['정자동', '수내동', '이매동', '서현동'].some(name => umd.includes(normalizePlaceToken(name))))
+      || (sigungu.includes('수원영통구') && (umd.includes('광교') || aptName.includes('광교')))
+      || sigungu.includes('안양')
+      || sigungu.includes('수원')
+      || sigungu.includes('용인')
+      || sigungu.includes('고양')
+      || sigungu.includes('성남')
+      || sigungu.includes('하남')
+      || sigungu.includes('부천')
+      || sigungu.includes('광명')
+    ) {
+      return { tier: 'T3', label: LOCATION_TIER_SCORES.T3.label };
+    }
+    if (
+      sigungu.includes('구리')
+      || sigungu.includes('남양주')
+      || sigungu.includes('김포')
+      || sigungu.includes('의정부')
+      || sigungu.includes('군포')
+      || sigungu.includes('의왕')
+      || sigungu.includes('시흥')
+      || sigungu.includes('화성')
+      || sigungu.includes('평택')
+      || sigungu.includes('파주')
+    ) {
+      return { tier: 'T4', label: LOCATION_TIER_SCORES.T4.label };
+    }
+  }
+
+  return { tier: 'T5', label: LOCATION_TIER_SCORES.T5.label };
+}
+
+function computeTransportAdjustment(entry, stationDistance, businessDistrictResult, tier) {
+  const items = [];
+  if (Number.isFinite(stationDistance)) {
+    if (stationDistance <= 400) items.push({ key: 'station', points: 2, label: '역세권 체감이 강한 거리' });
+    else if (stationDistance <= 700) items.push({ key: 'station', points: 1, label: '도보 역 접근성이 무난한 편' });
+  }
+  if (Number.isFinite(businessDistrictResult?.totalMinutes)) {
+    if (businessDistrictResult.totalMinutes <= 25) items.push({ key: 'business', points: 2, label: businessDistrictResult.label });
+    else if (businessDistrictResult.totalMinutes <= 35) items.push({ key: 'business', points: 1, label: businessDistrictResult.label });
+  }
+  const lineText = `${entry?.subwayLine || ''} ${entry?.stationMetaName || ''} ${entry?.subwayStation || ''}`;
+  if (/신분당|GTX|8호선|9호선/u.test(lineText) || hasNineLineBenefitCandidate(entry)) {
+    items.push({ key: 'line', points: 1, label: '핵심 노선 접근성 보정' });
+  }
+  const raw = items.reduce((sum, item) => sum + item.points, 0);
+  const cap = LOCATION_TIER_TRANSPORT_CAPS[tier] || LOCATION_TIER_TRANSPORT_CAPS.T5;
+  return {
+    score: Math.min(raw, cap),
+    raw,
+    cap,
+    items,
+  };
+}
+
+function computeInfraAdjustment(entry, schoolDistance) {
+  const items = [];
+  if (Number.isFinite(schoolDistance)) {
+    if (schoolDistance <= 400) items.push({ key: 'school', points: 1, label: '초등학교 접근성이 좋은 편' });
+    else if (schoolDistance >= 900) items.push({ key: 'school', points: -1, label: '초등학교 거리는 약점' });
+  }
+  if (Number.isFinite(entry?.householdCount)) {
+    if (entry.householdCount >= 1000) items.push({ key: 'household', points: 2, label: '대단지 스케일이 강점' });
+    else if (entry.householdCount >= 700) items.push({ key: 'household', points: 1, label: '중형 이상 단지 규모' });
+    else if (entry.householdCount > 0 && entry.householdCount < 200) items.push({ key: 'household', points: -1, label: '소규모 단지에 가까운 편' });
+  }
+  if (Number.isFinite(entry?.buildYear)) {
+    const age = new Date().getFullYear() - entry.buildYear;
+    if (age <= 10) items.push({ key: 'newBuild', points: 1, label: '준신축 이상 연식 보정' });
+    else if (age >= 35) items.push({ key: 'oldBuild', points: -1, label: '노후 단지 보정' });
+  }
+  const convenienceCount = [
+    entry?.convenienceDept,
+    entry?.convenienceMart,
+    entry?.conveniencePark,
+  ].filter(Boolean).length;
+  if (convenienceCount >= 2) items.push({ key: 'convenience', points: 1, label: '생활편의 인프라가 확인되는 단지' });
+  const raw = items.reduce((sum, item) => sum + item.points, 0);
+  return {
+    score: clampNumber(raw, -2, 2),
+    raw,
+    cap: 2,
+    floor: -2,
+    items,
+  };
+}
+
 function computeDashboardApartmentGrade(entry, insight) {
   const businessDistrictResult = computeBusinessDistrictScore(entry, insight);
   const stationDistance = Number.isFinite(insight?.station?.distance)
@@ -621,88 +783,42 @@ function computeDashboardApartmentGrade(entry, insight) {
   const priceLevelSource = getPriceLevelSource(entry);
   const priceLevelResult = computePriceLevelScore(entry);
   const hasOfficialFallback = priceLevelSource === 'official-fallback';
+  const locationTier = getLocationTier(entry);
+  const tierScore = LOCATION_TIER_SCORES[locationTier.tier] || LOCATION_TIER_SCORES.T5;
+  const transportAdjustment = computeTransportAdjustment(entry, stationDistance, businessDistrictResult, locationTier.tier);
+  const infraAdjustment = computeInfraAdjustment(entry, schoolDistance);
   const dimensions = [
     {
       key: 'priceLevel',
       available: priceLevelSource !== null,
-      weight: 24,
       result: priceLevelResult,
     },
     {
       key: 'school',
       available: Number.isFinite(schoolDistance),
-      weight: 20,
       result: computeSchoolScore(schoolDistance),
     },
     {
       key: 'station',
       available: Number.isFinite(stationDistance),
-      weight: 16,
       result: computeStationScore(stationDistance),
     },
     {
       key: 'businessDistrict',
       available: businessDistrictResult.available,
-      weight: 28,
       result: businessDistrictResult,
     },
     {
       key: 'household',
       available: Number.isFinite(entry.householdCount) && entry.householdCount > 0,
-      weight: 5,
       result: computeHouseholdScore(entry.householdCount),
     },
     {
       key: 'newBuild',
       available: Number.isFinite(entry.buildYear),
-      weight: 7,
       result: computeNewBuildScore(entry.buildYear),
     },
   ];
-
-  const availableDimensions = dimensions.filter(item => item.available);
-  const priceLevel = [
-    Number(entry?.avgPrice || 0) || null,
-    Number(entry?.latestTradePrice || 0) || null,
-    Number(entry?.medianOfficialPrice || 0) || null,
-    Number(entry?.avgOfficialPrice || 0) || null,
-  ].filter(Number.isFinite).sort((a, b) => b - a)[0] || null;
-  const age = Number.isFinite(entry.buildYear) ? (new Date().getFullYear() - entry.buildYear) : null;
-  const hasAnchor = Boolean(
-    priceLevelSource !== null
-    || Number.isFinite(stationDistance)
-    || businessDistrictResult.available,
-  );
-
-  const sConditions = [
-    Number.isFinite(schoolDistance) && schoolDistance <= 400,
-    Number.isFinite(entry.householdCount) && entry.householdCount >= 700,
-    Number.isFinite(age) && age <= 5,
-  ].filter(Boolean).length;
-
-  const aPlusConditions = [
-    Number.isFinite(schoolDistance) && schoolDistance <= 500,
-    Number.isFinite(entry.householdCount) && entry.householdCount >= 500,
-    Number.isFinite(age) && age <= 10,
-  ].filter(Boolean).length;
-
-  const aConditions = [
-    Number.isFinite(schoolDistance) && schoolDistance <= 700,
-    Number.isFinite(entry.householdCount) && entry.householdCount >= 500,
-    Number.isFinite(age) && age <= 15,
-  ].filter(Boolean).length;
-
-  const cPlusConditions = [
-    Number.isFinite(schoolDistance) && schoolDistance <= 800,
-    Number.isFinite(entry.householdCount) && entry.householdCount >= 300,
-    Number.isFinite(age) && age <= 20,
-  ].filter(Boolean).length;
-  const isLargeRecentMidPriceComplex = (
-    Number.isFinite(priceLevel) && priceLevel >= 50000
-    && Number.isFinite(entry.householdCount) && entry.householdCount >= 1000
-    && Number.isFinite(age) && age <= 12
-    && Number.isFinite(stationDistance) && stationDistance <= 1600
-  );
 
   const missingLabels = dimensions
     .filter(item => !item.available)
@@ -719,76 +835,39 @@ function computeDashboardApartmentGrade(entry, insight) {
               : '업무지구 접근성');
 
   const missingCount = missingLabels.length;
-  const availableCount = availableDimensions.length;
-  const shouldHold = availableCount <= 1 || !hasAnchor;
-
-  let grade = null;
-  if (!shouldHold) {
-    if (
-      Number.isFinite(priceLevel) && priceLevel >= 300000
-      && Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 20
-      && Number.isFinite(stationDistance) && stationDistance <= 400
-    ) {
-      grade = 'S+';
-    } else if (
-      (Number.isFinite(priceLevel) && priceLevel >= 200000)
-      || (
-        Number.isFinite(priceLevel) && priceLevel >= 70000
-        && Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 18
-        && Number.isFinite(stationDistance) && stationDistance <= 400
-        && Number.isFinite(age) && age <= 10
-        && sConditions >= 2
-      )
-    ) {
-      grade = 'S';
-    } else if (
-      Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 25
-      && Number.isFinite(stationDistance) && stationDistance <= 500
-      && aPlusConditions >= 2
-    ) {
-      grade = 'A+';
-    } else if (
-      Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 35
-      && Number.isFinite(stationDistance) && stationDistance <= 700
-      && aConditions >= 1
-    ) {
-      grade = 'A';
-    } else if (
-      (Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 45)
-      || (Number.isFinite(priceLevel) && priceLevel >= 100000)
-      || isLargeRecentMidPriceComplex
-    ) {
-      grade = 'B+';
-    } else if (
-      (Number.isFinite(businessDistrictResult?.totalMinutes) && businessDistrictResult.totalMinutes <= 55)
-      || (Number.isFinite(stationDistance) && stationDistance <= 1000)
-    ) {
-      grade = 'B';
-    } else if (cPlusConditions >= 1) {
-      grade = 'C+';
-    } else {
-      grade = 'C';
-    }
-  }
+  const rawScore = tierScore.base + transportAdjustment.score + infraAdjustment.score;
+  const clampedScore = clampNumber(rawScore, tierScore.min, tierScore.max);
+  const grade = gradeFromLocationScore(clampedScore);
+  const shouldHold = false;
+  const supportingReasons = [
+    `${locationTier.label} 기준으로 기본 등급 범위를 먼저 잡았어요.`,
+    ...(transportAdjustment.items.length
+      ? [transportAdjustment.items.sort((a, b) => b.points - a.points)[0].label]
+      : []),
+    ...(infraAdjustment.items.length
+      ? [infraAdjustment.items.sort((a, b) => b.points - a.points)[0].label]
+      : []),
+    ...(hasOfficialFallback ? ['실거래 커버리지가 얇아 가격 레벨은 공시가격으로 우선 보완했어요.'] : []),
+    ...(missingLabels.length ? [`아직 ${missingLabels.join(', ')} 데이터는 순차 보강 중이에요.`] : []),
+  ];
 
   return {
-    ready: grade !== null || shouldHold,
+    ready: true,
     grade,
     withheld: shouldHold,
     missingCount,
-    reasons: [
-      ...(shouldHold ? ['아직 핵심 축이 너무 적어서 등급 판단을 잠시 미뤘어요.'] : []),
-      ...(hasOfficialFallback ? ['실거래 커버리지가 얇아 가격 레벨은 공시가격으로 우선 보완했어요.'] : []),
-      ...(grade === 'S+' ? ['30억 이상 초고가이면서 핵심 업무지구와 역세권 조건까지 모두 강한 최상위 입지'] : []),
-      ...(grade === 'S' ? ['20억 이상 초고가이거나 핵심 업무지구·역세권·가격대가 모두 강한 단지'] : []),
-      ...(grade === 'A+' ? ['핵심 업무지구와 역 접근이 모두 좋은 상급 입지'] : []),
-      ...(grade === 'A' ? ['역세권과 업무지구 접근성 중 핵심 조건이 안정적으로 받쳐주는 단지'] : []),
-      ...(grade === 'B+' ? ['직주근접·가격대·단지 체급 중 하나 이상이 분명한 단지'] : []),
-      ...(grade === 'B' ? ['핵심 업무지구 또는 역 접근성에서 기본 경쟁력이 있는 단지'] : []),
-      ...(grade === 'C+' ? ['강점 축은 제한적이지만 생활 조건에서 일부 장점이 보이는 단지'] : []),
-      ...availableDimensions.map(item => item.result.label),
-      ...(missingLabels.length ? [`아직 ${missingLabels.join(', ')} 데이터는 순차 보강 중이에요.`] : []),
-    ].slice(0, 3),
+    reasons: supportingReasons.slice(0, 3),
+    scoring: {
+      tier: locationTier.tier,
+      tierLabel: locationTier.label,
+      baseScore: tierScore.base,
+      tierMin: tierScore.min,
+      tierMax: tierScore.max,
+      transport: transportAdjustment,
+      infra: infraAdjustment,
+      rawScore,
+      clampedScore,
+    },
   };
 }
 
