@@ -1032,16 +1032,24 @@
       </div>
       <div style="font-size:11px;color:var(--label3);margin-bottom:12px">※ 전월 취급 평균금리 기준 · 실제 금리는 심사 후 결정됩니다</div>`;
 
+    const bankPriceEok = parseFloat(document.getElementById('bankPrice')?.value) || 0;
+    const bankBarHtml  = bankPriceEok > 0 ? loanRatioBarHtml('bank', loanEok, bankPriceEok, 'var(--accent)') : '';
+
     area.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div class="group-label" style="margin-bottom:0">총 ${prods.length}개 상품</div>
       </div>
       ${bankBangBanner}
+      ${bankBarHtml}
       ${sortBar}
       ${cards}
       <div class="result-spacer"></div>
       ${bankNoticeHtml()}
     `;
+
+    if (bankPriceEok > 0) {
+      requestAnimationFrame(() => animateLoanBar('bank', loanEok, bankPriceEok));
+    }
   }
 
   function bankGoPage() {} // unused
@@ -1370,6 +1378,41 @@
 
   function formatLimitWon(won) {
     return formatLimit(won / 100000000);
+  }
+
+  // ── 대출/자기자금 비율 바 ──
+  function loanRatioBarHtml(uid, loanEok, priceEok, loanColor) {
+    const loanPct    = priceEok > 0 ? Math.min(100, Math.max(0, (loanEok / priceEok) * 100)) : 0;
+    const capitalEok = Math.max(0, priceEok - loanEok);
+    const capitalPct = Math.round(100 - loanPct);
+    return `<div class="loan-ratio-bar-wrap" id="bar-wrap-${uid}" data-loan-bar-uid="${uid}" data-loan-bar-loan="${loanEok}" data-loan-bar-price="${priceEok}" data-loan-bar-color="${loanColor}">
+      <div class="loan-ratio-bar-title">주택가격 대비 구성</div>
+      <div class="loan-ratio-bar">
+        <div class="loan-ratio-bar-loan" id="bar-loan-${uid}" style="width:0%;background:${loanColor}"></div>
+      </div>
+      <div class="loan-ratio-labels">
+        <div class="loan-ratio-label">
+          <div class="loan-ratio-label-dot" style="background:${loanColor}"></div>
+          <span>대출 <strong class="bar-label-loan">${formatLimit(loanEok)}</strong> (${Math.round(loanPct)}%)</span>
+        </div>
+        <div class="loan-ratio-label" style="text-align:right">
+          <div class="loan-ratio-label-dot" style="background:rgba(255,255,255,0.2)"></div>
+          <span>자기자금 <strong class="bar-label-cap">${formatLimit(capitalEok)}</strong> (${capitalPct}%)</span>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function animateLoanBar(uid, loanEok, priceEok) {
+    const wrap = document.getElementById('bar-wrap-' + uid);
+    if (!wrap) return;
+    const loanPct    = priceEok > 0 ? Math.min(100, Math.max(0, (loanEok / priceEok) * 100)) : 0;
+    const capitalEok = Math.max(0, priceEok - loanEok);
+    const loanBar = document.getElementById('bar-loan-' + uid);
+    if (loanBar) loanBar.style.width = loanPct + '%';
+    const labels = wrap.querySelectorAll('.loan-ratio-label > span');
+    if (labels[0]) labels[0].innerHTML = `대출 <strong class="bar-label-loan">${formatLimit(loanEok)}</strong> (${Math.round(loanPct)}%)`;
+    if (labels[1]) labels[1].innerHTML = `자기자금 <strong class="bar-label-cap">${formatLimit(capitalEok)}</strong> (${Math.round(100 - loanPct)}%)`;
   }
 
   // ══ 기금대출 금리 테이블 ══
@@ -2239,6 +2282,7 @@
       amountEl.dataset.motionTarget = String(nextLimitWon);
       setAnimatedAmount(amountEl, nextLimitWon, formatLimitWon);
     }
+    animateLoanBar(uid, state.finalLimit, parseFloat(box.dataset.price || 0));
     document.querySelectorAll('.room-sync-' + box.dataset.product).forEach(function(el) {
       el.textContent = formatLimit(state.finalLimit);
     });
@@ -2286,6 +2330,7 @@
             <div class="ltv80-notice-icon">⚠️</div>
             <div class="ltv80-notice-text"><strong>LTV 80% 적용 안내</strong><br>특례구입자금 보증 가입 및 아파트인 경우 LTV 80%까지 가능합니다. 정확한 적용 기준은 심사를 통해 결정되며, 이 수치는 참고용 예측치입니다.</div>
           </div>` : ''}
+          ${loanRatioBarHtml(uid, displayLimit, price, colorCls === 'green' ? 'var(--green)' : 'var(--accent)')}
           ${rateCalcHtml(uid, product, income, principalWon, household, house, region, colorCls)}
         </div>`;
   }
@@ -2349,6 +2394,7 @@
       + '<div class="limit-applied-note">' + reasonText + '</div>'
       + '<div class="limit-reason">LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 개인별 신용 및 소득에 따라 달라질 수 있습니다. 보다 자세한 산정내역은 기금e든든에서 꼭 확인이 필요합니다.</div>'
       + roomDeductionHtml(uid, 'newborn', roomState, finalLimit, price, income, house, region)
+      + loanRatioBarHtml(uid, displayLimit, price, '#ff6b9d')
       + rateCalcHtml(uid, 'newborn', income, principalWon, household, house, region, 'nb')
       + '</div>';
   }
@@ -3134,6 +3180,13 @@
         });
       }, 60);
     }, 0);
+
+    // 대출 비율 바 초기 애니메이션
+    requestAnimationFrame(() => {
+      resultContent.querySelectorAll('[data-loan-bar-uid]').forEach(function(wrap) {
+        animateLoanBar(wrap.dataset.loanBarUid, Number(wrap.dataset.loanBarLoan), Number(wrap.dataset.loanBarPrice));
+      });
+    });
 
     // 결과 카드 순차 페이드인
     requestAnimationFrame(() => {

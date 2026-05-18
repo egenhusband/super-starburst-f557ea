@@ -812,6 +812,58 @@
   }
   .limit-applied-note em { color: var(--label2); font-style: normal; }
 
+  /* ── 대출/자기자금 비율 바 ── */
+  .loan-ratio-bar-wrap {
+    margin: 14px 0 4px;
+    padding: 12px 14px;
+    background: var(--bg3);
+    border-radius: 10px;
+  }
+  .loan-ratio-bar-title {
+    font-size: 11px;
+    color: var(--label3);
+    font-weight: 600;
+    letter-spacing: -0.1px;
+    margin-bottom: 9px;
+  }
+  .loan-ratio-bar {
+    display: flex;
+    height: 10px;
+    border-radius: 5px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.08);
+    margin-bottom: 9px;
+  }
+  .loan-ratio-bar-loan {
+    height: 100%;
+    border-radius: 5px 0 0 5px;
+    transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 0;
+  }
+  .loan-ratio-labels {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .loan-ratio-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--label3);
+    min-width: 0;
+  }
+  .loan-ratio-label-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .loan-ratio-label strong {
+    color: var(--label1);
+    font-weight: 700;
+  }
+
   /* ── 월납입 계산기 탭 ── */
   .monthly-calc {
     margin-top: 14px;
