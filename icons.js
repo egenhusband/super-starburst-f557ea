@@ -21,6 +21,7 @@
     check: '<path d="M20 6 9 17l-5-5"></path>',
     x: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>',
     alertTriangle: '<path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path>',
+    info: '<circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path>',
     chevronDown: '<path d="m6 9 6 6 6-6"></path>',
     chevronRight: '<path d="m9 18 6-6-6-6"></path>',
     chevronLeft: '<path d="m15 18-6-6 6-6"></path>',
@@ -35,6 +36,7 @@
 
   function sizeClass(size) {
     const value = Number(size || 0);
+    if (value <= 12) return 'ui-icon--2xs';
     if (value <= 14) return 'ui-icon--xs';
     if (value <= 16) return 'ui-icon--sm';
     if (value <= 20) return 'ui-icon--md';

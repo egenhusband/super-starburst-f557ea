@@ -1415,6 +1415,90 @@
     if (labels[1]) labels[1].innerHTML = `자기자금 <strong class="bar-label-cap">${formatLimit(capitalEok)}</strong> (${Math.round(100 - loanPct)}%)`;
   }
 
+  function openDtiInfoSheet(button) {
+    const item = button?.closest('.limit-breakdown-item');
+    const card = button?.closest('[data-limit-product]');
+    const overlay = document.getElementById('dtiInfoOverlay');
+    const sheet = document.getElementById('dtiInfoSheet');
+    if (!item || !card || !overlay || !sheet) return;
+
+    const copyEl = document.getElementById('dtiInfoCopy');
+    const limitEl = document.getElementById('dtiInfoMetricLimit');
+    const otherEl = document.getElementById('dtiInfoMetricOther');
+    const beforeEl = document.getElementById('dtiInfoMetricBefore');
+    const afterEl = document.getElementById('dtiInfoMetricAfter');
+    const product = card.dataset.limitProduct || 'bogeumjari';
+    const price = parseFloat(card.dataset.limitPrice || 0);
+    const income = parseFloat(card.dataset.limitIncome || 0);
+    const region = card.dataset.limitRegion || '';
+    const house = card.dataset.limitHouse || '';
+    const dtiLimitPct = product === 'didimdol' || product === 'newborn' ? 60 : getBogeumDtiLimit(region, house, income, price);
+    const otherLoan = parseFloat(card.dataset.limitOtherLoan || 0);
+    const ltvLimit = parseFloat(card.dataset.limitLtvLimit || 0);
+    const maxLimit = parseFloat(card.dataset.limitMaxLimit || 0);
+    const beforeLimit = Math.min(ltvLimit, maxLimit);
+    const dtiLimitText = item.querySelector('[data-limit-dti]')?.textContent || '미반영';
+    const afterLimit = card.querySelector('[data-limit-amount]')?.textContent || '—';
+    const rateSection = card.querySelector('.rate-calc-section[data-uid]');
+    const sectionUid = rateSection?.dataset.uid || '';
+    const years = parseInt(document.getElementById('yr-' + sectionUid)?.value || 30, 10) || 30;
+    const annualRate = parseFloat((document.getElementById('rs-final-' + sectionUid)?.textContent || '').replace(/[^0-9.]/g, '')) || 0;
+    let method = 'annuity';
+    const activeTab = rateSection?.querySelector('.repay-method-tab.active-blue, .repay-method-tab.active-green, .repay-method-tab.active-nb');
+    if (activeTab?.id) {
+      if (activeTab.id.indexOf('equal-principal') !== -1) method = 'equal-principal';
+      else if (activeTab.id.indexOf('increasing') !== -1) method = 'increasing';
+    }
+    const dtiLimitRaw = product === 'newborn'
+      ? getNewbornDtiLoanLimitEok(income, otherLoan, annualRate, years, method)
+      : product === 'didimdol'
+        ? getDidimdolDtiLoanLimitEok(income, otherLoan, annualRate, years, method)
+      : getBogeumDtiLoanLimitEok(income, price, region, house, otherLoan, annualRate, years, method);
+    const appliedValue = Math.min(ltvLimit, maxLimit, Number.isFinite(dtiLimitRaw) ? dtiLimitRaw : Infinity);
+    const appliedByDti = Number.isFinite(dtiLimitRaw) && appliedValue === dtiLimitRaw;
+    const roomAdjusted = (product === 'didimdol' || product === 'newborn') && afterLimit !== formatLimit(appliedValue);
+    let copy = `소득과 기타대출의 연간 이자 추정치를 반영한 DTI 기준 한도를 함께 계산하고 있어요. 현재는 DTI보다 LTV 또는 상품 최대한도가 먼저 적용돼 한도가 정해진 상태예요.`;
+    if (appliedByDti) {
+      copy = `현재 조건에서는 DTI ${dtiLimitPct}%를 넘지 않는 범위로 기본 한도가 ${formatLimit(beforeLimit)}에서 ${formatLimit(appliedValue)}로 조정돼요.`;
+      if (roomAdjusted) {
+        copy += ` 여기에 방공제가 함께 적용되면 화면에는 ${afterLimit}로 표시돼요.`;
+      } else {
+        copy += ` 입력한 기타대출의 연간 이자 추정치를 반영하면 ${formatLimit(beforeLimit)}이 아니라 ${afterLimit}까지 가능해요.`;
+      }
+    }
+
+    if (!button.id) button.id = 'dti-info-trigger-' + Math.random().toString(36).slice(2, 8);
+    if (copyEl) copyEl.textContent = copy;
+    if (limitEl) limitEl.textContent = dtiLimitPct + '%';
+    if (otherEl) otherEl.textContent = otherLoan > 0 ? '연 ' + otherLoan.toLocaleString() + '만원' : '없음';
+    if (beforeEl) beforeEl.textContent = formatLimit(beforeLimit);
+    if (afterEl) afterEl.textContent = afterLimit;
+    overlay.style.display = 'block';
+    sheet.style.display = 'flex';
+    requestAnimationFrame(function() {
+      overlay.classList.add('open');
+      sheet.classList.add('open');
+    });
+    button.setAttribute('aria-expanded', 'true');
+    sheet.dataset.triggerId = button.id || '';
+  }
+
+  function closeDtiInfoSheet() {
+    const overlay = document.getElementById('dtiInfoOverlay');
+    const sheet = document.getElementById('dtiInfoSheet');
+    if (!overlay || !sheet) return;
+    overlay.classList.remove('open');
+    sheet.classList.remove('open');
+    const triggerId = sheet.dataset.triggerId || '';
+    const trigger = triggerId ? document.getElementById(triggerId) : null;
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    setTimeout(function() {
+      overlay.style.display = 'none';
+      sheet.style.display = 'none';
+      delete sheet.dataset.triggerId;
+    }, 220);
+  }
+
   // ══ 기금대출 금리 테이블 ══
 
   // 보금자리론 기한별 기본금리 (아낌e 기준)
@@ -2033,7 +2117,13 @@
     // 월납입 재계산
     const amtEl = document.getElementById('mc-amt-' + uid);
     if (amtEl) {
-      const principal = parseFloat(amtEl.dataset.principal || 0);
+      let principal = parseFloat(amtEl.dataset.principal || 0);
+      const dynamicNewborn = syncNewbornDynamicLimit(uid, finalRate, years, method);
+      const dynamicDidimdol = syncDidimdolDynamicLimit(uid, finalRate, years, method);
+      const dynamicBogeum = syncBogeumDynamicLimit(uid, finalRate, years, method);
+      if (dynamicNewborn) principal = Math.max(0, dynamicNewborn.displayLimit) * 100000000;
+      else if (dynamicDidimdol) principal = Math.max(0, dynamicDidimdol.displayLimit) * 100000000;
+      else if (dynamicBogeum) principal = Math.max(0, dynamicBogeum.finalLimit) * 100000000;
       if (principal > 0) {
         const amt = calcMonthly(principal, finalRate, method, years);
         amtEl.dataset.motionTarget = String(Math.round(amt));
@@ -2043,15 +2133,6 @@
     if (noteEl) {
       const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
       noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
-    }
-
-    // DTI 재계산 (상품별)
-    const calcSection = document.getElementById('tabs-' + uid)?.closest('[data-color]');
-    if (calcSection) {
-      const color = calcSection.dataset.color;
-      if (color === 'green') recalcDti('green_dti');
-      else if (color === 'blue') recalcDti('blue_dti');
-      else if (color === 'nb') recalcDti('nb_dti');
     }
 
     // 상환 스케줄 갱신 (초기화 후 렌더)
@@ -2131,18 +2212,24 @@
       });
       document.getElementById(`tab-${method}-${uid}`)?.classList.add(`active-${colorCls}`);
     }
-    const amt   = calcMonthly(principal, finalRate, method, years);
     const amtEl = document.getElementById('mc-amt-' + uid);
-    if (amtEl) amtEl.textContent = formatWon(amt);
+    let currentPrincipal = amtEl ? parseFloat(amtEl.dataset.principal || principal || 0) : principal;
+    const dynamicNewborn = syncNewbornDynamicLimit(uid, finalRate, years, method);
+    const dynamicDidimdol = syncDidimdolDynamicLimit(uid, finalRate, years, method);
+    const dynamicBogeum = syncBogeumDynamicLimit(uid, finalRate, years, method);
+    if (dynamicNewborn) currentPrincipal = Math.max(0, dynamicNewborn.displayLimit) * 100000000;
+    else if (dynamicDidimdol) currentPrincipal = Math.max(0, dynamicDidimdol.displayLimit) * 100000000;
+    else if (dynamicBogeum) currentPrincipal = Math.max(0, dynamicBogeum.finalLimit) * 100000000;
+    const amt   = calcMonthly(currentPrincipal, finalRate, method, years);
+    if (amtEl) {
+      amtEl.dataset.principal = String(currentPrincipal);
+      amtEl.textContent = formatWon(amt);
+    }
     const noteEl = document.getElementById('mc-note-' + uid);
     if (noteEl) {
       const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
       noteEl.textContent = `적용금리 ${finalRate.toFixed(2)}% · ${years}년 만기 · ${methodLabel} · 1회차 기준`;
     }
-
-    // DTI 재계산 (상품별)
-    var dtiUid = colorCls === 'green' ? 'green_dti' : colorCls === 'blue' ? 'blue_dti' : colorCls === 'nb' ? 'nb_dti' : null;
-    if (dtiUid && document.getElementById('dti-card-' + dtiUid)) recalcDti(dtiUid);
 
     // 상환 스케줄 갱신 (초기화 후 렌더)
     scheduleShowCount[uid] = 12;
@@ -2178,30 +2265,36 @@
     return regionKey === 'seoul' || regionKey === 'metro';
   }
 
-  function getRoomDeductionState(product, baseLimit, income, price, house, region, regionKey, desiredOn) {
+  function getRoomDeductionState(product, baseLimit, income, price, house, region, regionKey, desiredOn, household) {
     const key = regionKey || getDefaultRoomRegionKey(region);
     const rawDeduction = Math.min(ROOM_DEDUCTION_AMOUNTS[key] || 0, price * 0.5);
-    const lowIncomeHome = income <= 4000 && price <= 3;
-    let checked = false;
+    const group = household || '';
+    let checked = true;
     let locked = true;
+    let toggleVisible = false;
     let note = '';
 
     if (product === 'didimdol') {
-      const mandatory = isRoomDeductionMetroScope(key) && !lowIncomeHome;
-      checked = mandatory;
-      locked = true;
-      note = mandatory
-        ? '수도권 소재 아파트 구입은 방공제 의무 적용 대상입니다. 주택유형은 아파트 기준으로 계산합니다.'
-        : lowIncomeHome
-          ? '연소득 4천만원 이하 가구가 3억원 이하 주택을 구입하는 예외 대상으로 방공제를 적용하지 않습니다.'
-          : '지방 또는 비수도권 분류는 디딤돌 관리방안의 방공제 의무 적용 대상에서 제외됩니다.';
+      const specialHousehold = group === '신혼' || group === '2자녀이상';
+      const canWaive = price <= 3 || (house === '생애최초' && price <= (specialHousehold ? 6 : 5));
+      toggleVisible = canWaive;
+      locked = !canWaive;
+      checked = canWaive ? !!desiredOn : true;
+      note = canWaive
+        ? (checked
+            ? '방공제를 적용한 예상 한도예요. 보증 가능 조건을 가정해 제외했을 때의 차이는 토글로 확인할 수 있어요.'
+            : '보증 가능 조건을 가정해 방공제를 제외한 예상 한도예요. 실제 실행 가능 여부는 보증 심사와 조건에 따라 달라질 수 있어요.')
+        : '현재 조건에서는 방공제가 기본 적용되는 것으로 계산했어요. 디딤돌은 가격·생애최초·가구유형에 따라 일부 보증 가능 구간에서만 제외 가능성을 반영합니다.';
     } else if (product === 'newborn') {
-      const forced = price > 6;
-      locked = forced;
-      checked = forced ? true : !!desiredOn;
-      note = forced
-        ? '주택가격 6억원 초과 구간은 방공제를 적용한 예상 한도로 표시합니다.'
-        : '생애최초 또는 HF 보증 가능 구간은 방공제 면제 가능성이 있어 토글로 한도 차이를 확인할 수 있습니다.';
+      const canWaive = house === '생애최초' && price <= 6;
+      toggleVisible = canWaive;
+      locked = !canWaive;
+      checked = canWaive ? !!desiredOn : true;
+      note = canWaive
+        ? (checked
+            ? '실거주 목적 기준으로 단순화해 방공제를 적용한 예상 한도예요. 생애최초·6억 이하 조건에서는 제외했을 때의 차이를 토글로 확인할 수 있어요.'
+            : '실거주 목적 기준으로 단순화해 방공제를 제외한 예상 한도예요. 실제 보증 가능 여부와 실행 조건에 따라 달라질 수 있어요.')
+        : '현재 조건에서는 방공제를 적용한 예상 한도로 계산했어요. 신생아 특례는 생애최초이면서 주택가격 6억원 이하인 경우에만 방공제 제외 가능성을 반영합니다.';
     }
 
     const deduction = checked ? rawDeduction : 0;
@@ -2209,6 +2302,7 @@
       key,
       checked,
       locked,
+      toggleVisible,
       rawDeduction,
       deduction,
       finalLimit: Math.max(0, baseLimit - deduction),
@@ -2216,20 +2310,23 @@
     };
   }
 
-  function roomDeductionHtml(uid, product, state, baseLimit, price, income, house, region) {
+  function roomDeductionHtml(uid, product, state, baseLimit, price, income, house, region, household) {
     if (product !== 'didimdol' && product !== 'newborn') return '';
     const colorCls = product === 'newborn' ? 'nb' : 'blue';
     const opts = Object.keys(ROOM_DEDUCTION_LABELS).map(function(key) {
       return '<option value="' + key + '"' + (state.key === key ? ' selected' : '') + '>'
         + ROOM_DEDUCTION_LABELS[key] + ' · ' + formatRoomDeductionAmount(ROOM_DEDUCTION_AMOUNTS[key]) + '</option>';
     }).join('');
+    const toggleHtml = state.toggleVisible
+      ? '<label class="room-toggle ' + colorCls + '"><input id="room-toggle-' + uid + '" type="checkbox" onchange="updateRoomDeduction(\'' + uid + '\')" '
+        + (state.checked ? 'checked ' : '') + '><span class="room-toggle-track"></span></label>'
+      : '';
     return '<div class="room-deduction-box" id="room-box-' + uid + '" data-room-card="true" data-product="' + product
       + '" data-base-limit="' + baseLimit + '" data-price="' + price + '" data-income="' + income
-      + '" data-house="' + house + '" data-region="' + region + '">'
+      + '" data-house="' + house + '" data-region="' + region + '" data-household="' + household + '" data-room-desired-on="' + (state.checked ? '1' : '0') + '" data-room-region-key="' + state.key + '">'
       + '<div class="room-deduction-head">'
       + '<div><div class="room-deduction-title">방공제 반영</div><div class="room-deduction-sub">임대차 없음 · 아파트 1개 방 기준</div></div>'
-      + '<label class="room-toggle ' + colorCls + '"><input id="room-toggle-' + uid + '" type="checkbox" onchange="updateRoomDeduction(\'' + uid + '\')" '
-      + (state.checked ? 'checked ' : '') + (state.locked ? 'disabled ' : '') + '><span class="room-toggle-track"></span></label>'
+      + toggleHtml
       + '</div>'
       + '<select class="room-deduction-select" id="room-region-' + uid + '" onchange="updateRoomDeduction(\'' + uid + '\')">' + opts + '</select>'
       + '<div class="room-deduction-row"><span>방공제 차감 전</span><span id="room-base-' + uid + '">' + formatLimit(baseLimit) + '</span></div>'
@@ -2260,13 +2357,15 @@
       box.dataset.house,
       box.dataset.region,
       regionEl ? regionEl.value : null,
-      toggle ? toggle.checked : false
+      toggle ? toggle.checked : false,
+      box.dataset.household || ''
     );
 
     if (toggle) {
-      toggle.disabled = state.locked;
       toggle.checked = state.checked;
     }
+    box.dataset.roomDesiredOn = state.checked ? '1' : '0';
+    box.dataset.roomRegionKey = state.key;
 
     const deductEl = document.getElementById('room-deduct-' + uid);
     const finalEl = document.getElementById('room-final-' + uid);
@@ -2288,43 +2387,59 @@
     });
 
     applyRoomLimitToRate(uid, state.finalLimit);
-    const dtiUid = box.dataset.product === 'newborn' ? 'nb_dti' : 'blue_dti';
-    if (document.getElementById('dti-card-' + dtiUid)) recalcDti(dtiUid);
   }
 
-  function limitCardHtml(colorCls, ltvLimit, maxLimit, finalLimit, price, household, house, children, region, income) {
-    const ltvApplied    = ltvLimit <= maxLimit;
-    const appliedCls    = ltvApplied    ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
-    const maxAppliedCls = !ltvApplied   ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
+  function limitCardHtml(colorCls, ltvLimit, maxLimit, finalLimit, price, household, house, children, region, income, dtiLimit, otherLoanInterest) {
+    const safeDtiLimit = typeof dtiLimit === 'number' ? dtiLimit : Infinity;
+    const appliedValue = Math.min(ltvLimit, maxLimit, safeDtiLimit);
+    const ltvApplied    = appliedValue === ltvLimit;
+    const appliedCls    = ltvApplied ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
+    const maxAppliedCls = appliedValue === maxLimit ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
+    const dtiAppliedCls = appliedValue === safeDtiLimit ? ` applied${colorCls === 'green' ? ' green' : ''}` : '';
     const houseLabel    = household === '신혼' || children === '2명이상' ? '신혼·다자녀'
                         : house === '생애최초' ? '생애최초' : '일반';
-    const reasonText = ltvApplied
+    const dtiLimitPct = colorCls === 'green' ? getBogeumDtiLimit(region, house, income, price) : 60;
+    let reasonText = ltvApplied
       ? `LTV ${Math.round(ltvLimit/price*100)}% 기준 적용 · 주택가격 <em>${price}억 × ${Math.round(ltvLimit/price*100)}%</em> = <em>${formatLimit(ltvLimit)}</em>`
       : `상품 한도 기준 적용 · <em>${houseLabel}</em> 가구 최대 한도 <em>${formatLimit(maxLimit)}</em>`;
+    if ((colorCls === 'green' || colorCls === 'blue') && Number.isFinite(safeDtiLimit) && appliedValue === safeDtiLimit) {
+      reasonText = `DTI ${dtiLimitPct}% 기준 적용 · 소득/기타부채 기준 최대 <em>${formatLimit(safeDtiLimit)}</em>`;
+    }
 
     const uid          = colorCls + '_' + Math.random().toString(36).slice(2, 7);
     const product      = colorCls === 'blue' ? 'didimdol' : 'bogeumjari';
-    const roomState    = product === 'didimdol' ? getRoomDeductionState(product, finalLimit, income, price, house, region) : null;
+    const roomState    = product === 'didimdol'
+      ? getRoomDeductionState(product, finalLimit, income, price, house, region, null, true, household)
+      : null;
     const displayLimit = roomState ? roomState.finalLimit : finalLimit;
     const principalWon = displayLimit * 100000000;
 
     return `
-        <div class="limit-detail-card ${colorCls}-top">
+        <div class="limit-detail-card ${colorCls}-top"${(colorCls === 'green' || colorCls === 'blue') ? ` data-limit-product="${product}" data-limit-ltv-limit="${ltvLimit}" data-limit-max-limit="${maxLimit}" data-limit-price="${price}" data-limit-income="${income}" data-limit-region="${region}" data-limit-house="${house}" data-limit-household="${household}" data-limit-other-loan="${otherLoanInterest || 0}"` : ''}${colorCls === 'green' ? ` data-bogeum-limit-card data-bogeum-ltv-limit="${ltvLimit}" data-bogeum-max-limit="${maxLimit}" data-bogeum-price="${price}" data-bogeum-income="${income}" data-bogeum-region="${region}" data-bogeum-house="${house}" data-bogeum-household="${household}" data-bogeum-other-loan="${otherLoanInterest || 0}"` : ''}${colorCls === 'blue' ? ` data-didimdol-limit-card data-didimdol-ltv-limit="${ltvLimit}" data-didimdol-max-limit="${maxLimit}" data-didimdol-price="${price}" data-didimdol-income="${income}" data-didimdol-region="${region}" data-didimdol-house="${house}" data-didimdol-household="${household}" data-didimdol-other-loan="${otherLoanInterest || 0}"` : ''}>
           <div class="limit-detail-label">예상 대출 한도</div>
-          <div class="limit-detail-amount ${colorCls}" data-room-final-amount data-motion-value="0" data-motion-target="${Math.round(displayLimit * 100000000)}">${formatLimit(displayLimit)}</div>
+          <div class="limit-detail-amount ${colorCls}" data-room-final-amount ${(colorCls === 'green' || colorCls === 'blue') ? 'data-limit-amount' : ''} ${colorCls === 'green' ? 'data-bogeum-limit-amount' : ''} ${colorCls === 'blue' ? 'data-didimdol-limit-amount' : ''} data-motion-value="0" data-motion-target="${Math.round(displayLimit * 100000000)}">${formatLimit(displayLimit)}</div>
           <div class="limit-breakdown">
             <div class="limit-breakdown-item">
               <span class="breakdown-label">LTV ${Math.round(ltvLimit/price*100)}% 적용</span>
-              <span class="breakdown-val${appliedCls}">${formatLimit(ltvLimit)}</span>
+              <span class="breakdown-val${appliedCls}" ${(colorCls === 'green' || colorCls === 'blue') ? 'data-limit-ltv' : ''} ${colorCls === 'green' ? 'data-bogeum-limit-ltv' : ''} ${colorCls === 'blue' ? 'data-didimdol-limit-ltv' : ''}>${formatLimit(ltvLimit)}</span>
             </div>
             <div class="limit-breakdown-item">
               <span class="breakdown-label">상품 최대 한도</span>
-              <span class="breakdown-val${maxAppliedCls}">${formatLimit(maxLimit)}</span>
+              <span class="breakdown-val${maxAppliedCls}" ${(colorCls === 'green' || colorCls === 'blue') ? 'data-limit-max' : ''} ${colorCls === 'green' ? 'data-bogeum-limit-max' : ''} ${colorCls === 'blue' ? 'data-didimdol-limit-max' : ''}>${formatLimit(maxLimit)}</span>
             </div>
+            ${(colorCls === 'green' || colorCls === 'blue') ? `<div class="limit-breakdown-item limit-breakdown-item--info">
+              <div class="limit-breakdown-topline">
+                <span class="breakdown-label">DTI 기준 한도</span>
+                <button class="limit-info-trigger" type="button" aria-expanded="false" onclick="openDtiInfoSheet(this)">
+                  ${icon('info', 12)}
+                </button>
+              </div>
+              <span class="breakdown-val${dtiAppliedCls}" ${(colorCls === 'green' || colorCls === 'blue') ? 'data-limit-dti' : ''} ${colorCls === 'green' ? 'data-bogeum-limit-dti' : ''} ${colorCls === 'blue' ? 'data-didimdol-limit-dti' : ''}>${Number.isFinite(safeDtiLimit) ? formatLimit(safeDtiLimit) : '미반영'}</span>
+            </div>` : ''}
           </div>
-          <div class="limit-applied-note">${reasonText}</div>
+          <div class="limit-applied-note" ${(colorCls === 'green' || colorCls === 'blue') ? 'data-limit-note' : ''} ${colorCls === 'green' ? 'data-bogeum-limit-note' : ''} ${colorCls === 'blue' ? 'data-didimdol-limit-note' : ''}>${reasonText}</div>
           <div class="limit-reason">LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 개인별 신용 및 소득에 따라 달라질 수 있습니다. 보다 자세한 산정내역은 한국주택금융공사에서 꼭 확인이 필요합니다.</div>
-          ${roomState ? roomDeductionHtml(uid, product, roomState, finalLimit, price, income, house, region) : ''}
+          ${roomState ? roomDeductionHtml(uid, product, roomState, finalLimit, price, income, house, region, household) : ''}
           ${colorCls === 'green' && house === '생애최초' && region !== '규제지역' && region !== '수도권' ? `
           <div class="ltv80-notice">
             <div class="ltv80-notice-icon">⚠️</div>
@@ -2363,37 +2478,52 @@
   }
 
   // ── LOGIC ──
-  function newbornLimitCardHtml(ltvLimit, maxLimit, finalLimit, price, house, rate30, income, household, region) {
+  function newbornLimitCardHtml(ltvLimit, maxLimit, finalLimit, price, house, rate30, income, household, region, dtiLimit, otherLoanInterest) {
     const ltvPct   = Math.round(ltvLimit / price * 100);
     const ltvLabel = ltvPct + '%';
-    const ltvApplied = ltvLimit <= maxLimit;
+    const safeDtiLimit = typeof dtiLimit === 'number' ? dtiLimit : Infinity;
+    const appliedValue = Math.min(ltvLimit, maxLimit, safeDtiLimit);
+    const ltvApplied = appliedValue === ltvLimit;
     const appliedCls = ltvApplied ? ' applied' : '';
-    const maxAppliedCls = !ltvApplied ? ' applied' : '';
-    const reasonText = ltvApplied
+    const maxAppliedCls = appliedValue === maxLimit ? ' applied' : '';
+    const dtiAppliedCls = appliedValue === safeDtiLimit ? ' applied' : '';
+    let reasonText = ltvApplied
       ? 'LTV ' + ltvLabel + ' 기준 · 주택가격 <em>' + price + '억 × ' + ltvLabel + '</em> = <em>' + formatLimit(ltvLimit) + '</em>'
       : '상품 한도 기준 · 최대 <em>' + formatLimit(maxLimit) + '</em>';
+    if (Number.isFinite(safeDtiLimit) && appliedValue === safeDtiLimit) {
+      reasonText = 'DTI 60% 기준 적용 · 소득/기타부채 기준 최대 <em>' + formatLimit(safeDtiLimit) + '</em>';
+    }
 
     const uid = 'nb_' + Math.random().toString(36).slice(2, 7);
-    const roomState = getRoomDeductionState('newborn', finalLimit, income, price, house, region);
+    const roomState = getRoomDeductionState('newborn', finalLimit, income, price, house, region, null, true, household);
     const displayLimit = roomState.finalLimit;
     const principalWon = displayLimit * 100000000;
 
-    return '<div class="limit-detail-card" style="border-top:3px solid #ff6b9d">'
+    return '<div class="limit-detail-card" style="border-top:3px solid #ff6b9d" data-limit-product="newborn" data-limit-ltv-limit="' + ltvLimit + '" data-limit-max-limit="' + maxLimit + '" data-limit-price="' + price + '" data-limit-income="' + income + '" data-limit-region="' + region + '" data-limit-house="' + house + '" data-limit-household="' + household + '" data-limit-other-loan="' + (otherLoanInterest || 0) + '" data-newborn-limit-card data-newborn-ltv-limit="' + ltvLimit + '" data-newborn-max-limit="' + maxLimit + '" data-newborn-price="' + price + '" data-newborn-income="' + income + '" data-newborn-region="' + region + '" data-newborn-house="' + house + '" data-newborn-household="' + household + '" data-newborn-other-loan="' + (otherLoanInterest || 0) + '">'
       + '<div class="limit-detail-label">예상 대출 한도</div>'
-      + '<div class="limit-detail-amount" style="color:#ff6b9d" data-room-final-amount>' + formatLimit(displayLimit) + '</div>'
+      + '<div class="limit-detail-amount" style="color:#ff6b9d" data-room-final-amount data-limit-amount data-newborn-limit-amount data-motion-value="0" data-motion-target="' + Math.round(displayLimit * 100000000) + '">' + formatLimit(displayLimit) + '</div>'
       + '<div class="limit-breakdown">'
       + '<div class="limit-breakdown-item">'
       + '<span class="breakdown-label">LTV ' + ltvLabel + ' 적용</span>'
-      + '<span class="breakdown-val' + appliedCls + '">' + formatLimit(ltvLimit) + '</span>'
+      + '<span class="breakdown-val' + appliedCls + '" data-limit-ltv data-newborn-limit-ltv>' + formatLimit(ltvLimit) + '</span>'
       + '</div>'
       + '<div class="limit-breakdown-item">'
       + '<span class="breakdown-label">상품 최대 한도</span>'
-      + '<span class="breakdown-val' + maxAppliedCls + '">' + formatLimit(maxLimit) + '</span>'
+      + '<span class="breakdown-val' + maxAppliedCls + '" data-limit-max data-newborn-limit-max>' + formatLimit(maxLimit) + '</span>'
+      + '</div>'
+      + '<div class="limit-breakdown-item limit-breakdown-item--info">'
+      + '<div class="limit-breakdown-topline">'
+      + '<span class="breakdown-label">DTI 기준 한도</span>'
+      + '<button class="limit-info-trigger" type="button" aria-expanded="false" onclick="openDtiInfoSheet(this)">'
+      + icon('info', 12)
+      + '</button>'
+      + '</div>'
+      + '<span class="breakdown-val' + dtiAppliedCls + '" data-limit-dti data-newborn-limit-dti>' + (Number.isFinite(safeDtiLimit) ? formatLimit(safeDtiLimit) : '미반영') + '</span>'
       + '</div>'
       + '</div>'
-      + '<div class="limit-applied-note">' + reasonText + '</div>'
+      + '<div class="limit-applied-note" data-limit-note data-newborn-limit-note>' + reasonText + '</div>'
       + '<div class="limit-reason">LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 개인별 신용 및 소득에 따라 달라질 수 있습니다. 보다 자세한 산정내역은 기금e든든에서 꼭 확인이 필요합니다.</div>'
-      + roomDeductionHtml(uid, 'newborn', roomState, finalLimit, price, income, house, region)
+      + roomDeductionHtml(uid, 'newborn', roomState, finalLimit, price, income, house, region, household)
       + loanRatioBarHtml(uid, displayLimit, price, '#ff6b9d')
       + rateCalcHtml(uid, 'newborn', income, principalWon, household, house, region, 'nb')
       + '</div>';
@@ -2490,14 +2620,14 @@
     var newbornOk = o.newbornOk, didimdolOk = o.didimdolOk, bogeumjariOk = o.bogeumjariOk;
     var income = o.income, price = o.price, asset = o.asset;
     var household = o.household, house = o.house, children = o.children, region = o.region, otherLoanInterest = o.otherLoanInterest || 0;
-    var nbRate = o.nbRate, nbLtvLimit = o.nbLtvLimit, nbMaxLimit = o.nbMaxLimit, nbFinalLimit = o.nbFinalLimit;
+    var nbRate = o.nbRate, nbLtvLimit = o.nbLtvLimit, nbMaxLimit = o.nbMaxLimit, nbFinalLimit = o.nbFinalLimit, nbDtiLimit = o.nbDtiLimit;
     var nbHouseOk = o.nbHouseOk, nbIncomeOk = o.nbIncomeOk, nbAssetOk = o.nbAssetOk, nbPriceOk = o.nbPriceOk;
-    var dLtvLimit = o.dLtvLimit, dMaxLimit = o.dMaxLimit, dFinalLimit = o.dFinalLimit;
+    var dLtvLimit = o.dLtvLimit, dMaxLimit = o.dMaxLimit, dFinalLimit = o.dFinalLimit, dDtiLimit = o.dDtiLimit;
     var dIncomeLimit = o.dIncomeLimit, dPriceLimit = o.dPriceLimit;
-    var bLtvLimit = o.bLtvLimit, bMaxLimit = o.bMaxLimit, bFinalLimit = o.bFinalLimit, bIncomeLimit = o.bIncomeLimit;
+    var bLtvLimit = o.bLtvLimit, bMaxLimit = o.bMaxLimit, bFinalLimit = o.bFinalLimit, bIncomeLimit = o.bIncomeLimit, bDtiLimit = o.bDtiLimit;
     var rateInfo = nbRate || getNewbornRate(income);
-    var nbDisplayLimit = getRoomDeductionState('newborn', nbFinalLimit, income, price, house, region).finalLimit;
-    var dDisplayLimit = getRoomDeductionState('didimdol', dFinalLimit, income, price, house, region).finalLimit;
+    var nbDisplayLimit = getRoomDeductionState('newborn', nbFinalLimit, income, price, house, region, null, true, household).finalLimit;
+    var dDisplayLimit = getRoomDeductionState('didimdol', dFinalLimit, income, price, house, region, null, true, household).finalLimit;
 
     var tabs = [];
     if (newbornOk)    tabs.push('newborn');
@@ -2533,8 +2663,7 @@
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val" style="color:#ff6b9d"><span class="room-sync-newborn">' + formatLimit(nbDisplayLimit) + '</span></span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
-        + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30, income, household, region)
-        + bogeumDtiCardHtml('nb_dti', income, price, region, house, nbFinalLimit, getNewbornRate(income, 30).rate, 30, otherLoanInterest, 60)
+        + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30, income, household, region, nbDtiLimit, otherLoanInterest)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -2567,8 +2696,7 @@
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue"><span class="room-sync-didimdol">' + formatLimit(dDisplayLimit) + '</span></span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
-        + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income)
-        + bogeumDtiCardHtml('blue_dti', income, price, region, house, dFinalLimit, getDidimdolBaseRate(income, household, 30), 30, otherLoanInterest, 60)
+        + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -2587,16 +2715,15 @@
     var paneBogeumjari = '';
     if (bogeumjariOk) {
       paneBogeumjari = '<div class="tab-pane3' + (firstTab === 'bogeumjari' ? ' active' : '') + '" id="pane3-bogeumjari">'
-        + '<div class="bogeumjari-hero"><div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div><div class="bogeumjari-hero-text">DSR을 보지 않아요</div><div class="bogeumjari-hero-sub">소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.<br>총부채원리금상환비율(DSR) 규제 적용 제외 상품이에요.</div></div>'
+        + '<div class="bogeumjari-hero"><div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div><div class="bogeumjari-hero-text">DSR 규제는 적용 제외예요</div><div class="bogeumjari-hero-sub">장기 고정금리로 비교적 안정적으로 이용할 수 있습니다.<br>다만 소득·기타부채 기준 DTI는 한도 계산에 반영됩니다.</div></div>'
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">상품 정보</div>'
         + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
         + '<div class="info-pill"><span class="info-pill-label">기본 금리</span><span class="info-pill-val green">' + getBogeumRateLabel() + '</span></div>'
-        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val green">' + formatLimit(bFinalLimit) + '</span></div>'
+        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val green" data-bogeum-info-limit>' + formatLimit(bFinalLimit) + '</span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
-        + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)
-        + bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, getBogeumBaseRate(30) + getBogeumRegulationSurcharge(region), 30, otherLoanInterest)
+        + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income, bDtiLimit, otherLoanInterest)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -2676,14 +2803,314 @@
   }
 
   // 원리금균등 DTI 역산 대출원금
-  function calcMaxLoanByDti(dtiLimit, annualIncome, otherInterestAnnual, annualRate, years) {
+  function calcMaxLoanByDti(dtiLimit, annualIncome, otherInterestAnnual, annualRate, years, method) {
     const allowedAnnual = (dtiLimit / 100) * annualIncome - otherInterestAnnual;
     if (allowedAnnual <= 0) return 0;
+    if (annualIncome <= 0) return Infinity;
     const r = annualRate / 12 / 100;
     const n = years * 12;
+    const repayMethod = method || 'annuity';
+    if (repayMethod === 'equal-principal') {
+      const factor = ((1 / n) + r) * 12;
+      return factor > 0 ? allowedAnnual / factor : 0;
+    }
+    if (repayMethod === 'increasing') {
+      const unitAnnual = calcIncreasingAvgAnnual(1, annualRate, years);
+      return unitAnnual > 0 ? allowedAnnual / unitAnnual : 0;
+    }
+    if (r <= 0) return (allowedAnnual / 12) * n;
     // 월납 = P * r*(1+r)^n / ((1+r)^n - 1) → P 역산
     const factor = (r * Math.pow(1+r, n)) / (Math.pow(1+r, n) - 1);
     return (allowedAnnual / 12) / factor;
+  }
+
+  function getBogeumDtiLoanLimitEok(income, price, region, house, otherLoanInterest, annualRate, years, method) {
+    const annualIncome = income * 10000;
+    if (annualIncome <= 0) return Infinity;
+    const dtiLimit = getBogeumDtiLimit(region, house, income, price);
+    const principalWon = calcMaxLoanByDti(dtiLimit, annualIncome, (otherLoanInterest || 0) * 10000, annualRate, years, method);
+    if (!Number.isFinite(principalWon)) return Infinity;
+    return Math.max(0, principalWon / 100000000);
+  }
+
+  function getDidimdolDtiLoanLimitEok(income, otherLoanInterest, annualRate, years, method) {
+    const annualIncome = income * 10000;
+    if (annualIncome <= 0) return Infinity;
+    const principalWon = calcMaxLoanByDti(60, annualIncome, (otherLoanInterest || 0) * 10000, annualRate, years, method);
+    if (!Number.isFinite(principalWon)) return Infinity;
+    return Math.max(0, principalWon / 100000000);
+  }
+
+  function getNewbornDtiLoanLimitEok(income, otherLoanInterest, annualRate, years, method) {
+    return getDidimdolDtiLoanLimitEok(income, otherLoanInterest, annualRate, years, method);
+  }
+
+  function updateBogeumLimitUi(rateSection, finalLimit, dtiLimit) {
+    const card = rateSection?.closest('.limit-detail-card');
+    if (!card) return;
+    const amountEl = card.querySelector('[data-bogeum-limit-amount]');
+    const ltvEl = card.querySelector('[data-bogeum-limit-ltv]');
+    const maxEl = card.querySelector('[data-bogeum-limit-max]');
+    const dtiEl = card.querySelector('[data-bogeum-limit-dti]');
+    const noteEl = card.querySelector('[data-bogeum-limit-note]');
+    const pane = rateSection.closest('.tab-pane, .tab-pane3');
+    const infoLimitEl = pane ? pane.querySelector('[data-bogeum-info-limit]') : null;
+    const barWrap = card.querySelector('.loan-ratio-bar-wrap');
+
+    const ltvLimit = parseFloat(card.dataset.bogeumLtvLimit || 0);
+    const maxLimit = parseFloat(card.dataset.bogeumMaxLimit || 0);
+    const price = parseFloat(card.dataset.bogeumPrice || 0);
+    const income = parseFloat(card.dataset.bogeumIncome || 0);
+    const region = card.dataset.bogeumRegion || '';
+    const house = card.dataset.bogeumHouse || '';
+    const otherLoan = parseFloat(card.dataset.bogeumOtherLoan || 0);
+    const appliedValue = Math.min(ltvLimit, maxLimit, Number.isFinite(dtiLimit) ? dtiLimit : Infinity);
+    const dtiLimitPct = getBogeumDtiLimit(region, house, income, price);
+    const houseLabel = house === '생애최초' ? '생애최초' : '일반';
+    const beforeLimit = Math.min(ltvLimit, maxLimit);
+
+    if (amountEl) {
+      amountEl.dataset.motionTarget = String(Math.round(finalLimit * 100000000));
+      setAnimatedAmount(amountEl, finalLimit * 100000000, formatLimitWon);
+    }
+    if (infoLimitEl) infoLimitEl.textContent = formatLimit(finalLimit);
+    if (barWrap) animateLoanBar(barWrap.dataset.loanBarUid, finalLimit, parseFloat(barWrap.dataset.loanBarPrice || price));
+    if (ltvEl) ltvEl.className = 'breakdown-val' + (appliedValue === ltvLimit ? ' applied green' : '');
+    if (maxEl) maxEl.className = 'breakdown-val' + (appliedValue === maxLimit ? ' applied green' : '');
+    if (dtiEl) {
+      dtiEl.textContent = Number.isFinite(dtiLimit) ? formatLimit(dtiLimit) : '미반영';
+      dtiEl.className = 'breakdown-val' + (Number.isFinite(dtiLimit) && appliedValue === dtiLimit ? ' applied green' : '');
+    }
+    if (noteEl) {
+      if (Number.isFinite(dtiLimit) && appliedValue === dtiLimit) {
+        noteEl.innerHTML = `DTI ${dtiLimitPct}% 기준 적용 · 소득/기타부채 기준 최대 <em>${formatLimit(dtiLimit)}</em>`;
+      } else if (appliedValue === ltvLimit) {
+        noteEl.innerHTML = `LTV ${Math.round(ltvLimit/price*100)}% 기준 적용 · 주택가격 <em>${price}억 × ${Math.round(ltvLimit/price*100)}%</em> = <em>${formatLimit(ltvLimit)}</em>`;
+      } else {
+        noteEl.innerHTML = `상품 한도 기준 적용 · <em>${houseLabel}</em> 가구 최대 한도 <em>${formatLimit(maxLimit)}</em>`;
+      }
+    }
+  }
+
+  function updateDidimdolLimitUi(rateSection, finalLimit, dtiLimit) {
+    const card = rateSection?.closest('.limit-detail-card');
+    if (!card) return;
+    const amountEl = card.querySelector('[data-didimdol-limit-amount]');
+    const ltvEl = card.querySelector('[data-didimdol-limit-ltv]');
+    const maxEl = card.querySelector('[data-didimdol-limit-max]');
+    const dtiEl = card.querySelector('[data-didimdol-limit-dti]');
+    const noteEl = card.querySelector('[data-didimdol-limit-note]');
+    const pane = rateSection.closest('.tab-pane, .tab-pane3');
+    const barWrap = card.querySelector('.loan-ratio-bar-wrap');
+    const roomBox = card.querySelector('[data-room-card="true"]');
+
+    const ltvLimit = parseFloat(card.dataset.didimdolLtvLimit || 0);
+    const maxLimit = parseFloat(card.dataset.didimdolMaxLimit || 0);
+    const price = parseFloat(card.dataset.didimdolPrice || 0);
+    const income = parseFloat(card.dataset.didimdolIncome || 0);
+    const region = card.dataset.didimdolRegion || '';
+    const house = card.dataset.didimdolHouse || '';
+    const appliedValue = Math.min(ltvLimit, maxLimit, Number.isFinite(dtiLimit) ? dtiLimit : Infinity);
+    const desiredOn = roomBox ? roomBox.dataset.roomDesiredOn !== '0' : true;
+    const regionKey = roomBox ? (roomBox.dataset.roomRegionKey || null) : null;
+    const roomState = getRoomDeductionState('didimdol', finalLimit, income, price, house, region, regionKey, desiredOn, card.dataset.didimdolHousehold || '');
+    const displayLimit = roomState.finalLimit;
+
+    if (amountEl) {
+      amountEl.dataset.motionTarget = String(Math.round(displayLimit * 100000000));
+      setAnimatedAmount(amountEl, displayLimit * 100000000, formatLimitWon);
+    }
+    document.querySelectorAll('.room-sync-didimdol').forEach(function(el) {
+      el.textContent = formatLimit(displayLimit);
+    });
+    if (barWrap) animateLoanBar(barWrap.dataset.loanBarUid, displayLimit, parseFloat(barWrap.dataset.loanBarPrice || price));
+    if (ltvEl) ltvEl.className = 'breakdown-val' + (appliedValue === ltvLimit ? ' applied' : '');
+    if (maxEl) maxEl.className = 'breakdown-val' + (appliedValue === maxLimit ? ' applied' : '');
+    if (dtiEl) {
+      dtiEl.textContent = Number.isFinite(dtiLimit) ? formatLimit(dtiLimit) : '미반영';
+      dtiEl.className = 'breakdown-val' + (Number.isFinite(dtiLimit) && appliedValue === dtiLimit ? ' applied' : '');
+    }
+    if (noteEl) {
+      if (Number.isFinite(dtiLimit) && appliedValue === dtiLimit) {
+        noteEl.innerHTML = `DTI 60% 기준 적용 · 소득/기타부채 기준 최대 <em>${formatLimit(dtiLimit)}</em>`;
+      } else if (appliedValue === ltvLimit) {
+        noteEl.innerHTML = `LTV ${Math.round(ltvLimit/price*100)}% 기준 적용 · 주택가격 <em>${price}억 × ${Math.round(ltvLimit/price*100)}%</em> = <em>${formatLimit(ltvLimit)}</em>`;
+      } else {
+        noteEl.innerHTML = `상품 한도 기준 적용 · 최대 한도 <em>${formatLimit(maxLimit)}</em>`;
+      }
+    }
+
+    if (roomBox) {
+      roomBox.dataset.baseLimit = String(finalLimit);
+      roomBox.dataset.roomDesiredOn = roomState.checked ? '1' : '0';
+      roomBox.dataset.roomRegionKey = roomState.key;
+      const toggle = roomBox.querySelector('[id^="room-toggle-"]');
+      const regionSelect = roomBox.querySelector('[id^="room-region-"]');
+      const deductEl = roomBox.querySelector('[id^="room-deduct-"]');
+      const baseEl = roomBox.querySelector('[id^="room-base-"]');
+      const finalEl = roomBox.querySelector('[id^="room-final-"]');
+      const roomNoteEl = roomBox.querySelector('[id^="room-note-"]');
+      if (toggle) toggle.checked = roomState.checked;
+      if (regionSelect) regionSelect.value = roomState.key;
+      if (deductEl) deductEl.textContent = roomState.deduction > 0 ? '-' + formatRoomDeductionAmount(roomState.deduction) : '미적용';
+      if (baseEl) baseEl.textContent = formatLimit(finalLimit);
+      if (finalEl) finalEl.textContent = formatLimit(displayLimit);
+      if (roomNoteEl) roomNoteEl.textContent = roomState.note;
+    }
+  }
+
+  function updateNewbornLimitUi(rateSection, finalLimit, dtiLimit) {
+    const card = rateSection?.closest('.limit-detail-card');
+    if (!card) return;
+    const amountEl = card.querySelector('[data-newborn-limit-amount]');
+    const ltvEl = card.querySelector('[data-newborn-limit-ltv]');
+    const maxEl = card.querySelector('[data-newborn-limit-max]');
+    const dtiEl = card.querySelector('[data-newborn-limit-dti]');
+    const noteEl = card.querySelector('[data-newborn-limit-note]');
+    const barWrap = card.querySelector('.loan-ratio-bar-wrap');
+    const roomBox = card.querySelector('[data-room-card="true"]');
+
+    const ltvLimit = parseFloat(card.dataset.newbornLtvLimit || 0);
+    const maxLimit = parseFloat(card.dataset.newbornMaxLimit || 0);
+    const price = parseFloat(card.dataset.newbornPrice || 0);
+    const income = parseFloat(card.dataset.newbornIncome || 0);
+    const region = card.dataset.newbornRegion || '';
+    const house = card.dataset.newbornHouse || '';
+    const appliedValue = Math.min(ltvLimit, maxLimit, Number.isFinite(dtiLimit) ? dtiLimit : Infinity);
+    const desiredOn = roomBox ? roomBox.dataset.roomDesiredOn !== '0' : true;
+    const regionKey = roomBox ? (roomBox.dataset.roomRegionKey || null) : null;
+    const roomState = getRoomDeductionState('newborn', finalLimit, income, price, house, region, regionKey, desiredOn, card.dataset.newbornHousehold || '');
+    const displayLimit = roomState.finalLimit;
+
+    if (amountEl) {
+      amountEl.dataset.motionTarget = String(Math.round(displayLimit * 100000000));
+      setAnimatedAmount(amountEl, displayLimit * 100000000, formatLimitWon);
+    }
+    document.querySelectorAll('.room-sync-newborn').forEach(function(el) {
+      el.textContent = formatLimit(displayLimit);
+    });
+    if (barWrap) animateLoanBar(barWrap.dataset.loanBarUid, displayLimit, parseFloat(barWrap.dataset.loanBarPrice || price));
+    if (ltvEl) ltvEl.className = 'breakdown-val' + (appliedValue === ltvLimit ? ' applied' : '');
+    if (maxEl) maxEl.className = 'breakdown-val' + (appliedValue === maxLimit ? ' applied' : '');
+    if (dtiEl) {
+      dtiEl.textContent = Number.isFinite(dtiLimit) ? formatLimit(dtiLimit) : '미반영';
+      dtiEl.className = 'breakdown-val' + (Number.isFinite(dtiLimit) && appliedValue === dtiLimit ? ' applied' : '');
+    }
+    if (noteEl) {
+      if (Number.isFinite(dtiLimit) && appliedValue === dtiLimit) {
+        noteEl.innerHTML = `DTI 60% 기준 적용 · 소득/기타부채 기준 최대 <em>${formatLimit(dtiLimit)}</em>`;
+      } else if (appliedValue === ltvLimit) {
+        noteEl.innerHTML = `LTV ${Math.round(ltvLimit/price*100)}% 기준 적용 · 주택가격 <em>${price}억 × ${Math.round(ltvLimit/price*100)}%</em> = <em>${formatLimit(ltvLimit)}</em>`;
+      } else {
+        noteEl.innerHTML = `상품 한도 기준 적용 · 최대 <em>${formatLimit(maxLimit)}</em>`;
+      }
+    }
+
+    if (roomBox) {
+      roomBox.dataset.baseLimit = String(finalLimit);
+      roomBox.dataset.roomDesiredOn = roomState.checked ? '1' : '0';
+      roomBox.dataset.roomRegionKey = roomState.key;
+      const toggle = roomBox.querySelector('[id^="room-toggle-"]');
+      const regionSelect = roomBox.querySelector('[id^="room-region-"]');
+      const deductEl = roomBox.querySelector('[id^="room-deduct-"]');
+      const baseEl = roomBox.querySelector('[id^="room-base-"]');
+      const finalEl = roomBox.querySelector('[id^="room-final-"]');
+      const roomNoteEl = roomBox.querySelector('[id^="room-note-"]');
+      if (toggle) toggle.checked = roomState.checked;
+      if (regionSelect) regionSelect.value = roomState.key;
+      if (deductEl) deductEl.textContent = roomState.deduction > 0 ? '-' + formatRoomDeductionAmount(roomState.deduction) : '미적용';
+      if (baseEl) baseEl.textContent = formatLimit(finalLimit);
+      if (finalEl) finalEl.textContent = formatLimit(displayLimit);
+      if (roomNoteEl) roomNoteEl.textContent = roomState.note;
+    }
+  }
+
+  function syncBogeumDynamicLimit(sectionUid, annualRate, years, method) {
+    const rateSection = document.querySelector('.rate-calc-section[data-uid="' + sectionUid + '"]');
+    if (!rateSection || rateSection.dataset.color !== 'green') return null;
+    const card = rateSection.closest('.limit-detail-card');
+    const amtEl = document.getElementById('mc-amt-' + sectionUid);
+    if (!card || !amtEl) return null;
+
+    const ltvLimit = parseFloat(card.dataset.bogeumLtvLimit || 0);
+    const maxLimit = parseFloat(card.dataset.bogeumMaxLimit || 0);
+    const price = parseFloat(card.dataset.bogeumPrice || 0);
+    const income = parseFloat(card.dataset.bogeumIncome || 0);
+    const region = card.dataset.bogeumRegion || '';
+    const house = card.dataset.bogeumHouse || '';
+    const otherLoan = parseFloat(card.dataset.bogeumOtherLoan || 0);
+    const dtiLimit = getBogeumDtiLoanLimitEok(income, price, region, house, otherLoan, annualRate, years, method);
+    const finalLimit = Math.min(ltvLimit, maxLimit, Number.isFinite(dtiLimit) ? dtiLimit : Infinity);
+
+    amtEl.dataset.principal = String(finalLimit * 100000000);
+    updateBogeumLimitUi(rateSection, finalLimit, dtiLimit);
+    return { finalLimit, dtiLimit };
+  }
+
+  function syncDidimdolDynamicLimit(sectionUid, annualRate, years, method) {
+    const rateSection = document.querySelector('.rate-calc-section[data-uid="' + sectionUid + '"]');
+    if (!rateSection || rateSection.dataset.color !== 'blue') return null;
+    const card = rateSection.closest('.limit-detail-card');
+    const amtEl = document.getElementById('mc-amt-' + sectionUid);
+    if (!card || !amtEl) return null;
+
+    const ltvLimit = parseFloat(card.dataset.didimdolLtvLimit || 0);
+    const maxLimit = parseFloat(card.dataset.didimdolMaxLimit || 0);
+    const income = parseFloat(card.dataset.didimdolIncome || 0);
+    const otherLoan = parseFloat(card.dataset.didimdolOtherLoan || 0);
+    const dtiLimit = getDidimdolDtiLoanLimitEok(income, otherLoan, annualRate, years, method);
+    const finalLimit = Math.min(ltvLimit, maxLimit, Number.isFinite(dtiLimit) ? dtiLimit : Infinity);
+    const roomBox = card.querySelector('[data-room-card="true"]');
+    const desiredOn = roomBox ? roomBox.dataset.roomDesiredOn !== '0' : true;
+    const regionKey = roomBox ? (roomBox.dataset.roomRegionKey || null) : null;
+    const roomState = getRoomDeductionState(
+      'didimdol',
+      finalLimit,
+      income,
+      parseFloat(card.dataset.didimdolPrice || 0),
+      card.dataset.didimdolHouse || '',
+      card.dataset.didimdolRegion || '',
+      regionKey,
+      desiredOn,
+      card.dataset.didimdolHousehold || ''
+    );
+
+    amtEl.dataset.principal = String(roomState.finalLimit * 100000000);
+    updateDidimdolLimitUi(rateSection, finalLimit, dtiLimit);
+    return { finalLimit, displayLimit: roomState.finalLimit, dtiLimit };
+  }
+
+  function syncNewbornDynamicLimit(sectionUid, annualRate, years, method) {
+    const rateSection = document.querySelector('.rate-calc-section[data-uid="' + sectionUid + '"]');
+    if (!rateSection || rateSection.dataset.color !== 'nb') return null;
+    const card = rateSection.closest('.limit-detail-card');
+    const amtEl = document.getElementById('mc-amt-' + sectionUid);
+    if (!card || !amtEl) return null;
+
+    const ltvLimit = parseFloat(card.dataset.newbornLtvLimit || 0);
+    const maxLimit = parseFloat(card.dataset.newbornMaxLimit || 0);
+    const income = parseFloat(card.dataset.newbornIncome || 0);
+    const otherLoan = parseFloat(card.dataset.newbornOtherLoan || 0);
+    const dtiLimit = getNewbornDtiLoanLimitEok(income, otherLoan, annualRate, years, method);
+    const finalLimit = Math.min(ltvLimit, maxLimit, Number.isFinite(dtiLimit) ? dtiLimit : Infinity);
+    const roomBox = card.querySelector('[data-room-card="true"]');
+    const desiredOn = roomBox ? roomBox.dataset.roomDesiredOn !== '0' : true;
+    const regionKey = roomBox ? (roomBox.dataset.roomRegionKey || null) : null;
+    const roomState = getRoomDeductionState(
+      'newborn',
+      finalLimit,
+      income,
+      parseFloat(card.dataset.newbornPrice || 0),
+      card.dataset.newbornHouse || '',
+      card.dataset.newbornRegion || '',
+      regionKey,
+      desiredOn,
+      card.dataset.newbornHousehold || ''
+    );
+
+    amtEl.dataset.principal = String(roomState.finalLimit * 100000000);
+    updateNewbornLimitUi(rateSection, finalLimit, dtiLimit);
+    return { finalLimit, displayLimit: roomState.finalLimit, dtiLimit };
   }
 
   // 체증식 초기 평균 원리금 산출 (초기 10년 또는 5년 평균)
@@ -2706,88 +3133,6 @@
     const r = annualRate / 12 / 100;
     return ((principal / n) + principal * r) * 12;
   }
-
-  // ── DTI 카드 HTML ──
-  function bogeumDtiCardHtml(uid, income, price, region, house, finalLimit, annualRate, years, otherLoanInterest) {
-    otherLoanInterest = otherLoanInterest || 0;
-    const dtiLimit = getBogeumDtiLimit(region, house, income, price);
-    const annualIncome = income * 10000;
-
-    return `<div class="dti-card" id="dti-card-${uid}"
-      data-annual-income="${annualIncome}"
-      data-dti-limit="${dtiLimit}"
-      data-annual-rate="${annualRate}"
-      data-years="${years}"
-      data-ltv-limit="${finalLimit}"
-      data-other-loan="${otherLoanInterest}">
-      <div class="dti-card-title">
-        DTI 시뮬레이션
-        <span class="dti-card-badge">참고용</span>
-      </div>
-      <div class="dti-rows" id="dti-rows-${uid}">
-        <div class="dti-row">
-          <span class="dti-row-label">DTI 한도</span>
-          <span class="dti-row-val">${dtiLimit}%${region === '규제지역' && dtiLimit === 50 ? ' (규제지역)' : ''}</span>
-        </div>
-        <div class="dti-row">
-          <span class="dti-row-label" id="dti-annual-label-${uid}">연간 원리금 (원리금균등 기준)</span>
-          <span class="dti-row-val" id="dti-annual-${uid}">—</span>
-        </div>
-        <div class="dti-row">
-          <span class="dti-row-label">기타대출 연간 이자</span>
-          <span class="dti-row-val">${otherLoanInterest > 0 ? otherLoanInterest.toLocaleString() + '만원' : '없음'}</span>
-        </div>
-      </div>
-      <hr class="dti-divider">
-      <div class="dti-result-row">
-        <span class="dti-result-label">현재 DTI</span>
-        <span class="dti-result-val" id="dti-pct-${uid}">—</span>
-      </div>
-      <div class="dti-limit-row">
-        <span>기준 한도 ${dtiLimit}%</span>
-        <span id="dti-status-${uid}"></span>
-      </div>
-      <div class="dti-note">※ 상환방식·적용금리 기준 계산. 실제 DTI는 금융사 심사 결과에 따라 달라질 수 있습니다.</div>
-    </div>`;
-  }
-
-  // ── DTI 재계산 — mc-amt 월납입 × 12 + 기타대출 이자 / 연소득 ──
-  function recalcDti(uid) {
-    const dtiCard = document.getElementById('dti-card-' + uid);
-    if (!dtiCard) return;
-
-    const annualIncome       = parseFloat(dtiCard.dataset.annualIncome || 0);
-    const dtiLimit           = parseFloat(dtiCard.dataset.dtiLimit || 60);
-    const otherLoanInterest  = parseFloat(dtiCard.dataset.otherLoan || 0) * 10000; // 만원→원
-
-    if (annualIncome <= 0) return;
-
-    // mc-amt에서 현재 월납입액 읽기 (recalcRate/selectRepayTab이 이미 계산해둠)
-    const cardColor = uid.startsWith('blue_') ? 'blue' : uid.startsWith('nb_') ? 'nb' : 'green';
-    const rateSection = document.querySelector('.rate-calc-section[data-color="' + cardColor + '"]');
-    if (!rateSection) return;
-    const card = rateSection.closest('.limit-detail-card');
-    if (!card) return;
-    const amtEl = card.querySelector('[id^="mc-amt-"]');
-    if (!amtEl) return;
-
-    // 월납입 텍스트에서 숫자 추출 (예: "960,605원" → 960605)
-    const monthlyWon = parseInt((amtEl.textContent || '0').replace(/[^0-9]/g, '')) || 0;
-    const annualPrincipal = monthlyWon * 12;
-
-    const dtiPct     = ((annualPrincipal + otherLoanInterest) / annualIncome) * 100;
-    const dtiRounded = Math.round(dtiPct * 10) / 10;
-    const statusCls  = dtiRounded <= dtiLimit ? 'ok' : dtiRounded <= dtiLimit + 10 ? 'warn' : 'over';
-    const statusText = dtiRounded <= dtiLimit ? '✅ 기준 이내' : '⚠️ 기준 초과';
-
-    const annualEl  = document.getElementById('dti-annual-' + uid);
-    const pctEl     = document.getElementById('dti-pct-' + uid);
-    const statusEl  = document.getElementById('dti-status-' + uid);
-    if (annualEl)  annualEl.textContent  = Math.round(annualPrincipal / 10000).toLocaleString() + '만원';
-    if (pctEl)     { pctEl.textContent = dtiRounded + '%'; pctEl.className = 'dti-result-val ' + statusCls; }
-    if (statusEl)  statusEl.textContent = statusText;
-  }
-
 
   // ── 디딤돌 금리 범위 (household·house 기반) ──
   function getDidimdolRateLabel(household, house) {
@@ -2836,8 +3181,10 @@
     const nbLtvRate    = getFundLtvRate(region, house, 'newborn');
     const nbLtvLimit   = price * nbLtvRate;
     const nbMaxLimit   = 4.0;
-    const nbFinalLimit = Math.min(nbLtvLimit, nbMaxLimit);
     const nbRate       = isNewborn ? getNewbornRate(income) : null;
+    const nbDefaultRate = nbRate ? nbRate.rate : getNewbornRate(income, 30).rate;
+    const nbDtiLimit = getNewbornDtiLoanLimitEok(income, otherLoanInterest, nbDefaultRate, 30, 'annuity');
+    const nbFinalLimit = Math.min(nbLtvLimit, nbMaxLimit, Number.isFinite(nbDtiLimit) ? nbDtiLimit : Infinity);
 
     // 디딤돌 자격 (신생아도 디딤돌 조건 동시 체크)
     const dHouseOk = house === '무주택' || house === '생애최초';
@@ -2857,8 +3204,9 @@
     else if (house === '생애최초') dMaxLimit = 2.4;
     const dLtvRate    = getFundLtvRate(region, house, 'didimdol');
     const dLtvLimit   = price * dLtvRate;
-    const dFinalLimit = Math.min(dLtvLimit, dMaxLimit);
-    const dDisplayLimit = getRoomDeductionState('didimdol', dFinalLimit, income, price, house, region).finalLimit;
+    const dDtiLimit = getDidimdolDtiLoanLimitEok(income, otherLoanInterest, getDidimdolBaseRate(income, household, 30), 30, 'annuity');
+    const dFinalLimit = Math.min(dLtvLimit, dMaxLimit, Number.isFinite(dDtiLimit) ? dDtiLimit : Infinity);
+    const dDisplayLimit = getRoomDeductionState('didimdol', dFinalLimit, income, price, house, region, null, true, household).finalLimit;
 
     // 보금자리론 자격
     const bHouseOk = house !== '1주택이상';
@@ -2876,7 +3224,9 @@
     else if (children === '2명이상' || isNewborn) bMaxLimit = 4.0;
     const bLtvRate    = getFundLtvRate(region, house, 'bogeumjari');
     const bLtvLimit   = price * bLtvRate;
-    const bFinalLimit = Math.min(bLtvLimit, bMaxLimit);
+    const bDefaultRate = getBogeumBaseRate(30) + getBogeumRegulationSurcharge(region);
+    const bDtiLimit = getBogeumDtiLoanLimitEok(income, price, region, house, otherLoanInterest, bDefaultRate, 30, 'annuity');
+    const bFinalLimit = Math.min(bLtvLimit, bMaxLimit, Number.isFinite(bDtiLimit) ? bDtiLimit : Infinity);
 
     let html = '';
 
@@ -2886,10 +3236,10 @@
         html = buildNewbornHtml({
           newbornOk, didimdolOk, bogeumjariOk,
           income, price, asset, household, house, children, region, otherLoanInterest,
-          nbRate, nbLtvLimit, nbMaxLimit, nbFinalLimit,
+          nbRate, nbLtvLimit, nbMaxLimit, nbFinalLimit, nbDtiLimit,
           nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk,
-          dLtvLimit, dMaxLimit, dFinalLimit, dIncomeLimit, dPriceLimit,
-          bLtvLimit, bMaxLimit, bFinalLimit, bIncomeLimit
+          dLtvLimit, dMaxLimit, dFinalLimit, dDtiLimit, dIncomeLimit, dPriceLimit,
+          bLtvLimit, bMaxLimit, bFinalLimit, bIncomeLimit, bDtiLimit
         });
       } else {
         html = buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk, false,
@@ -2942,8 +3292,7 @@
             </div>
           </div>
           <div class="result-spacer-sm"></div>
-          ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income)}
-          ${bogeumDtiCardHtml('blue_dti', income, price, region, house, dFinalLimit, getDidimdolBaseRate(income, household, 30), 30, otherLoanInterest, 60)}
+          ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)}
           <div class="result-spacer"></div>
           <div class="group-label">충족 조건</div>
           <div class="result-group">
@@ -2961,8 +3310,8 @@
         <div class="tab-pane" id="pane-bogeumjari">
           <div class="bogeumjari-hero">
   <div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div>
-  <div class="bogeumjari-hero-text">DSR을 보지 않아요</div>
-  <div class="bogeumjari-hero-sub">소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.<br>총부채원리금상환비율(DSR) 규제 적용 제외 상품이에요.</div>
+  <div class="bogeumjari-hero-text">DSR 규제는 적용 제외예요</div>
+  <div class="bogeumjari-hero-sub">장기 고정금리로 비교적 안정적으로 이용할 수 있습니다.<br>다만 소득·기타부채 기준 DTI는 한도 계산에 반영됩니다.</div>
 </div>
           <div class="result-spacer"></div>
           <div class="group-label">상품 정보</div>
@@ -2974,13 +3323,12 @@
               </div>
               <div class="info-pill">
                 <span class="info-pill-label">예상 한도</span>
-                <span class="info-pill-val green">${formatLimit(bFinalLimit)}</span>
+                <span class="info-pill-val green" data-bogeum-info-limit>${formatLimit(bFinalLimit)}</span>
               </div>
             </div>
           </div>
           <div class="result-spacer-sm"></div>
-          ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)}
-          ${bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, getBogeumBaseRate(30) + getBogeumRegulationSurcharge(region), 30, otherLoanInterest)}
+          ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income, bDtiLimit, otherLoanInterest)}
           <div class="result-spacer"></div>
           <div class="group-label">충족 조건</div>
           <div class="result-group">
@@ -3033,8 +3381,7 @@
           </div>
         </div>
         <div class="result-spacer-sm"></div>
-        ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income)}
-        ${bogeumDtiCardHtml('blue_dti', income, price, region, house, dFinalLimit, getDidimdolBaseRate(income, household, 30), 30, otherLoanInterest, 60)}
+        ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)}
         <div class="result-spacer"></div>
         <div class="group-label">충족 조건</div>
         <div class="result-group">
@@ -3071,8 +3418,8 @@
         </div>
         <div class="bogeumjari-hero">
   <div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div>
-  <div class="bogeumjari-hero-text">DSR을 보지 않아요</div>
-  <div class="bogeumjari-hero-sub">소득이 적어도 많은 대출을 고정금리로 받을 수 있습니다.<br>총부채원리금상환비율(DSR) 규제 적용 제외 상품이에요.</div>
+  <div class="bogeumjari-hero-text">DSR 규제는 적용 제외예요</div>
+  <div class="bogeumjari-hero-sub">장기 고정금리로 비교적 안정적으로 이용할 수 있습니다.<br>다만 소득·기타부채 기준 DTI는 한도 계산에 반영됩니다.</div>
 </div>
         <div class="result-spacer"></div>
         <div class="group-label">상품 정보</div>
@@ -3084,13 +3431,12 @@
             </div>
             <div class="info-pill">
               <span class="info-pill-label">예상 한도</span>
-              <span class="info-pill-val green">${formatLimit(bFinalLimit)}</span>
+              <span class="info-pill-val green" data-bogeum-info-limit>${formatLimit(bFinalLimit)}</span>
             </div>
           </div>
         </div>
         <div class="result-spacer-sm"></div>
-        ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income)}
-        ${bogeumDtiCardHtml('green_dti', income, price, region, house, bFinalLimit, getBogeumBaseRate(30) + getBogeumRegulationSurcharge(region), 30, otherLoanInterest)}
+        ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income, bDtiLimit, otherLoanInterest)}
         <div class="result-spacer"></div>
         <div class="group-label">자격 검토</div>
         <div class="result-group">
@@ -3173,7 +3519,6 @@
       document.querySelectorAll('.rate-calc-section[data-uid]').forEach(function(sec) {
         recalcRate(sec.dataset.uid);
       });
-      setTimeout(function() { ['green_dti','blue_dti','nb_dti'].forEach(function(id){ if(document.getElementById('dti-card-'+id)) recalcDti(id); }); }, 50);
       setTimeout(function() {
         document.querySelectorAll('.rate-calc-section[data-uid]').forEach(function(sec) {
           renderSchedule(sec.dataset.uid);

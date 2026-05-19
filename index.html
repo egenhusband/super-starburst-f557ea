@@ -515,7 +515,7 @@
 <script src="icons.js?v=20260518a"></script>
 <script src="calculator.js?v=20260518a"></script>
 <script src="dashboard.js?v=20260518a"></script>
-<script src="dashboard-apt-search.js?v=20260518b"></script>
+<script src="dashboard-apt-search.js?v=20260519a"></script>
 <script>
   (function () {
     const params = new URLSearchParams(window.location.search);
@@ -627,6 +627,7 @@
     </div>
     <div class="apt-loan-sheet-body">
       <p class="apt-loan-sheet-desc" id="aptLoanSheetDesc">실거래가나 매수 예정가를 입력하면 계산기 주택가격에 먼저 반영할게요.</p>
+      <div id="aptLoanAreaSelector"></div>
       <label class="apt-loan-price-label" for="aptLoanPriceInput">주택가격</label>
       <div class="apt-loan-price-field">
         <input id="aptLoanPriceInput" type="number" min="0" step="0.1" inputmode="decimal" placeholder="예: 8.5" oninput="updateAptLoanSheetState()">
@@ -673,6 +674,41 @@
         <thead><tr><th>회차</th><th>원금</th><th>이자</th><th>납입액</th><th>잔액</th></tr></thead>
         <tbody id="schTableBody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <div class="dti-sheet-overlay" id="dtiInfoOverlay" onclick="closeDtiInfoSheet()"></div>
+  <div class="dti-sheet" id="dtiInfoSheet" role="dialog" aria-modal="true" aria-labelledby="dtiInfoTitle">
+    <div class="dti-sheet-handle"></div>
+    <div class="dti-sheet-head">
+      <div class="dti-sheet-title-group">
+        <div class="dti-sheet-kicker">대출 한도 설명</div>
+        <div class="dti-sheet-title" id="dtiInfoTitle">DTI 기준 한도</div>
+      </div>
+      <button class="dti-sheet-close" type="button" onclick="closeDtiInfoSheet()" aria-label="닫기">
+        <span data-icon="x" data-icon-size="14"></span>
+      </button>
+    </div>
+    <div class="dti-sheet-body">
+      <p class="dti-sheet-copy" id="dtiInfoCopy">소득과 기타대출의 연간 이자 추정치를 반영한 한도 설명이 여기에 표시됩니다.</p>
+      <div class="dti-sheet-metrics">
+        <div class="dti-sheet-metric">
+          <div class="dti-sheet-metric-label">기준 DTI</div>
+          <div class="dti-sheet-metric-value" id="dtiInfoMetricLimit">—</div>
+        </div>
+        <div class="dti-sheet-metric">
+          <div class="dti-sheet-metric-label">기타대출 연간 이자 추정</div>
+          <div class="dti-sheet-metric-value" id="dtiInfoMetricOther">—</div>
+        </div>
+        <div class="dti-sheet-metric">
+          <div class="dti-sheet-metric-label">조정 전 한도</div>
+          <div class="dti-sheet-metric-value" id="dtiInfoMetricBefore">—</div>
+        </div>
+        <div class="dti-sheet-metric">
+          <div class="dti-sheet-metric-label">조정 후 한도</div>
+          <div class="dti-sheet-metric-value" id="dtiInfoMetricAfter">—</div>
+        </div>
+      </div>
     </div>
   </div>
 
