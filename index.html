@@ -515,7 +515,7 @@
 <script src="icons.js?v=20260518a"></script>
 <script src="calculator.js?v=20260518a"></script>
 <script src="dashboard.js?v=20260518a"></script>
-<script src="dashboard-apt-search.js?v=20260518b"></script>
+<script src="dashboard-apt-search.js?v=20260519a"></script>
 <script>
   (function () {
     const params = new URLSearchParams(window.location.search);
@@ -627,6 +627,7 @@
     </div>
     <div class="apt-loan-sheet-body">
       <p class="apt-loan-sheet-desc" id="aptLoanSheetDesc">실거래가나 매수 예정가를 입력하면 계산기 주택가격에 먼저 반영할게요.</p>
+      <div id="aptLoanAreaSelector"></div>
       <label class="apt-loan-price-label" for="aptLoanPriceInput">주택가격</label>
       <div class="apt-loan-price-field">
         <input id="aptLoanPriceInput" type="number" min="0" step="0.1" inputmode="decimal" placeholder="예: 8.5" oninput="updateAptLoanSheetState()">

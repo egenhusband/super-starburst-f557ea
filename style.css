@@ -5594,3 +5594,86 @@
   transition-duration: var(--motion-card-active);
   transition-timing-function: var(--ease-snappy);
 }
+
+/* 평형별 실거래 섹션 */
+.db-apt-area-prices-section {
+  margin-top: 16px;
+}
+.db-apt-area-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.db-apt-area-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.db-apt-area-bucket {
+  font-size: 12px;
+  font-weight: 760;
+  color: rgba(208,217,230,0.55);
+  min-width: 36px;
+  letter-spacing: -0.01em;
+}
+.db-apt-area-price {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 760;
+  color: var(--text-primary, #d6dfec);
+  letter-spacing: -0.02em;
+}
+.db-apt-area-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(208,217,230,0.35);
+}
+.db-apt-area-note {
+  margin-top: 7px;
+  font-size: 11px;
+  color: rgba(208,217,230,0.3);
+  text-align: right;
+  letter-spacing: -0.01em;
+}
+
+/* 바텀시트 평형 선택 */
+.apt-loan-area-selector {
+  margin-bottom: 14px;
+}
+.apt-loan-area-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(208,217,230,0.45);
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+.apt-loan-area-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.apt-loan-area-btn {
+  padding: 7px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(208,217,230,0.6);
+  cursor: pointer;
+  letter-spacing: -0.01em;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.apt-loan-area-btn.active {
+  background: rgba(var(--accent-rgb, 99,102,241),0.18);
+  border-color: rgba(var(--accent-rgb, 99,102,241),0.5);
+  color: var(--text-primary, #d6dfec);
+}
+.apt-loan-area-btn:active {
+  transform: scale(var(--scale-button-active));
+  transition-duration: var(--motion-button-active);
+}

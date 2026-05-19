@@ -1,3 +1,4 @@
+const DASHBOARD_APT_AREA_PRICES_BASE_URL = '/data/apt-area-prices';
 const DASHBOARD_APT_CODE_MAP_URL = '/data/apt-code-map.json?v=20260506b';
 const DASHBOARD_APT_HOUSEHOLDS_URL = '/data/apt-households.json?v=20260506b';
 const DASHBOARD_APT_SCHOOL_META_URL = '/data/apt-school-meta.json?v=20260507a';
@@ -110,6 +111,26 @@ let dashboardAptSearchIndexPromise = null;
 let dashboardSubwayTimesPromise = null;
 let dashboardSubwayGraph = null;
 const dashboardAptSearchInsightCache = new Map();
+const dashboardAptAreaPricesCache = new Map();
+
+async function fetchAptAreaPrices(kaptCode) {
+  if (!kaptCode) return null;
+  if (dashboardAptAreaPricesCache.has(kaptCode)) return dashboardAptAreaPricesCache.get(kaptCode);
+
+  try {
+    const res = await fetch(`${DASHBOARD_APT_AREA_PRICES_BASE_URL}/${kaptCode}.json`, { cache: 'no-store' });
+    if (!res.ok) {
+      dashboardAptAreaPricesCache.set(kaptCode, null);
+      return null;
+    }
+    const data = await res.json();
+    dashboardAptAreaPricesCache.set(kaptCode, data);
+    return data;
+  } catch {
+    dashboardAptAreaPricesCache.set(kaptCode, null);
+    return null;
+  }
+}
 const dashboardAptSearchState = {
   entries: [],
   entriesById: new Map(),
@@ -127,6 +148,7 @@ const dashboardAptLoanState = {
   entryId: '',
   loanType: 'fund',
   price: '',
+  selectedAreaBucket: '',
 };
 
 function getDashboardAptRegionFilter() {
@@ -906,6 +928,46 @@ function renderConvenienceSectionHtml(entry) {
   `;
 }
 
+function formatAreaPriceManwon(price) {
+  if (!Number.isFinite(price) || price <= 0) return '';
+  const eok = price / 10000;
+  const formatted = Number.isInteger(eok) ? String(eok) : eok.toFixed(1).replace(/\.0$/, '');
+  return `${formatted}억`;
+}
+
+function renderAreaPricesSectionHtml(areaPrices) {
+  if (!areaPrices?.byArea) return '';
+  const entries = Object.entries(areaPrices.byArea)
+    .sort((a, b) => {
+      const aSize = parseInt(a[0], 10);
+      const bSize = parseInt(b[0], 10);
+      return aSize - bSize;
+    });
+  if (!entries.length) return '';
+
+  const rows = entries.map(([bucket, data]) => {
+    const avg = formatAreaPriceManwon(data.avgPrice);
+    const latest = formatAreaPriceManwon(data.latestPrice);
+    const countLabel = `${data.tradeCount}건`;
+    const latestLabel = latest && latest !== avg ? ` · 최근 ${latest}` : '';
+    return `
+      <div class="db-apt-area-row">
+        <span class="db-apt-area-bucket">${escapeHtml(bucket)}</span>
+        <span class="db-apt-area-price">${escapeHtml(avg)}${escapeHtml(latestLabel)}</span>
+        <span class="db-apt-area-count">${escapeHtml(countLabel)}</span>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="db-apt-area-prices-section">
+      <div class="db-apt-convenience-divider">── 평형별 실거래 ──</div>
+      <div class="db-apt-area-rows">${rows}</div>
+      <div class="db-apt-area-note">최근 12개월 실거래 기준 · 2건 이상 평형만 표시</div>
+    </div>
+  `;
+}
+
 function buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas }) {
   const householdByCode = new Map();
   const householdByKey = new Map();
@@ -1308,6 +1370,7 @@ function renderDashboardSelectedApartment() {
           </div>
         </div>
         ${renderConvenienceSectionHtml(entry)}
+        ${renderAreaPricesSectionHtml(insight?.areaPrices)}
         <div class="db-apt-grade-summary">
           <div class="db-apt-grade-reasons">
             ${(gradeData?.reasons || ['초품아 거리와 가까운 역 거리를 우선 정리하는 중이에요.']).map(reason => `<p>${escapeHtml(reason)}</p>`).join('')}
@@ -1389,6 +1452,42 @@ function setAptLoanType(type) {
   updateAptLoanSheetState();
 }
 
+function renderAptLoanAreaSelector(areaPrices) {
+  if (!areaPrices?.byArea) return '';
+  const entries = Object.entries(areaPrices.byArea)
+    .sort((a, b) => parseInt(a[0], 10) - parseInt(b[0], 10));
+  if (!entries.length) return '';
+
+  const options = entries.map(([bucket, data]) => {
+    const eok = formatDashboardAptPriceEok(data.avgPrice);
+    const label = eok ? `${bucket} · 평균 ${eok}억` : bucket;
+    const isSelected = dashboardAptLoanState.selectedAreaBucket === bucket;
+    return `<button class="apt-loan-area-btn${isSelected ? ' active' : ''}" type="button"
+      data-bucket="${escapeHtml(bucket)}"
+      data-price="${data.avgPrice || ''}"
+      onclick="selectAptLoanAreaBucket('${escapeHtml(bucket)}', ${data.avgPrice || 0})"
+    >${escapeHtml(label)}</button>`;
+  }).join('');
+
+  return `<div class="apt-loan-area-selector"><div class="apt-loan-area-label">평형 선택 시 가격 자동 입력</div><div class="apt-loan-area-btns">${options}</div></div>`;
+}
+
+function selectAptLoanAreaBucket(bucket, priceManwon) {
+  dashboardAptLoanState.selectedAreaBucket = bucket;
+  const eok = formatDashboardAptPriceEok(priceManwon);
+  if (eok) {
+    const input = document.getElementById('aptLoanPriceInput');
+    if (input) {
+      input.value = eok;
+      dashboardAptLoanState.price = eok;
+      updateAptLoanSheetState();
+    }
+  }
+  document.querySelectorAll('.apt-loan-area-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.bucket === bucket);
+  });
+}
+
 function openAptLoanSheet(entryId) {
   if (!isDashboardAptAnalysisUnlocked()) {
     openAptAnalysisPaywallSheet();
@@ -1404,11 +1503,18 @@ function openAptLoanSheet(entryId) {
   const desc = document.getElementById('aptLoanSheetDesc');
   if (!overlay || !sheet || !input) return;
 
+  const insight = dashboardAptSearchState.selectedInsight;
+  const areaPrices = insight?.areaPrices || null;
   const priceManwon = getDashboardAptBasisPriceManwon(entry);
   const basisPrice = formatDashboardAptPriceEok(priceManwon);
   dashboardAptLoanState.entryId = entry.id;
   dashboardAptLoanState.price = basisPrice;
+  dashboardAptLoanState.selectedAreaBucket = '';
   input.value = basisPrice;
+
+  const areaSelectorEl = document.getElementById('aptLoanAreaSelector');
+  if (areaSelectorEl) areaSelectorEl.innerHTML = renderAptLoanAreaSelector(areaPrices);
+
   if (desc) {
     desc.textContent = basisPrice
       ? `${entry.aptName} 기준 가격을 확인하고 필요하면 직접 수정해주세요.`
@@ -1586,6 +1692,20 @@ function hydrateDashboardApartmentInsight(entry) {
   dashboardAptSearchState.selectedInsight = insight;
   renderDashboardSelectedApartment();
 
+  if (entry.kaptCode) {
+    fetchAptAreaPrices(entry.kaptCode)
+      .then(areaPrices => {
+        if (!areaPrices) return;
+        insight.areaPrices = areaPrices;
+        dashboardAptSearchInsightCache.set(cacheKey, insight);
+        if (dashboardAptSearchState.selectedId === entry.id) {
+          dashboardAptSearchState.selectedInsight = insight;
+          renderDashboardSelectedApartment();
+        }
+      })
+      .catch(() => {});
+  }
+
   const needsStationBackfill = !hasSubwayGraphStationMatch(entry.subwayStation);
   const canBackfillStation = typeof searchComplexLocation === 'function' && typeof searchNearestStation === 'function';
   if (!needsStationBackfill || !canBackfillStation) return;
@@ -1676,3 +1796,4 @@ window.revealDashboardAptAnalysisAfterAuth = revealDashboardAptAnalysisAfterAuth
 window.setAptLoanType = setAptLoanType;
 window.updateAptLoanSheetState = updateAptLoanSheetState;
 window.submitAptLoanSheet = submitAptLoanSheet;
+window.selectAptLoanAreaBucket = selectAptLoanAreaBucket;
