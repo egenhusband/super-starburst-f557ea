@@ -1432,7 +1432,7 @@
     const income = parseFloat(card.dataset.limitIncome || 0);
     const region = card.dataset.limitRegion || '';
     const house = card.dataset.limitHouse || '';
-    const dtiLimitPct = product === 'didimdol' ? 60 : getBogeumDtiLimit(region, house, income, price);
+    const dtiLimitPct = product === 'didimdol' || product === 'newborn' ? 60 : getBogeumDtiLimit(region, house, income, price);
     const otherLoan = parseFloat(card.dataset.limitOtherLoan || 0);
     const ltvLimit = parseFloat(card.dataset.limitLtvLimit || 0);
     const maxLimit = parseFloat(card.dataset.limitMaxLimit || 0);
@@ -1449,12 +1449,14 @@
       if (activeTab.id.indexOf('equal-principal') !== -1) method = 'equal-principal';
       else if (activeTab.id.indexOf('increasing') !== -1) method = 'increasing';
     }
-    const dtiLimitRaw = product === 'didimdol'
-      ? getDidimdolDtiLoanLimitEok(income, otherLoan, annualRate, years, method)
+    const dtiLimitRaw = product === 'newborn'
+      ? getNewbornDtiLoanLimitEok(income, otherLoan, annualRate, years, method)
+      : product === 'didimdol'
+        ? getDidimdolDtiLoanLimitEok(income, otherLoan, annualRate, years, method)
       : getBogeumDtiLoanLimitEok(income, price, region, house, otherLoan, annualRate, years, method);
     const appliedValue = Math.min(ltvLimit, maxLimit, Number.isFinite(dtiLimitRaw) ? dtiLimitRaw : Infinity);
     const appliedByDti = Number.isFinite(dtiLimitRaw) && appliedValue === dtiLimitRaw;
-    const roomAdjusted = product === 'didimdol' && afterLimit !== formatLimit(appliedValue);
+    const roomAdjusted = (product === 'didimdol' || product === 'newborn') && afterLimit !== formatLimit(appliedValue);
     let copy = `소득과 기타대출의 연간 이자 추정치를 반영한 DTI 기준 한도를 함께 계산하고 있어요. 현재는 DTI보다 LTV 또는 상품 최대한도가 먼저 적용돼 한도가 정해진 상태예요.`;
     if (appliedByDti) {
       copy = `현재 조건에서는 DTI ${dtiLimitPct}%를 넘지 않는 범위로 기본 한도가 ${formatLimit(beforeLimit)}에서 ${formatLimit(appliedValue)}로 조정돼요.`;
@@ -2116,9 +2118,11 @@
     const amtEl = document.getElementById('mc-amt-' + uid);
     if (amtEl) {
       let principal = parseFloat(amtEl.dataset.principal || 0);
+      const dynamicNewborn = syncNewbornDynamicLimit(uid, finalRate, years, method);
       const dynamicDidimdol = syncDidimdolDynamicLimit(uid, finalRate, years, method);
       const dynamicBogeum = syncBogeumDynamicLimit(uid, finalRate, years, method);
-      if (dynamicDidimdol) principal = Math.max(0, dynamicDidimdol.displayLimit) * 100000000;
+      if (dynamicNewborn) principal = Math.max(0, dynamicNewborn.displayLimit) * 100000000;
+      else if (dynamicDidimdol) principal = Math.max(0, dynamicDidimdol.displayLimit) * 100000000;
       else if (dynamicBogeum) principal = Math.max(0, dynamicBogeum.finalLimit) * 100000000;
       if (principal > 0) {
         const amt = calcMonthly(principal, finalRate, method, years);
@@ -2210,9 +2214,11 @@
     }
     const amtEl = document.getElementById('mc-amt-' + uid);
     let currentPrincipal = amtEl ? parseFloat(amtEl.dataset.principal || principal || 0) : principal;
+    const dynamicNewborn = syncNewbornDynamicLimit(uid, finalRate, years, method);
     const dynamicDidimdol = syncDidimdolDynamicLimit(uid, finalRate, years, method);
     const dynamicBogeum = syncBogeumDynamicLimit(uid, finalRate, years, method);
-    if (dynamicDidimdol) currentPrincipal = Math.max(0, dynamicDidimdol.displayLimit) * 100000000;
+    if (dynamicNewborn) currentPrincipal = Math.max(0, dynamicNewborn.displayLimit) * 100000000;
+    else if (dynamicDidimdol) currentPrincipal = Math.max(0, dynamicDidimdol.displayLimit) * 100000000;
     else if (dynamicBogeum) currentPrincipal = Math.max(0, dynamicBogeum.finalLimit) * 100000000;
     const amt   = calcMonthly(currentPrincipal, finalRate, method, years);
     if (amtEl) {
@@ -2472,35 +2478,50 @@
   }
 
   // ── LOGIC ──
-  function newbornLimitCardHtml(ltvLimit, maxLimit, finalLimit, price, house, rate30, income, household, region) {
+  function newbornLimitCardHtml(ltvLimit, maxLimit, finalLimit, price, house, rate30, income, household, region, dtiLimit, otherLoanInterest) {
     const ltvPct   = Math.round(ltvLimit / price * 100);
     const ltvLabel = ltvPct + '%';
-    const ltvApplied = ltvLimit <= maxLimit;
+    const safeDtiLimit = typeof dtiLimit === 'number' ? dtiLimit : Infinity;
+    const appliedValue = Math.min(ltvLimit, maxLimit, safeDtiLimit);
+    const ltvApplied = appliedValue === ltvLimit;
     const appliedCls = ltvApplied ? ' applied' : '';
-    const maxAppliedCls = !ltvApplied ? ' applied' : '';
-    const reasonText = ltvApplied
+    const maxAppliedCls = appliedValue === maxLimit ? ' applied' : '';
+    const dtiAppliedCls = appliedValue === safeDtiLimit ? ' applied' : '';
+    let reasonText = ltvApplied
       ? 'LTV ' + ltvLabel + ' 기준 · 주택가격 <em>' + price + '억 × ' + ltvLabel + '</em> = <em>' + formatLimit(ltvLimit) + '</em>'
       : '상품 한도 기준 · 최대 <em>' + formatLimit(maxLimit) + '</em>';
+    if (Number.isFinite(safeDtiLimit) && appliedValue === safeDtiLimit) {
+      reasonText = 'DTI 60% 기준 적용 · 소득/기타부채 기준 최대 <em>' + formatLimit(safeDtiLimit) + '</em>';
+    }
 
     const uid = 'nb_' + Math.random().toString(36).slice(2, 7);
     const roomState = getRoomDeductionState('newborn', finalLimit, income, price, house, region, null, true, household);
     const displayLimit = roomState.finalLimit;
     const principalWon = displayLimit * 100000000;
 
-    return '<div class="limit-detail-card" style="border-top:3px solid #ff6b9d">'
+    return '<div class="limit-detail-card" style="border-top:3px solid #ff6b9d" data-limit-product="newborn" data-limit-ltv-limit="' + ltvLimit + '" data-limit-max-limit="' + maxLimit + '" data-limit-price="' + price + '" data-limit-income="' + income + '" data-limit-region="' + region + '" data-limit-house="' + house + '" data-limit-household="' + household + '" data-limit-other-loan="' + (otherLoanInterest || 0) + '" data-newborn-limit-card data-newborn-ltv-limit="' + ltvLimit + '" data-newborn-max-limit="' + maxLimit + '" data-newborn-price="' + price + '" data-newborn-income="' + income + '" data-newborn-region="' + region + '" data-newborn-house="' + house + '" data-newborn-household="' + household + '" data-newborn-other-loan="' + (otherLoanInterest || 0) + '">'
       + '<div class="limit-detail-label">예상 대출 한도</div>'
-      + '<div class="limit-detail-amount" style="color:#ff6b9d" data-room-final-amount>' + formatLimit(displayLimit) + '</div>'
+      + '<div class="limit-detail-amount" style="color:#ff6b9d" data-room-final-amount data-limit-amount data-newborn-limit-amount data-motion-value="0" data-motion-target="' + Math.round(displayLimit * 100000000) + '">' + formatLimit(displayLimit) + '</div>'
       + '<div class="limit-breakdown">'
       + '<div class="limit-breakdown-item">'
       + '<span class="breakdown-label">LTV ' + ltvLabel + ' 적용</span>'
-      + '<span class="breakdown-val' + appliedCls + '">' + formatLimit(ltvLimit) + '</span>'
+      + '<span class="breakdown-val' + appliedCls + '" data-limit-ltv data-newborn-limit-ltv>' + formatLimit(ltvLimit) + '</span>'
       + '</div>'
       + '<div class="limit-breakdown-item">'
       + '<span class="breakdown-label">상품 최대 한도</span>'
-      + '<span class="breakdown-val' + maxAppliedCls + '">' + formatLimit(maxLimit) + '</span>'
+      + '<span class="breakdown-val' + maxAppliedCls + '" data-limit-max data-newborn-limit-max>' + formatLimit(maxLimit) + '</span>'
+      + '</div>'
+      + '<div class="limit-breakdown-item limit-breakdown-item--info">'
+      + '<div class="limit-breakdown-topline">'
+      + '<span class="breakdown-label">DTI 기준 한도</span>'
+      + '<button class="limit-info-trigger" type="button" aria-expanded="false" onclick="openDtiInfoSheet(this)">'
+      + icon('info', 12)
+      + '</button>'
+      + '</div>'
+      + '<span class="breakdown-val' + dtiAppliedCls + '" data-limit-dti data-newborn-limit-dti>' + (Number.isFinite(safeDtiLimit) ? formatLimit(safeDtiLimit) : '미반영') + '</span>'
       + '</div>'
       + '</div>'
-      + '<div class="limit-applied-note">' + reasonText + '</div>'
+      + '<div class="limit-applied-note" data-limit-note data-newborn-limit-note>' + reasonText + '</div>'
       + '<div class="limit-reason">LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 개인별 신용 및 소득에 따라 달라질 수 있습니다. 보다 자세한 산정내역은 기금e든든에서 꼭 확인이 필요합니다.</div>'
       + roomDeductionHtml(uid, 'newborn', roomState, finalLimit, price, income, house, region, household)
       + loanRatioBarHtml(uid, displayLimit, price, '#ff6b9d')
@@ -2599,7 +2620,7 @@
     var newbornOk = o.newbornOk, didimdolOk = o.didimdolOk, bogeumjariOk = o.bogeumjariOk;
     var income = o.income, price = o.price, asset = o.asset;
     var household = o.household, house = o.house, children = o.children, region = o.region, otherLoanInterest = o.otherLoanInterest || 0;
-    var nbRate = o.nbRate, nbLtvLimit = o.nbLtvLimit, nbMaxLimit = o.nbMaxLimit, nbFinalLimit = o.nbFinalLimit;
+    var nbRate = o.nbRate, nbLtvLimit = o.nbLtvLimit, nbMaxLimit = o.nbMaxLimit, nbFinalLimit = o.nbFinalLimit, nbDtiLimit = o.nbDtiLimit;
     var nbHouseOk = o.nbHouseOk, nbIncomeOk = o.nbIncomeOk, nbAssetOk = o.nbAssetOk, nbPriceOk = o.nbPriceOk;
     var dLtvLimit = o.dLtvLimit, dMaxLimit = o.dMaxLimit, dFinalLimit = o.dFinalLimit, dDtiLimit = o.dDtiLimit;
     var dIncomeLimit = o.dIncomeLimit, dPriceLimit = o.dPriceLimit;
@@ -2642,7 +2663,7 @@
         + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val" style="color:#ff6b9d"><span class="room-sync-newborn">' + formatLimit(nbDisplayLimit) + '</span></span></div>'
         + '</div></div>'
         + '<div class="result-spacer-sm"></div>'
-        + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30, income, household, region)
+        + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30, income, household, region, nbDtiLimit, otherLoanInterest)
         + '<div class="result-spacer"></div>'
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
@@ -2820,6 +2841,10 @@
     return Math.max(0, principalWon / 100000000);
   }
 
+  function getNewbornDtiLoanLimitEok(income, otherLoanInterest, annualRate, years, method) {
+    return getDidimdolDtiLoanLimitEok(income, otherLoanInterest, annualRate, years, method);
+  }
+
   function updateBogeumLimitUi(rateSection, finalLimit, dtiLimit) {
     const card = rateSection?.closest('.limit-detail-card');
     if (!card) return;
@@ -2934,6 +2959,72 @@
     }
   }
 
+  function updateNewbornLimitUi(rateSection, finalLimit, dtiLimit) {
+    const card = rateSection?.closest('.limit-detail-card');
+    if (!card) return;
+    const amountEl = card.querySelector('[data-newborn-limit-amount]');
+    const ltvEl = card.querySelector('[data-newborn-limit-ltv]');
+    const maxEl = card.querySelector('[data-newborn-limit-max]');
+    const dtiEl = card.querySelector('[data-newborn-limit-dti]');
+    const noteEl = card.querySelector('[data-newborn-limit-note]');
+    const barWrap = card.querySelector('.loan-ratio-bar-wrap');
+    const roomBox = card.querySelector('[data-room-card="true"]');
+
+    const ltvLimit = parseFloat(card.dataset.newbornLtvLimit || 0);
+    const maxLimit = parseFloat(card.dataset.newbornMaxLimit || 0);
+    const price = parseFloat(card.dataset.newbornPrice || 0);
+    const income = parseFloat(card.dataset.newbornIncome || 0);
+    const region = card.dataset.newbornRegion || '';
+    const house = card.dataset.newbornHouse || '';
+    const appliedValue = Math.min(ltvLimit, maxLimit, Number.isFinite(dtiLimit) ? dtiLimit : Infinity);
+    const desiredOn = roomBox ? roomBox.dataset.roomDesiredOn !== '0' : true;
+    const regionKey = roomBox ? (roomBox.dataset.roomRegionKey || null) : null;
+    const roomState = getRoomDeductionState('newborn', finalLimit, income, price, house, region, regionKey, desiredOn, card.dataset.newbornHousehold || '');
+    const displayLimit = roomState.finalLimit;
+
+    if (amountEl) {
+      amountEl.dataset.motionTarget = String(Math.round(displayLimit * 100000000));
+      setAnimatedAmount(amountEl, displayLimit * 100000000, formatLimitWon);
+    }
+    document.querySelectorAll('.room-sync-newborn').forEach(function(el) {
+      el.textContent = formatLimit(displayLimit);
+    });
+    if (barWrap) animateLoanBar(barWrap.dataset.loanBarUid, displayLimit, parseFloat(barWrap.dataset.loanBarPrice || price));
+    if (ltvEl) ltvEl.className = 'breakdown-val' + (appliedValue === ltvLimit ? ' applied' : '');
+    if (maxEl) maxEl.className = 'breakdown-val' + (appliedValue === maxLimit ? ' applied' : '');
+    if (dtiEl) {
+      dtiEl.textContent = Number.isFinite(dtiLimit) ? formatLimit(dtiLimit) : '미반영';
+      dtiEl.className = 'breakdown-val' + (Number.isFinite(dtiLimit) && appliedValue === dtiLimit ? ' applied' : '');
+    }
+    if (noteEl) {
+      if (Number.isFinite(dtiLimit) && appliedValue === dtiLimit) {
+        noteEl.innerHTML = `DTI 60% 기준 적용 · 소득/기타부채 기준 최대 <em>${formatLimit(dtiLimit)}</em>`;
+      } else if (appliedValue === ltvLimit) {
+        noteEl.innerHTML = `LTV ${Math.round(ltvLimit/price*100)}% 기준 적용 · 주택가격 <em>${price}억 × ${Math.round(ltvLimit/price*100)}%</em> = <em>${formatLimit(ltvLimit)}</em>`;
+      } else {
+        noteEl.innerHTML = `상품 한도 기준 적용 · 최대 <em>${formatLimit(maxLimit)}</em>`;
+      }
+    }
+
+    if (roomBox) {
+      roomBox.dataset.baseLimit = String(finalLimit);
+      roomBox.dataset.roomDesiredOn = roomState.checked ? '1' : '0';
+      roomBox.dataset.roomRegionKey = roomState.key;
+      const toggle = roomBox.querySelector('[id^="room-toggle-"]');
+      const regionSelect = roomBox.querySelector('[id^="room-region-"]');
+      const deductEl = roomBox.querySelector('[id^="room-deduct-"]');
+      const baseEl = roomBox.querySelector('[id^="room-base-"]');
+      const finalEl = roomBox.querySelector('[id^="room-final-"]');
+      const roomNoteEl = roomBox.querySelector('[id^="room-note-"]');
+      if (toggle) toggle.checked = roomState.checked;
+      if (regionSelect) regionSelect.value = roomState.key;
+      if (deductEl) deductEl.textContent = roomState.deduction > 0 ? '-' + formatRoomDeductionAmount(roomState.deduction) : '미적용';
+      if (baseEl) baseEl.textContent = formatLimit(finalLimit);
+      if (finalEl) finalEl.textContent = formatLimit(displayLimit);
+      if (roomNoteEl) roomNoteEl.textContent = roomState.note;
+    }
+  }
+
   function syncBogeumDynamicLimit(sectionUid, annualRate, years, method) {
     const rateSection = document.querySelector('.rate-calc-section[data-uid="' + sectionUid + '"]');
     if (!rateSection || rateSection.dataset.color !== 'green') return null;
@@ -2986,6 +3077,39 @@
 
     amtEl.dataset.principal = String(roomState.finalLimit * 100000000);
     updateDidimdolLimitUi(rateSection, finalLimit, dtiLimit);
+    return { finalLimit, displayLimit: roomState.finalLimit, dtiLimit };
+  }
+
+  function syncNewbornDynamicLimit(sectionUid, annualRate, years, method) {
+    const rateSection = document.querySelector('.rate-calc-section[data-uid="' + sectionUid + '"]');
+    if (!rateSection || rateSection.dataset.color !== 'nb') return null;
+    const card = rateSection.closest('.limit-detail-card');
+    const amtEl = document.getElementById('mc-amt-' + sectionUid);
+    if (!card || !amtEl) return null;
+
+    const ltvLimit = parseFloat(card.dataset.newbornLtvLimit || 0);
+    const maxLimit = parseFloat(card.dataset.newbornMaxLimit || 0);
+    const income = parseFloat(card.dataset.newbornIncome || 0);
+    const otherLoan = parseFloat(card.dataset.newbornOtherLoan || 0);
+    const dtiLimit = getNewbornDtiLoanLimitEok(income, otherLoan, annualRate, years, method);
+    const finalLimit = Math.min(ltvLimit, maxLimit, Number.isFinite(dtiLimit) ? dtiLimit : Infinity);
+    const roomBox = card.querySelector('[data-room-card="true"]');
+    const desiredOn = roomBox ? roomBox.dataset.roomDesiredOn !== '0' : true;
+    const regionKey = roomBox ? (roomBox.dataset.roomRegionKey || null) : null;
+    const roomState = getRoomDeductionState(
+      'newborn',
+      finalLimit,
+      income,
+      parseFloat(card.dataset.newbornPrice || 0),
+      card.dataset.newbornHouse || '',
+      card.dataset.newbornRegion || '',
+      regionKey,
+      desiredOn,
+      card.dataset.newbornHousehold || ''
+    );
+
+    amtEl.dataset.principal = String(roomState.finalLimit * 100000000);
+    updateNewbornLimitUi(rateSection, finalLimit, dtiLimit);
     return { finalLimit, displayLimit: roomState.finalLimit, dtiLimit };
   }
 
@@ -3057,8 +3181,10 @@
     const nbLtvRate    = getFundLtvRate(region, house, 'newborn');
     const nbLtvLimit   = price * nbLtvRate;
     const nbMaxLimit   = 4.0;
-    const nbFinalLimit = Math.min(nbLtvLimit, nbMaxLimit);
     const nbRate       = isNewborn ? getNewbornRate(income) : null;
+    const nbDefaultRate = nbRate ? nbRate.rate : getNewbornRate(income, 30).rate;
+    const nbDtiLimit = getNewbornDtiLoanLimitEok(income, otherLoanInterest, nbDefaultRate, 30, 'annuity');
+    const nbFinalLimit = Math.min(nbLtvLimit, nbMaxLimit, Number.isFinite(nbDtiLimit) ? nbDtiLimit : Infinity);
 
     // 디딤돌 자격 (신생아도 디딤돌 조건 동시 체크)
     const dHouseOk = house === '무주택' || house === '생애최초';
@@ -3110,7 +3236,7 @@
         html = buildNewbornHtml({
           newbornOk, didimdolOk, bogeumjariOk,
           income, price, asset, household, house, children, region, otherLoanInterest,
-          nbRate, nbLtvLimit, nbMaxLimit, nbFinalLimit,
+          nbRate, nbLtvLimit, nbMaxLimit, nbFinalLimit, nbDtiLimit,
           nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk,
           dLtvLimit, dMaxLimit, dFinalLimit, dDtiLimit, dIncomeLimit, dPriceLimit,
           bLtvLimit, bMaxLimit, bFinalLimit, bIncomeLimit, bDtiLimit
