@@ -129,6 +129,7 @@ const dashboardAptSearchState = {
   selectedInsight: null,
   isEditing: false,
   gradeLoadingKey: '',
+  aptAnalysisPaywallPromptedKey: '',
   loading: false,
   ready: false,
   error: '',
@@ -706,7 +707,7 @@ function getAptAnalysisStatus(entry, cachedGrade) {
   if (!dashboardAptSearchState.selectedInsight && !cachedGrade) return 'loading';
   if (!cachedGrade) return 'error';
   if (isDashboardAptAnalysisUnlocked()) return 'unlocked';
-  return 'locked';
+  return 'paywall';
 }
 
 function renderAptGradeSkeletonCard(entry, hasNineLineBenefit) {
@@ -751,63 +752,6 @@ function renderAptGradeSkeletonCard(entry, hasNineLineBenefit) {
   `;
 }
 
-function renderAptGradeLockedCard(entry, insight) {
-  const lockIcon = typeof icon === 'function' ? icon('keyRound', 18) : '';
-  const stationText = formatStationSummary(entry, insight);
-  const schoolDistance = getSchoolMetaDistance(entry);
-  const schoolText = entry.schoolName && Number.isFinite(schoolDistance)
-    ? `${entry.schoolName} · 직선 ${formatDistance(schoolDistance)}`
-    : '초등학교 거리 확인 중';
-  const schoolParts = splitDistanceLabel(schoolText);
-  const stationParts = splitDistanceLabel(stationText);
-  return `
-    <article class="db-apt-grade-card db-apt-grade-card--locked">
-      <div class="db-apt-grade-head">
-        <div>
-          <div class="db-fact-label">단지 간단 등급</div>
-          <strong>${escapeHtml(entry.aptName)}</strong>
-          <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
-        </div>
-        <div class="db-apt-grade-badge grade-pending">
-          <span>분석</span>
-          <strong>완료</strong>
-        </div>
-      </div>
-      <p class="db-apt-grade-status">초품아, 가까운 역, 업무지구 접근성과 등급 사유를 정리했어요.</p>
-      <div class="db-apt-grade-grid db-apt-grade-grid--preview">
-        <div class="db-apt-grade-chip">
-          <span>초등학교</span>
-          <strong>${escapeHtml(schoolParts.primary || schoolText)}</strong>
-          ${schoolParts.secondary ? `<em>${escapeHtml(schoolParts.secondary)}</em>` : ''}
-        </div>
-        <div class="db-apt-grade-chip">
-          <span>가까운 역</span>
-          <strong>${escapeHtml(stationParts.primary || stationText)}</strong>
-          ${stationParts.secondary ? `<em>${escapeHtml(stationParts.secondary)}</em>` : ''}
-        </div>
-        <div class="db-apt-grade-chip">
-          <span>세대수</span>
-          <strong>${escapeHtml(formatHouseholdLabel(entry.householdCount))}</strong>
-        </div>
-        <div class="db-apt-grade-chip">
-          <span>준공</span>
-          <strong>${escapeHtml(formatBuildYearLabel(entry.buildYear))}</strong>
-        </div>
-      </div>
-      <div class="db-apt-locked-panel">
-        <div>
-          <strong>단지 분석을 열면 확인할 수 있어요</strong>
-          <p>등급, 초품아, 가까운 역, 업무지구, 판단 사유를 한 번에 보여드려요.</p>
-        </div>
-        <button class="db-apt-analysis-unlock-btn" type="button" onclick="openAptAnalysisPaywallSheet()">
-          <span>${lockIcon}</span>
-          8,900원으로 단지 분석 열기
-        </button>
-      </div>
-    </article>
-  `;
-}
-
 function renderAptGradeErrorCard(entry) {
   const refreshIcon = typeof icon === 'function' ? icon('rotateCcw', 18) : '';
   return `
@@ -832,6 +776,26 @@ function renderAptGradeErrorCard(entry) {
   `;
 }
 
+function queueAptAnalysisPaywall(entry) {
+  const key = getAptGradeKey(entry);
+  if (!key || dashboardAptSearchState.aptAnalysisPaywallPromptedKey === key) return;
+  dashboardAptSearchState.aptAnalysisPaywallPromptedKey = key;
+
+  const tryOpen = (attempt = 0) => {
+    if (dashboardAptSearchState.selectedId !== entry.id) return;
+    if (isDashboardAptAnalysisUnlocked()) return;
+    if (typeof window.openPaySheet === 'function') {
+      openAptAnalysisPaywallSheet();
+      return;
+    }
+    if (attempt < 10) {
+      window.setTimeout(() => tryOpen(attempt + 1), 100);
+    }
+  };
+
+  window.setTimeout(() => tryOpen(), 120);
+}
+
 function renderDashboardSelectedApartment() {
   const target = document.getElementById('dbAptSearchSelected');
   if (!target) return;
@@ -852,16 +816,10 @@ function renderDashboardSelectedApartment() {
     const insight = dashboardAptSearchState.selectedInsight;
     const cachedGrade = getCachedAptGrade(entry);
     const analysisStatus = getAptAnalysisStatus(entry, cachedGrade);
-    const gradeData = analysisStatus === 'unlocked' ? cachedGrade : null;
+    const gradeData = (analysisStatus === 'unlocked' || analysisStatus === 'paywall') ? cachedGrade : null;
     const hasNineLineBenefit = hasNineLineBenefitCandidate(entry);
     if (analysisStatus === 'loading') {
       target.innerHTML = renderAptGradeSkeletonCard(entry, hasNineLineBenefit);
-      target.dataset.renderedEntryId = entry.id;
-      return;
-    }
-    if (analysisStatus === 'locked') {
-      target.innerHTML = renderAptGradeLockedCard(entry, insight);
-      if (typeof window.renderIcons === 'function') window.renderIcons(target);
       target.dataset.renderedEntryId = entry.id;
       return;
     }
@@ -953,6 +911,9 @@ function renderDashboardSelectedApartment() {
         </button>
       </article>
     `;
+    if (analysisStatus === 'paywall') {
+      queueAptAnalysisPaywall(entry);
+    }
   } catch (error) {
     target.innerHTML = `
       <article class="db-apt-grade-card">
@@ -1357,6 +1318,7 @@ function pickDashboardApartment(id) {
   }
   dashboardAptSearchState.selectedId = id;
   dashboardAptSearchState.isEditing = false;
+  dashboardAptSearchState.aptAnalysisPaywallPromptedKey = '';
   dashboardAptSearchState.query = `${entry.aptName} ${entry.displayLocation}`.trim();
   dashboardAptSearchState.results = [];
   syncDashboardAptSearchUi();

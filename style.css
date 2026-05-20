@@ -5164,33 +5164,9 @@
 .db-apt-grade-disclaimer p + p {
   margin-top: 6px;
 }
-.db-apt-grade-card--locked,
 .db-apt-grade-card--error {
   overflow: hidden;
 }
-.db-apt-locked-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-top: 18px;
-  padding: 18px;
-  border-radius: 18px;
-  background: rgba(255,255,255,0.025);
-}
-.db-apt-locked-panel strong {
-  display: block;
-  font-size: 16px;
-  line-height: 1.35;
-  color: #f6f8fb;
-  letter-spacing: -0.02em;
-}
-.db-apt-locked-panel p {
-  margin: 6px 0 0;
-  font-size: 13px;
-  line-height: 1.55;
-  color: rgba(214,223,236,0.64);
-}
-.db-apt-analysis-unlock-btn,
 .db-apt-analysis-retry-btn {
   width: 100%;
   min-height: 50px;
@@ -5213,7 +5189,6 @@
   background: var(--bg4);
   color: #f6f8fb;
 }
-.db-apt-analysis-unlock-btn span,
 .db-apt-analysis-retry-btn span {
   display: inline-flex;
   color: inherit;
@@ -5686,7 +5661,6 @@
 .db-apt-grade-return:active,
 .db-cta:active,
 .db-apt-loan-cta:active,
-.db-apt-analysis-unlock-btn:active,
 .db-apt-analysis-retry-btn:active,
 .apt-loan-submit:active:not(:disabled),
 .apt-loan-type:active {
