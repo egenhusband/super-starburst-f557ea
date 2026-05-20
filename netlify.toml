@@ -1,3 +1,6 @@
+[functions]
+  included_files = ["data/subway-seoul-times.json"]
+
 [[redirects]]
   from = "/api/analyze-apt"
   to = "/.netlify/functions/analyze-apt"

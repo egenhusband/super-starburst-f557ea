@@ -57,6 +57,19 @@ const NINE_LINE_944_BENEFIT_CODES = new Set(['A10026523', 'A10028065']);
 
 let subwayGraphCache = null;
 
+function resolveDataFile(relativePath) {
+  const candidates = [
+    path.join(process.cwd(), relativePath),
+    path.join(__dirname, '..', '..', relativePath),
+    path.join(__dirname, relativePath),
+  ];
+  const found = candidates.find(candidate => fs.existsSync(candidate));
+  if (!found) {
+    throw new Error(`Missing data file: ${relativePath}`);
+  }
+  return found;
+}
+
 function jsonResponse(statusCode, body) {
   return {
     statusCode,
@@ -166,7 +179,7 @@ function buildDashboardSubwayGraph(payload) {
 
 function loadSubwayGraph() {
   if (subwayGraphCache) return subwayGraphCache;
-  const filePath = path.join(process.cwd(), 'data', 'subway-seoul-times.json');
+  const filePath = resolveDataFile(path.join('data', 'subway-seoul-times.json'));
   const payload = JSON.parse(fs.readFileSync(filePath, 'utf8'));
   subwayGraphCache = buildDashboardSubwayGraph(payload);
   return subwayGraphCache;
