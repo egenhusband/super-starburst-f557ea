@@ -1,0 +1,9 @@
+[[redirects]]
+  from = "/api/analyze-apt"
+  to = "/.netlify/functions/analyze-apt"
+  status = 200
+
+[[redirects]]
+  from = "/api/calc-loan"
+  to = "/.netlify/functions/calc-loan"
+  status = 200
