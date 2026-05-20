@@ -33,6 +33,16 @@ const dashboardAptSearchInsightCache = new Map();
 const dashboardAptAreaPricesCache = new Map();
 const dashboardAptGradeCache = new Map();
 
+function getAptGradeKey(entry) {
+  return entry?.kaptCode || entry?.id || '';
+}
+
+function getCachedAptGrade(entry) {
+  const key = getAptGradeKey(entry);
+  if (!key || !dashboardAptGradeCache.has(key)) return undefined;
+  return dashboardAptGradeCache.get(key);
+}
+
 async function fetchAptAreaPrices(kaptCode) {
   if (!kaptCode) return null;
   if (dashboardAptAreaPricesCache.has(kaptCode)) return dashboardAptAreaPricesCache.get(kaptCode);
@@ -88,7 +98,7 @@ function buildAptAnalysisPayload(entry, insight) {
 }
 
 async function fetchAptGrade(entry, insight) {
-  const key = entry?.kaptCode || entry?.id || '';
+  const key = getAptGradeKey(entry);
   if (!key) return null;
   if (dashboardAptGradeCache.has(key)) return dashboardAptGradeCache.get(key);
 
@@ -100,12 +110,13 @@ async function fetchAptGrade(entry, insight) {
     });
     if (!response.ok) throw new Error('단지 분석 결과를 불러오지 못했어요.');
     const data = await response.json();
-    const grade = data?.ok === false ? null : data;
+    const grade = data?.ok === false ? { error: true } : data;
     dashboardAptGradeCache.set(key, grade);
     return grade;
   } catch (error) {
-    dashboardAptGradeCache.set(key, null);
-    return null;
+    const failedGrade = { error: true };
+    dashboardAptGradeCache.set(key, failedGrade);
+    return failedGrade;
   }
 }
 const dashboardAptSearchState = {
@@ -117,6 +128,7 @@ const dashboardAptSearchState = {
   selectedId: '',
   selectedInsight: null,
   isEditing: false,
+  gradeLoadingKey: '',
   loading: false,
   ready: false,
   error: '',
@@ -687,6 +699,139 @@ function isDashboardAptAnalysisUnlocked() {
   return localStorage.getItem('authVerified') === '1';
 }
 
+function getAptAnalysisStatus(entry, cachedGrade) {
+  const key = getAptGradeKey(entry);
+  if (key && dashboardAptSearchState.gradeLoadingKey === key) return 'loading';
+  if (cachedGrade?.error) return 'error';
+  if (!dashboardAptSearchState.selectedInsight && !cachedGrade) return 'loading';
+  if (!cachedGrade) return 'error';
+  if (isDashboardAptAnalysisUnlocked()) return 'unlocked';
+  return 'locked';
+}
+
+function renderAptGradeSkeletonCard(entry, hasNineLineBenefit) {
+  return `
+    <article class="db-apt-grade-card">
+      <div class="db-apt-grade-head">
+        <div>
+          <div class="db-fact-label">단지 간단 등급</div>
+          <strong>${escapeHtml(entry.aptName)}</strong>
+          <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
+        </div>
+        <div class="db-apt-grade-badge grade-pending db-apt-grade-skeleton-badge">
+          <span class="db-apt-skeleton-line short"></span>
+          <strong class="db-apt-skeleton-line mark"></strong>
+        </div>
+      </div>
+      <p class="db-apt-grade-status">
+        <span class="db-apt-skeleton-line wide"></span>
+      </p>
+      ${hasNineLineBenefit ? `
+        <div class="db-apt-benefit-badges">
+          <span class="db-apt-benefit-badge">9호선 연장 수혜 예상</span>
+          <span class="db-apt-benefit-badge is-muted">강동하남남양주선 기본계획 기준</span>
+        </div>
+      ` : ''}
+      <div class="db-apt-grade-grid">
+        ${Array.from({ length: 6 }).map(() => `
+          <div class="db-apt-grade-chip db-apt-grade-chip-skeleton">
+            <span class="db-apt-skeleton-line label"></span>
+            <strong class="db-apt-skeleton-line body"></strong>
+            <em class="db-apt-skeleton-line small"></em>
+          </div>
+        `).join('')}
+      </div>
+      <div class="db-apt-grade-summary">
+        <div class="db-apt-grade-reasons">
+          <p><span class="db-apt-skeleton-line wide"></span></p>
+          <p><span class="db-apt-skeleton-line medium"></span></p>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderAptGradeLockedCard(entry, insight) {
+  const lockIcon = typeof icon === 'function' ? icon('keyRound', 18) : '';
+  const stationText = formatStationSummary(entry, insight);
+  const schoolDistance = getSchoolMetaDistance(entry);
+  const schoolText = entry.schoolName && Number.isFinite(schoolDistance)
+    ? `${entry.schoolName} · 직선 ${formatDistance(schoolDistance)}`
+    : '초등학교 거리 확인 중';
+  const schoolParts = splitDistanceLabel(schoolText);
+  const stationParts = splitDistanceLabel(stationText);
+  return `
+    <article class="db-apt-grade-card db-apt-grade-card--locked">
+      <div class="db-apt-grade-head">
+        <div>
+          <div class="db-fact-label">단지 간단 등급</div>
+          <strong>${escapeHtml(entry.aptName)}</strong>
+          <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
+        </div>
+        <div class="db-apt-grade-badge grade-pending">
+          <span>분석</span>
+          <strong>완료</strong>
+        </div>
+      </div>
+      <p class="db-apt-grade-status">초품아, 가까운 역, 업무지구 접근성과 등급 사유를 정리했어요.</p>
+      <div class="db-apt-grade-grid db-apt-grade-grid--preview">
+        <div class="db-apt-grade-chip">
+          <span>초등학교</span>
+          <strong>${escapeHtml(schoolParts.primary || schoolText)}</strong>
+          ${schoolParts.secondary ? `<em>${escapeHtml(schoolParts.secondary)}</em>` : ''}
+        </div>
+        <div class="db-apt-grade-chip">
+          <span>가까운 역</span>
+          <strong>${escapeHtml(stationParts.primary || stationText)}</strong>
+          ${stationParts.secondary ? `<em>${escapeHtml(stationParts.secondary)}</em>` : ''}
+        </div>
+        <div class="db-apt-grade-chip">
+          <span>세대수</span>
+          <strong>${escapeHtml(formatHouseholdLabel(entry.householdCount))}</strong>
+        </div>
+        <div class="db-apt-grade-chip">
+          <span>준공</span>
+          <strong>${escapeHtml(formatBuildYearLabel(entry.buildYear))}</strong>
+        </div>
+      </div>
+      <div class="db-apt-locked-panel">
+        <div>
+          <strong>단지 분석을 열면 확인할 수 있어요</strong>
+          <p>등급, 초품아, 가까운 역, 업무지구, 판단 사유를 한 번에 보여드려요.</p>
+        </div>
+        <button class="db-apt-analysis-unlock-btn" type="button" onclick="openAptAnalysisPaywallSheet()">
+          <span>${lockIcon}</span>
+          8,900원으로 단지 분석 열기
+        </button>
+      </div>
+    </article>
+  `;
+}
+
+function renderAptGradeErrorCard(entry) {
+  const refreshIcon = typeof icon === 'function' ? icon('rotateCcw', 18) : '';
+  return `
+    <article class="db-apt-grade-card db-apt-grade-card--error">
+      <div class="db-apt-grade-head">
+        <div>
+          <div class="db-fact-label">단지 간단 등급</div>
+          <strong>${escapeHtml(entry.aptName)}</strong>
+          <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
+        </div>
+        <div class="db-apt-grade-badge grade-pending">
+          <span>등급</span>
+          <strong>보류</strong>
+        </div>
+      </div>
+      <p class="db-apt-grade-status">분석 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</p>
+      <button class="db-apt-analysis-retry-btn" type="button" onclick="retryDashboardAptGrade()">
+        <span>${refreshIcon}</span>
+        다시 시도
+      </button>
+    </article>
+  `;
+}
+
 function renderDashboardSelectedApartment() {
   const target = document.getElementById('dbAptSearchSelected');
   if (!target) return;
@@ -705,7 +850,27 @@ function renderDashboardSelectedApartment() {
   }
   try {
     const insight = dashboardAptSearchState.selectedInsight;
-    const gradeData = insight?.grade || null;
+    const cachedGrade = getCachedAptGrade(entry);
+    const analysisStatus = getAptAnalysisStatus(entry, cachedGrade);
+    const gradeData = analysisStatus === 'unlocked' ? cachedGrade : null;
+    const hasNineLineBenefit = hasNineLineBenefitCandidate(entry);
+    if (analysisStatus === 'loading') {
+      target.innerHTML = renderAptGradeSkeletonCard(entry, hasNineLineBenefit);
+      target.dataset.renderedEntryId = entry.id;
+      return;
+    }
+    if (analysisStatus === 'locked') {
+      target.innerHTML = renderAptGradeLockedCard(entry, insight);
+      if (typeof window.renderIcons === 'function') window.renderIcons(target);
+      target.dataset.renderedEntryId = entry.id;
+      return;
+    }
+    if (analysisStatus === 'error') {
+      target.innerHTML = renderAptGradeErrorCard(entry);
+      if (typeof window.renderIcons === 'function') window.renderIcons(target);
+      target.dataset.renderedEntryId = entry.id;
+      return;
+    }
     const businessDistrictData = gradeData?.businessDistrict || null;
     const isGradeReady = gradeData?.ready && gradeData?.grade;
     const isGradeWithheld = Boolean(gradeData?.withheld);
@@ -717,7 +882,6 @@ function renderDashboardSelectedApartment() {
       : '초등학교 거리 확인 중';
     const schoolParts = splitDistanceLabel(schoolText);
     const stationParts = splitDistanceLabel(stationText);
-    const hasNineLineBenefit = hasNineLineBenefitCandidate(entry);
     const statusText = !insight?.ready
       ? '단지 입지 데이터를 불러오는 중이에요.'
       : gradeData?.withheld
@@ -957,6 +1121,50 @@ function revealDashboardAptAnalysisAfterAuth() {
   if (typeof showAptSearchScreen === 'function') showAptSearchScreen();
 }
 
+function requestDashboardAptGrade(entry, insight, { force = false } = {}) {
+  const key = getAptGradeKey(entry);
+  if (!key) return;
+  if (!force && dashboardAptGradeCache.has(key)) return;
+  if (dashboardAptSearchState.gradeLoadingKey === key) return;
+
+  dashboardAptSearchState.gradeLoadingKey = key;
+  renderDashboardSelectedApartment();
+
+  fetchAptGrade(entry, insight)
+    .then(grade => {
+      if (grade && !grade.error) {
+        insight.grade = grade;
+      }
+      const cacheKey = `dashboard_apt_insight_${entry.id}`;
+      dashboardAptSearchInsightCache.set(cacheKey, insight);
+      if (dashboardAptSearchState.selectedId === entry.id) {
+        dashboardAptSearchState.selectedInsight = insight;
+      }
+    })
+    .finally(() => {
+      if (dashboardAptSearchState.gradeLoadingKey === key) {
+        dashboardAptSearchState.gradeLoadingKey = '';
+      }
+      if (dashboardAptSearchState.selectedId === entry.id) {
+        renderDashboardSelectedApartment();
+      }
+    });
+}
+
+function retryDashboardAptGrade() {
+  const entry = getDashboardSelectedEntry();
+  if (!entry) return;
+  const insight = dashboardAptSearchState.selectedInsight || {
+    ready: true,
+    failed: false,
+    station: null,
+    school: null,
+  };
+  const key = getAptGradeKey(entry);
+  if (key) dashboardAptGradeCache.delete(key);
+  requestDashboardAptGrade(entry, insight, { force: true });
+}
+
 function submitAptLoanSheet() {
   const price = parseFloat(document.getElementById('aptLoanPriceInput')?.value);
   if (!(price > 0)) return;
@@ -1073,8 +1281,15 @@ function handleDashboardAptSearchKeydown(event) {
 function hydrateDashboardApartmentInsight(entry) {
   const cacheKey = `dashboard_apt_insight_${entry.id}`;
   const memoryCached = dashboardAptSearchInsightCache.get(cacheKey);
+  const cachedGrade = getCachedAptGrade(entry);
   if (memoryCached) {
+    if (cachedGrade && !cachedGrade.error) {
+      memoryCached.grade = cachedGrade;
+    }
     dashboardAptSearchState.selectedInsight = memoryCached;
+    if (cachedGrade === undefined) {
+      requestDashboardAptGrade(entry, memoryCached);
+    }
     renderDashboardSelectedApartment();
     return;
   }
@@ -1090,21 +1305,15 @@ function hydrateDashboardApartmentInsight(entry) {
       ? { placeName: entry.schoolName, distance: schoolDistance }
       : null,
   };
+  if (cachedGrade && !cachedGrade.error) {
+    insight.grade = cachedGrade;
+  }
   dashboardAptSearchInsightCache.set(cacheKey, insight);
   dashboardAptSearchState.selectedInsight = insight;
+  if (cachedGrade === undefined) {
+    requestDashboardAptGrade(entry, insight);
+  }
   renderDashboardSelectedApartment();
-
-  fetchAptGrade(entry, insight)
-    .then(grade => {
-      if (!grade) return;
-      insight.grade = grade;
-      dashboardAptSearchInsightCache.set(cacheKey, insight);
-      if (dashboardAptSearchState.selectedId === entry.id) {
-        dashboardAptSearchState.selectedInsight = insight;
-        renderDashboardSelectedApartment();
-      }
-    })
-    .catch(() => {});
 
   if (entry.kaptCode) {
     fetchAptAreaPrices(entry.kaptCode)
@@ -1156,9 +1365,6 @@ function pickDashboardApartment(id) {
   if (input) input.value = dashboardAptSearchState.query;
   const body = document.querySelector('.db-apt-page-body');
   if (body) body.scrollTo({ top: 0, behavior: 'smooth' });
-  if (!isDashboardAptAnalysisUnlocked()) {
-    window.setTimeout(openAptAnalysisPaywallSheet, 180);
-  }
   hydrateDashboardApartmentInsight(entry);
 }
 
@@ -1206,6 +1412,7 @@ window.openAptAnalysisPaywallSheet = openAptAnalysisPaywallSheet;
 window.closeAptAnalysisPaywallSheet = closeAptAnalysisPaywallSheet;
 window.hasDashboardAptSelection = hasDashboardAptSelection;
 window.revealDashboardAptAnalysisAfterAuth = revealDashboardAptAnalysisAfterAuth;
+window.retryDashboardAptGrade = retryDashboardAptGrade;
 window.setAptLoanType = setAptLoanType;
 window.updateAptLoanSheetState = updateAptLoanSheetState;
 window.submitAptLoanSheet = submitAptLoanSheet;
