@@ -3180,26 +3180,49 @@
     `;
   }
 
+  const calcLoanResultCache = new Map();
+
+  function getCalcLoanPayload(income, price, asset, otherLoanInterest) {
+    return {
+      loanType: 'fund',
+      income,
+      price,
+      asset,
+      otherLoanInterest: otherLoanInterest || 0,
+      household: answers.household,
+      house: answers.house,
+      children: answers.children,
+      region: answers.region,
+    };
+  }
+
+  function getCalcLoanCacheKey(payload) {
+    return JSON.stringify(payload);
+  }
+
   async function fetchCalcLoanResult(income, price, asset, otherLoanInterest) {
-    const response = await fetch('/api/calc-loan', {
+    const payload = getCalcLoanPayload(income, price, asset, otherLoanInterest);
+    const key = getCalcLoanCacheKey(payload);
+    if (calcLoanResultCache.has(key)) return calcLoanResultCache.get(key);
+
+    const request = fetch('/api/calc-loan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        loanType: 'fund',
-        income,
-        price,
-        asset,
-        otherLoanInterest: otherLoanInterest || 0,
-        household: answers.household,
-        house: answers.house,
-        children: answers.children,
-        region: answers.region,
-      }),
-    });
-    if (!response.ok) throw new Error('계산 결과를 불러오지 못했어요.');
-    const data = await response.json();
-    if (!data?.ok) throw new Error(data?.error || '계산 결과를 불러오지 못했어요.');
-    return data;
+      body: JSON.stringify(payload),
+    })
+      .then(async response => {
+        if (!response.ok) throw new Error('계산 결과를 불러오지 못했어요.');
+        const data = await response.json();
+        if (!data?.ok) throw new Error(data?.error || '계산 결과를 불러오지 못했어요.');
+        return data;
+      })
+      .catch(error => {
+        calcLoanResultCache.delete(key);
+        throw error;
+      });
+
+    calcLoanResultCache.set(key, request);
+    return request;
   }
 
   function readServerNumber(value, fallback) {
