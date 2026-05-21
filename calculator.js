@@ -3159,7 +3159,61 @@
     return 0.70;
   }
 
+  function renderResultLoading() {
+    const resultContent = document.getElementById('resultContent');
+    if (!resultContent) return;
+    resultContent.innerHTML = `
+      <div class="result-header-area">
+        <div class="result-badge-wrap">
+          <div class="result-icon blue">${icon('sparkle', 28)}</div>
+          <div>
+            <div class="result-option-label blue">계산 중</div>
+            <div class="result-title">대출 조건을 확인하고 있어요</div>
+          </div>
+        </div>
+      </div>
+      <div class="result-group">
+        <div class="db-skeleton-shimmer" style="height:18px;border-radius:999px;margin-bottom:12px"></div>
+        <div class="db-skeleton-shimmer" style="height:88px;border-radius:18px;margin-bottom:12px"></div>
+        <div class="db-skeleton-shimmer" style="height:160px;border-radius:18px"></div>
+      </div>
+    `;
+  }
+
+  async function fetchCalcLoanResult(income, price, asset, otherLoanInterest) {
+    const response = await fetch('/api/calc-loan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        loanType: 'fund',
+        income,
+        price,
+        asset,
+        otherLoanInterest: otherLoanInterest || 0,
+        household: answers.household,
+        house: answers.house,
+        children: answers.children,
+        region: answers.region,
+      }),
+    });
+    if (!response.ok) throw new Error('계산 결과를 불러오지 못했어요.');
+    const data = await response.json();
+    if (!data?.ok) throw new Error(data?.error || '계산 결과를 불러오지 못했어요.');
+    return data;
+  }
+
+  function readServerNumber(value, fallback) {
+    return Number.isFinite(Number(value)) ? Number(value) : fallback;
+  }
+
   function renderResult(income, price, asset, otherLoanInterest) {
+    renderResultLoading();
+    fetchCalcLoanResult(income, price, asset, otherLoanInterest)
+      .then(serverCalc => renderResultLocal(income, price, asset, otherLoanInterest, serverCalc))
+      .catch(() => renderResultLocal(income, price, asset, otherLoanInterest, null));
+  }
+
+  function renderResultLocal(income, price, asset, otherLoanInterest, serverCalc) {
     otherLoanInterest = otherLoanInterest || 0;
     const { household, house, children, region } = answers;
     const bottomNav = document.getElementById('bottomNav');
@@ -3171,62 +3225,98 @@
     const isNewborn = children === '신생아';
 
     // 신생아 특례 자격
-    const nbHouseOk  = house === '무주택' || house === '생애최초' || house === '1주택(대환)';
-    const nbIncomeOk = income <= 20000;
-    const nbAssetOk  = asset <= 5.11;
-    const nbPriceOk  = price <= 9;
-    const newbornOk  = isNewborn && nbHouseOk && nbIncomeOk && nbAssetOk && nbPriceOk;
+    let nbHouseOk  = house === '무주택' || house === '생애최초' || house === '1주택(대환)';
+    let nbIncomeOk = income <= 20000;
+    let nbAssetOk  = asset <= 5.11;
+    let nbPriceOk  = price <= 9;
+    let newbornOk  = isNewborn && nbHouseOk && nbIncomeOk && nbAssetOk && nbPriceOk;
 
     // 신생아 특례 한도
-    const nbLtvRate    = getFundLtvRate(region, house, 'newborn');
-    const nbLtvLimit   = price * nbLtvRate;
-    const nbMaxLimit   = 4.0;
-    const nbRate       = isNewborn ? getNewbornRate(income) : null;
+    const nbLtvRate = getFundLtvRate(region, house, 'newborn');
+    let nbLtvLimit = price * nbLtvRate;
+    let nbMaxLimit = 4.0;
+    let nbRate = isNewborn ? getNewbornRate(income) : null;
     const nbDefaultRate = nbRate ? nbRate.rate : getNewbornRate(income, 30).rate;
-    const nbDtiLimit = getNewbornDtiLoanLimitEok(income, otherLoanInterest, nbDefaultRate, 30, 'annuity');
-    const nbFinalLimit = Math.min(nbLtvLimit, nbMaxLimit, Number.isFinite(nbDtiLimit) ? nbDtiLimit : Infinity);
+    let nbDtiLimit = getNewbornDtiLoanLimitEok(income, otherLoanInterest, nbDefaultRate, 30, 'annuity');
+    let nbFinalLimit = Math.min(nbLtvLimit, nbMaxLimit, Number.isFinite(nbDtiLimit) ? nbDtiLimit : Infinity);
 
     // 디딤돌 자격 (신생아도 디딤돌 조건 동시 체크)
-    const dHouseOk = house === '무주택' || house === '생애최초';
-    const dAssetOk = asset <= 5.11;
+    let dHouseOk = house === '무주택' || house === '생애최초';
+    let dAssetOk = asset <= 5.11;
     let dIncomeLimit = 6000;
     if (house === '생애최초' || children === '2명이상' || isNewborn) dIncomeLimit = 7000;
     if (household === '신혼') dIncomeLimit = 8500;
-    const dIncomeOk = income <= dIncomeLimit;
+    let dIncomeOk = income <= dIncomeLimit;
     let dPriceLimit = 5;
     if (household === '신혼' || children === '2명이상' || isNewborn) dPriceLimit = 6;
-    const dPriceOk  = price <= dPriceLimit;
-    const didimdolOk = dHouseOk && dAssetOk && dIncomeOk && dPriceOk;
+    let dPriceOk  = price <= dPriceLimit;
+    let didimdolOk = dHouseOk && dAssetOk && dIncomeOk && dPriceOk;
 
     // 디딤돌 한도
     let dMaxLimit = 2.0;
     if (household === '신혼' || children === '2명이상' || isNewborn) dMaxLimit = 3.2;
     else if (house === '생애최초') dMaxLimit = 2.4;
-    const dLtvRate    = getFundLtvRate(region, house, 'didimdol');
-    const dLtvLimit   = price * dLtvRate;
-    const dDtiLimit = getDidimdolDtiLoanLimitEok(income, otherLoanInterest, getDidimdolBaseRate(income, household, 30), 30, 'annuity');
-    const dFinalLimit = Math.min(dLtvLimit, dMaxLimit, Number.isFinite(dDtiLimit) ? dDtiLimit : Infinity);
-    const dDisplayLimit = getRoomDeductionState('didimdol', dFinalLimit, income, price, house, region, null, true, household).finalLimit;
+    const dLtvRate = getFundLtvRate(region, house, 'didimdol');
+    let dLtvLimit = price * dLtvRate;
+    let dDtiLimit = getDidimdolDtiLoanLimitEok(income, otherLoanInterest, getDidimdolBaseRate(income, household, 30), 30, 'annuity');
+    let dFinalLimit = Math.min(dLtvLimit, dMaxLimit, Number.isFinite(dDtiLimit) ? dDtiLimit : Infinity);
+    let dDisplayLimit = getRoomDeductionState('didimdol', dFinalLimit, income, price, house, region, null, true, household).finalLimit;
 
     // 보금자리론 자격
-    const bHouseOk = house !== '1주택이상';
+    let bHouseOk = house !== '1주택이상';
     let bIncomeLimit = 7000;
     if (household === '신혼') bIncomeLimit = 8500;
     if (children === '1명') bIncomeLimit = Math.max(bIncomeLimit, 9000);
     if (children === '2명이상') bIncomeLimit = 10000;
-    const bIncomeOk    = income <= bIncomeLimit;
-    const bPriceOk     = price <= 6;
-    const bogeumjariOk = bHouseOk && bIncomeOk && bPriceOk;
+    let bIncomeOk = income <= bIncomeLimit;
+    let bPriceOk = price <= 6;
+    let bogeumjariOk = bHouseOk && bIncomeOk && bPriceOk;
 
     // 보금자리론 한도
     let bMaxLimit = 3.6;
     if (house === '생애최초') bMaxLimit = 4.2;
     else if (children === '2명이상' || isNewborn) bMaxLimit = 4.0;
-    const bLtvRate    = getFundLtvRate(region, house, 'bogeumjari');
-    const bLtvLimit   = price * bLtvRate;
+    const bLtvRate = getFundLtvRate(region, house, 'bogeumjari');
+    let bLtvLimit = price * bLtvRate;
     const bDefaultRate = getBogeumBaseRate(30) + getBogeumRegulationSurcharge(region);
-    const bDtiLimit = getBogeumDtiLoanLimitEok(income, price, region, house, otherLoanInterest, bDefaultRate, 30, 'annuity');
-    const bFinalLimit = Math.min(bLtvLimit, bMaxLimit, Number.isFinite(bDtiLimit) ? bDtiLimit : Infinity);
+    let bDtiLimit = getBogeumDtiLoanLimitEok(income, price, region, house, otherLoanInterest, bDefaultRate, 30, 'annuity');
+    let bFinalLimit = Math.min(bLtvLimit, bMaxLimit, Number.isFinite(bDtiLimit) ? bDtiLimit : Infinity);
+
+    if (serverCalc?.ok && serverCalc.legacy && serverCalc.eligibility) {
+      const legacy = serverCalc.legacy;
+      const eligibility = serverCalc.eligibility;
+      newbornOk = Boolean(eligibility.newbornOk);
+      didimdolOk = Boolean(eligibility.didimdolOk);
+      bogeumjariOk = Boolean(eligibility.bogeumjariOk);
+      nbHouseOk = Boolean(eligibility.nbHouseOk);
+      nbIncomeOk = Boolean(eligibility.nbIncomeOk);
+      nbAssetOk = Boolean(eligibility.nbAssetOk);
+      nbPriceOk = Boolean(eligibility.nbPriceOk);
+      dHouseOk = Boolean(eligibility.dHouseOk);
+      dAssetOk = Boolean(eligibility.dAssetOk);
+      dIncomeOk = Boolean(eligibility.dIncomeOk);
+      dPriceOk = Boolean(eligibility.dPriceOk);
+      dIncomeLimit = readServerNumber(eligibility.dIncomeLimit, dIncomeLimit);
+      dPriceLimit = readServerNumber(eligibility.dPriceLimit, dPriceLimit);
+      bHouseOk = Boolean(eligibility.bHouseOk);
+      bIncomeOk = Boolean(eligibility.bIncomeOk);
+      bPriceOk = Boolean(eligibility.bPriceOk);
+      bIncomeLimit = readServerNumber(eligibility.bIncomeLimit, bIncomeLimit);
+      nbRate = legacy.nbRate || nbRate;
+      nbLtvLimit = readServerNumber(legacy.nbLtvLimit, nbLtvLimit);
+      nbMaxLimit = readServerNumber(legacy.nbMaxLimit, nbMaxLimit);
+      nbFinalLimit = readServerNumber(legacy.nbFinalLimit, nbFinalLimit);
+      nbDtiLimit = readServerNumber(legacy.nbDtiLimit, nbDtiLimit);
+      dLtvLimit = readServerNumber(legacy.dLtvLimit, dLtvLimit);
+      dMaxLimit = readServerNumber(legacy.dMaxLimit, dMaxLimit);
+      dFinalLimit = readServerNumber(legacy.dFinalLimit, dFinalLimit);
+      dDtiLimit = readServerNumber(legacy.dDtiLimit, dDtiLimit);
+      dDisplayLimit = serverCalc.products?.didimdol?.displayLimit ?? getRoomDeductionState('didimdol', dFinalLimit, income, price, house, region, null, true, household).finalLimit;
+      bLtvLimit = readServerNumber(legacy.bLtvLimit, bLtvLimit);
+      bMaxLimit = readServerNumber(legacy.bMaxLimit, bMaxLimit);
+      bFinalLimit = readServerNumber(legacy.bFinalLimit, bFinalLimit);
+      bDtiLimit = readServerNumber(legacy.bDtiLimit, bDtiLimit);
+    }
 
     let html = '';
 
