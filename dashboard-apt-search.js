@@ -776,6 +776,66 @@ function renderAptGradeErrorCard(entry) {
   `;
 }
 
+function renderAptGradePaywallPlaceholderCard(entry, insight, hasNineLineBenefit) {
+  const stationText = formatStationSummary(entry, insight);
+  const schoolDistance = getSchoolMetaDistance(entry);
+  const schoolText = entry.schoolName && Number.isFinite(schoolDistance)
+    ? `${entry.schoolName} · 직선 ${formatDistance(schoolDistance)}`
+    : '초등학교 거리 확인 중';
+  const schoolParts = splitDistanceLabel(schoolText);
+  const stationParts = splitDistanceLabel(stationText);
+  return `
+    <article class="db-apt-grade-card">
+      <div class="db-apt-grade-head">
+        <div>
+          <div class="db-fact-label">단지 간단 등급</div>
+          <strong>${escapeHtml(entry.aptName)}</strong>
+          <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
+        </div>
+        <div class="db-apt-grade-badge grade-pending">
+          <span>분석</span>
+          <strong>준비</strong>
+        </div>
+      </div>
+      <p class="db-apt-grade-status">단지 분석을 준비했어요. 자세한 등급과 판단 사유는 결제 후 확인할 수 있어요.</p>
+      ${hasNineLineBenefit ? `
+        <div class="db-apt-benefit-badges">
+          <span class="db-apt-benefit-badge">9호선 연장 수혜 예상</span>
+          <span class="db-apt-benefit-badge is-muted">강동하남남양주선 기본계획 기준</span>
+        </div>
+      ` : ''}
+      <div class="db-apt-grade-grid">
+        <div class="db-apt-grade-chip">
+          <span>초등학교</span>
+          <strong>${escapeHtml(schoolParts.primary || schoolText)}</strong>
+          ${schoolParts.secondary ? `<em>${escapeHtml(schoolParts.secondary)}</em>` : ''}
+        </div>
+        <div class="db-apt-grade-chip">
+          <span>가까운 역</span>
+          <strong>${escapeHtml(stationParts.primary || stationText)}</strong>
+          ${stationParts.secondary ? `<em>${escapeHtml(stationParts.secondary)}</em>` : ''}
+        </div>
+        <div class="db-apt-grade-chip">
+          <span>세대수</span>
+          <strong>${escapeHtml(formatHouseholdLabel(entry.householdCount))}</strong>
+        </div>
+        <div class="db-apt-grade-chip">
+          <span>준공</span>
+          <strong>${escapeHtml(formatBuildYearLabel(entry.buildYear))}</strong>
+        </div>
+        <div class="db-apt-grade-chip">
+          <span>핵심 업무지구</span>
+          <strong>결제 후 확인</strong>
+        </div>
+        <div class="db-apt-grade-chip">
+          <span>가격 레벨</span>
+          <strong>${escapeHtml(formatPriceLevelSummary(entry))}</strong>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
 function queueAptAnalysisPaywall(entry) {
   const key = getAptGradeKey(entry);
   if (!key || dashboardAptSearchState.aptAnalysisPaywallPromptedKey === key) return;
@@ -816,7 +876,7 @@ function renderDashboardSelectedApartment() {
     const insight = dashboardAptSearchState.selectedInsight;
     const cachedGrade = getCachedAptGrade(entry);
     const analysisStatus = getAptAnalysisStatus(entry, cachedGrade);
-    const gradeData = (analysisStatus === 'unlocked' || analysisStatus === 'paywall') ? cachedGrade : null;
+    const gradeData = analysisStatus === 'unlocked' ? cachedGrade : null;
     const hasNineLineBenefit = hasNineLineBenefitCandidate(entry);
     if (analysisStatus === 'loading') {
       target.innerHTML = renderAptGradeSkeletonCard(entry, hasNineLineBenefit);
@@ -827,6 +887,12 @@ function renderDashboardSelectedApartment() {
       target.innerHTML = renderAptGradeErrorCard(entry);
       if (typeof window.renderIcons === 'function') window.renderIcons(target);
       target.dataset.renderedEntryId = entry.id;
+      return;
+    }
+    if (analysisStatus === 'paywall') {
+      target.innerHTML = renderAptGradePaywallPlaceholderCard(entry, insight, hasNineLineBenefit);
+      target.dataset.renderedEntryId = entry.id;
+      queueAptAnalysisPaywall(entry);
       return;
     }
     const businessDistrictData = gradeData?.businessDistrict || null;
@@ -911,9 +977,6 @@ function renderDashboardSelectedApartment() {
         </button>
       </article>
     `;
-    if (analysisStatus === 'paywall') {
-      queueAptAnalysisPaywall(entry);
-    }
   } catch (error) {
     target.innerHTML = `
       <article class="db-apt-grade-card">
@@ -1092,10 +1155,7 @@ function requestDashboardAptGrade(entry, insight, { force = false } = {}) {
   renderDashboardSelectedApartment();
 
   fetchAptGrade(entry, insight)
-    .then(grade => {
-      if (grade && !grade.error) {
-        insight.grade = grade;
-      }
+    .then(() => {
       const cacheKey = `dashboard_apt_insight_${entry.id}`;
       dashboardAptSearchInsightCache.set(cacheKey, insight);
       if (dashboardAptSearchState.selectedId === entry.id) {
@@ -1244,9 +1304,6 @@ function hydrateDashboardApartmentInsight(entry) {
   const memoryCached = dashboardAptSearchInsightCache.get(cacheKey);
   const cachedGrade = getCachedAptGrade(entry);
   if (memoryCached) {
-    if (cachedGrade && !cachedGrade.error) {
-      memoryCached.grade = cachedGrade;
-    }
     dashboardAptSearchState.selectedInsight = memoryCached;
     if (cachedGrade === undefined) {
       requestDashboardAptGrade(entry, memoryCached);
@@ -1266,9 +1323,6 @@ function hydrateDashboardApartmentInsight(entry) {
       ? { placeName: entry.schoolName, distance: schoolDistance }
       : null,
   };
-  if (cachedGrade && !cachedGrade.error) {
-    insight.grade = cachedGrade;
-  }
   dashboardAptSearchInsightCache.set(cacheKey, insight);
   dashboardAptSearchState.selectedInsight = insight;
   if (cachedGrade === undefined) {
