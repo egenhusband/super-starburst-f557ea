@@ -64,6 +64,28 @@ const JEONSE_SUPPLY_REGION_ID_MAP = {
   500020: 500024,
 };
 
+// REB 월간주택가격동향(A_2024_00016) 지역 코드 매핑
+const INDEX_REGION_ID_MAP = {
+  500001: 500001,
+  500004: 500008,
+  500012: 500009,
+  500007: 500010,
+  500005: 500011,
+  500006: 500012,
+  500008: 500013,
+  500009: 500014,
+  500010: 500015,
+  500011: 500016,
+  500013: 500017,
+  500014: 500018,
+  500015: 500019,
+  500016: 500020,
+  500017: 500021,
+  500018: 500022,
+  500019: 500023,
+  500020: 500024,
+};
+
 const MARKET_DATA_URL = '/data/market-dashboard.json';
 const APT_TRADES_DATA_URL = '/data/apt-trades-summary.json';
 const APT_TRADES_DATA_VERSION = '20260424c';
@@ -606,11 +628,13 @@ function buildNationalMarqueeItems(summary, latestTradeMonth = '') {
     return `<strong class="calc-marquee-trend ${dirClass}">${symbol}${Math.abs(value).toFixed(digits)}%</strong>`;
   };
   const latestMonthLabel = formatCompactMonth(summary.latestMonth);
+  const latestMoodMonthLabel = formatCompactMonth(summary.marketMoodMonth);
+  const latestDisplayMonthLabel = latestMoodMonthLabel || latestMonthLabel;
   const latestTradeMonthLabel = formatCompactMonth(latestTradeMonth);
-  if (summary.latestMonth) items.push(`전국 · <strong>${latestMonthLabel || summary.latestMonth}</strong>`);
-  if (Number.isFinite(summary.tradeVolume)) items.push(`거래량 · <strong>${latestTradeMonthLabel || latestMonthLabel || '최신'}</strong> · <strong>${summary.tradeVolume.toLocaleString()}건</strong>`);
+  if (summary.latestMonth || summary.marketMoodMonth) items.push(`전국 · <strong>${latestDisplayMonthLabel || summary.marketMoodMonth || summary.latestMonth}</strong>`);
+  if (Number.isFinite(summary.tradeVolume)) items.push(`거래량 · <strong>${latestTradeMonthLabel || latestDisplayMonthLabel || '최신'}</strong> · <strong>${summary.tradeVolume.toLocaleString()}건</strong>`);
   if (Number.isFinite(summary.tradeChange)) items.push(`거래량 ${formatTrendHtml(summary.tradeChange, 0)} 지난달보다`);
-  if (Number.isFinite(summary.priceChange)) items.push(`최근 가격 변화 ${formatTrendHtml(summary.priceChange, 2)} 지난달보다`);
+  if (Number.isFinite(summary.priceChange)) items.push(`최근 가격 변화 · <strong>${latestDisplayMonthLabel || '최신'}</strong> · ${formatTrendHtml(summary.priceChange, 2)} 지난달보다`);
   if (Number.isFinite(summary.avgBuyPrice)) items.push(`지역 평균 가격 <strong>${formatPrice(summary.avgBuyPrice)}</strong>`);
   return items.length ? items : ['전국 시장 데이터 준비 중'];
 }
@@ -1001,6 +1025,13 @@ function filterJeonseSupplyByRegion(rows, clsId) {
     .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
 }
 
+function filterIndexByRegion(rows, clsId) {
+  const indexClsId = String(INDEX_REGION_ID_MAP[clsId] || clsId);
+  return rows
+    .filter(r => String(r.CLS_ID) === indexClsId)
+    .sort((a, b) => a.WRTTIME_IDTFR_ID.localeCompare(b.WRTTIME_IDTFR_ID));
+}
+
 function getLatestCommonMonthId(rowGroups) {
   const monthSets = rowGroups
     .map(rows => new Set(getRecentValidRows(rows).map(row => row.WRTTIME_IDTFR_ID)))
@@ -1339,6 +1370,7 @@ function renderAptTradeCards({
   selectedName,
   marketTone,
   marketState,
+  marketMonth,
   summaryReport,
   latestPrice,
   latestJeonse,
@@ -1370,7 +1402,7 @@ function renderAptTradeCards({
         </div>
         <div class="db-therm-summary">
           <strong>${marketTone}</strong>
-          <span>${selectedName} 선택 지역 기준</span>
+          <span>${selectedName} · 부동산원 월간주택가격동향${marketMonth ? ` · ${marketMonth}` : ''}</span>
         </div>
         <div class="db-summary-report db-summary-report--hero">
           <div class="db-fact-label">쉽게 보는 해석</div>
@@ -1450,19 +1482,17 @@ function renderFacts() {
 
   const priceRows       = filterByRegion(allPriceData,  selectedClsId);
   const jeonseRows      = filterByRegion(allJeonseData, selectedClsId);
-  const indexRows       = filterByRegion(allIndexData,  selectedClsId);
+  const marketIndexRows = filterIndexByRegion(allIndexData, selectedClsId);
   const tradeRows       = filterTradeByRegion(allTradeData, selectedClsId);
   const jeonseSupplyRows = filterJeonseSupplyByRegion(allJeonseSupplyData, selectedClsId);
   const latestCommonMonthId = getLatestCommonMonthId([
     priceRows,
     jeonseRows,
-    indexRows,
     tradeRows,
     jeonseSupplyRows,
   ]);
   const priceRowsForDisplay = clampRowsToMonth(priceRows, latestCommonMonthId);
   const jeonseRowsForDisplay = clampRowsToMonth(jeonseRows, latestCommonMonthId);
-  const indexRowsForDisplay = clampRowsToMonth(indexRows, latestCommonMonthId);
   const tradeRowsForDisplay = clampRowsToMonth(tradeRows, latestCommonMonthId);
   const jeonseSupplyRowsForDisplay = clampRowsToMonth(jeonseSupplyRows, latestCommonMonthId);
   const validPriceRows  = getRecentValidRows(priceRowsForDisplay, 0);
@@ -1476,11 +1506,14 @@ function renderFacts() {
 
   const priceChange  = calcPriceChange(priceRowsForDisplay);
   const jeonseChange = calcPriceChange(jeonseRowsForDisplay);
-  const indexChange  = calcPriceChange(indexRowsForDisplay);
+  const indexChange  = calcPriceChange(marketIndexRows);
   const jeonseSupplyChange = calcPriceChange(jeonseSupplyRowsForDisplay);
+  const marketMonth = marketIndexRows.length
+    ? marketIndexRows[marketIndexRows.length - 1].WRTTIME_DESC
+    : '';
 
   // 전국 가격변동률 (선택 지역이 전국이 아닐 때 비교용)
-  const nationalIndexRows   = filterByRegion(allIndexData, 500001);
+  const nationalIndexRows   = filterIndexByRegion(allIndexData, 500001);
   const nationalIndexChange = calcPriceChange(nationalIndexRows);
   const nationalPriceRows   = filterByRegion(allPriceData, 500001);
   const validNationalPriceRows = getRecentValidRows(nationalPriceRows, 0);
@@ -1531,6 +1564,7 @@ function renderFacts() {
     selectedName,
     marketTone,
     marketState,
+    marketMonth,
     summaryReport,
     latestPrice,
     latestJeonse,
