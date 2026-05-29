@@ -4113,8 +4113,14 @@
 .db-market-state--up::before {
   background: linear-gradient(90deg, rgba(255,114,118,0.98), rgba(255,159,122,0.88));
 }
+.db-market-state--strong-up::before {
+  background: linear-gradient(90deg, rgba(255,79,92,1), rgba(255,138,94,0.92));
+}
 .db-market-state--down::before {
   background: linear-gradient(90deg, rgba(94,177,255,0.96), rgba(64,123,255,0.88));
+}
+.db-market-state--strong-down::before {
+  background: linear-gradient(90deg, rgba(62,150,255,1), rgba(44,99,255,0.92));
 }
 .db-market-state--flat::before {
   background: linear-gradient(90deg, rgba(161,184,214,0.86), rgba(116,143,179,0.76));
@@ -4125,8 +4131,14 @@
 .db-market-state--up::after {
   background: radial-gradient(circle, rgba(255,88,99,0.26) 0%, rgba(255,88,99,0.14) 38%, rgba(255,88,99,0) 72%);
 }
+.db-market-state--strong-up::after {
+  background: radial-gradient(circle, rgba(255,74,90,0.32) 0%, rgba(255,74,90,0.16) 38%, rgba(255,74,90,0) 72%);
+}
 .db-market-state--down::after {
   background: radial-gradient(circle, rgba(75,154,255,0.24) 0%, rgba(75,154,255,0.12) 38%, rgba(75,154,255,0) 72%);
+}
+.db-market-state--strong-down::after {
+  background: radial-gradient(circle, rgba(54,136,255,0.3) 0%, rgba(54,136,255,0.15) 38%, rgba(54,136,255,0) 72%);
 }
 .db-market-state--flat::after {
   background: radial-gradient(circle, rgba(158,186,218,0.18) 0%, rgba(158,186,218,0.09) 40%, rgba(158,186,218,0) 72%);
