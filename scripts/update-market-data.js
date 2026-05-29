@@ -2,6 +2,9 @@
 
 const fs = require('fs/promises');
 const path = require('path');
+const { loadEnvLocal } = require('./lib/load-env-local');
+
+loadEnvLocal(process.cwd());
 
 const KEY = process.env.REB_API_KEY;
 const BASE_URL = 'https://www.reb.or.kr/r-one/openapi/SttsApiTblData.do';
