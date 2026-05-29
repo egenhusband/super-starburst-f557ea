@@ -7,7 +7,8 @@ const STAT = {
   avgPrice: 'A_2024_00188',
   avgJeonse: 'A_2024_00192',
   jeonseSupply: 'A_2024_00077',
-  priceIndex: 'A_2024_00178',
+  // 시장 분위기는 실거래가격지수보다 월간주택가격동향이 사용자 체감과 더 가깝다.
+  priceIndex: 'A_2024_00016',
   tradeVolume: 'A_2024_00554',
 };
 
@@ -194,7 +195,6 @@ function buildSummary(detail) {
   const latestCommonMonthId = getLatestCommonMonthId([
     nationalPriceRows,
     nationalJeonseRows,
-    nationalIndexRows,
     nationalTradeRows,
     nationalJeonseSupplyRows,
   ]);
@@ -208,8 +208,9 @@ function buildSummary(detail) {
     national: {
       regionName: '전국',
       latestMonth: getMonthDesc(validPriceRows, latestCommonMonthId) || latestPriceRow?.WRTTIME_DESC || '',
+      marketMoodMonth: nationalIndexRows.length ? nationalIndexRows[nationalIndexRows.length - 1].WRTTIME_DESC || '' : '',
       avgBuyPrice: latestPriceRow ? parseNumericValue(latestPriceRow.DTA_VAL) : null,
-      priceChange: calcPriceChange(validIndexRows),
+      priceChange: calcPriceChange(nationalIndexRows),
       tradeVolume: latestTradeRow ? parseNumericValue(latestTradeRow.DTA_VAL) : null,
       tradeChange: calcTradeChange(validTradeRows),
     }
