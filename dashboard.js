@@ -1084,7 +1084,7 @@ function buildSummaryReport({ selectedName, indexChange, aptTrade, priceChange, 
     return `${selectedName}은 가격은 크게 밀리지 않지만 거래가 줄어든 잠김 장세에 가깝습니다. 규제나 매물 부족 영향으로 거래가 적으면 한두 건 가격이 더 크게 보일 수 있습니다. 이런 구간에서는 가격 숫자보다 최근 거래 수와 거래가 많았던 단지 흐름을 함께 보는 게 더 현실적입니다.`;
   }
 
-  if (Number.isFinite(indexChange) && indexChange <= -0.12 && (!Number.isFinite(countChange) || countChange <= 0)) {
+  if (Number.isFinite(indexChange) && indexChange <= -0.15 && (!Number.isFinite(countChange) || countChange <= 0)) {
     return `${selectedName}은 아직 적극적으로 매수세가 붙는 장이라기보다 관망 구간에 가깝습니다. 지역 평균 가격과 실제 거래 체감 가격이 함께 약하면 시장 체감도 완전히 살아났다고 보기 어렵습니다. 초보자라면 지금은 급하게 판단하기보다 최근 거래가 줄어드는지부터 보는 편이 좋습니다.`;
   }
 
@@ -1150,6 +1150,30 @@ function signalClass(value) {
   if (value > 0) return 'up';
   if (value < 0) return 'down';
   return 'flat';
+}
+
+function getMarketFlowMeta(indexChange) {
+  if (!Number.isFinite(indexChange)) {
+    return { tone: '흐름 확인 중', state: 'idle' };
+  }
+
+  if (indexChange >= 0.35) {
+    return { tone: '강한 상승', state: 'strong-up' };
+  }
+
+  if (indexChange >= 0.15) {
+    return { tone: '상승 흐름', state: 'up' };
+  }
+
+  if (indexChange <= -0.35) {
+    return { tone: '강한 하락', state: 'strong-down' };
+  }
+
+  if (indexChange <= -0.15) {
+    return { tone: '하락 흐름', state: 'down' };
+  }
+
+  return { tone: '보합 흐름', state: 'flat' };
 }
 
 function getSelectedDealCity(regionId, aptTrade) {
@@ -1498,20 +1522,9 @@ function renderFacts() {
     priceChange,
     ratio,
   });
-  const marketTone = indexChange === null
-    ? '흐름 확인 중'
-    : indexChange > 0.12
-      ? '상승 흐름'
-      : indexChange < -0.12
-        ? '하락 흐름'
-        : '보합 흐름';
-  const marketState = indexChange === null
-    ? 'idle'
-    : indexChange > 0.12
-      ? 'up'
-      : indexChange < -0.12
-        ? 'down'
-        : 'flat';
+  const marketFlow = getMarketFlowMeta(indexChange);
+  const marketTone = marketFlow.tone;
+  const marketState = marketFlow.state;
   const aptTradeHtml = renderAptTradeCards({
     regionId: selectedClsId,
     aptTrade,
