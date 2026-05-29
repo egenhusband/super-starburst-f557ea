@@ -351,7 +351,9 @@ function aggregateAreaPrices(deals) {
 
 async function writeAreaPriceFiles(root, allDeals, codeMapItems) {
   const outputDir = path.join(root, AREA_PRICES_DIR);
-  await fs.mkdir(outputDir, { recursive: true });
+  const tempOutputDir = `${outputDir}.tmp`;
+  await fs.rm(tempOutputDir, { recursive: true, force: true });
+  await fs.mkdir(tempOutputDir, { recursive: true });
 
   const dealsByComplex = new Map();
   for (const deal of allDeals) {
@@ -393,10 +395,13 @@ async function writeAreaPriceFiles(root, allDeals, codeMapItems) {
       byArea,
     };
 
-    const filePath = path.join(outputDir, `${match.kaptCode}.json`);
+    const filePath = path.join(tempOutputDir, `${match.kaptCode}.json`);
     await fs.writeFile(filePath, `${JSON.stringify(payload)}\n`, 'utf8');
     written += 1;
   }
+
+  await fs.rm(outputDir, { recursive: true, force: true });
+  await fs.rename(tempOutputDir, outputDir);
 
   console.log(`[area-prices] written=${written}, skipped(no-match)=${skippedNoMatch}, skipped(insufficient)=${skippedInsufficientData}`);
   console.log(`[area-prices] 2건 이상 평형 보유 단지: ${written} / 전체 단지: ${dealsByComplex.size}`);

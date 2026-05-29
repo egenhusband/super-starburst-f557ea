@@ -37,6 +37,6 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/apt-trades-summary.json
+          git add data/apt-trades-summary.json data/apt-area-prices
           git commit -m "Update apartment trade data"
           git push origin HEAD:dev
