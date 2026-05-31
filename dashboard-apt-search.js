@@ -351,6 +351,13 @@ function formatAreaPriceManwon(price) {
   return `${formatted}억`;
 }
 
+function formatShortTradeDate(dateText) {
+  const raw = String(dateText || '').trim();
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return '';
+  return `${match[1]}.${match[2]}.${match[3]}`;
+}
+
 function renderAreaPricesSectionHtml(areaPrices) {
   if (!areaPrices?.byArea) return '';
   const entries = Object.entries(areaPrices.byArea)
@@ -365,11 +372,15 @@ function renderAreaPricesSectionHtml(areaPrices) {
     const avg = formatAreaPriceManwon(data.avgPrice);
     const latest = formatAreaPriceManwon(data.latestPrice);
     const countLabel = `${data.tradeCount}건`;
-    const latestLabel = latest && latest !== avg ? ` · 최근 ${latest}` : '';
+    const latestDate = formatShortTradeDate(data.latestDate);
+    const latestLabel = latest ? `최근 ${latest}${latestDate ? ` · ${latestDate}` : ''}` : '';
     return `
       <div class="db-apt-area-row">
         <span class="db-apt-area-bucket">${escapeHtml(bucket)}</span>
-        <span class="db-apt-area-price">${escapeHtml(avg)}${escapeHtml(latestLabel)}</span>
+        <span class="db-apt-area-price">
+          <span class="db-apt-area-price-main">${escapeHtml(avg)}</span>
+          ${latestLabel ? `<span class="db-apt-area-price-sub">${escapeHtml(latestLabel)}</span>` : ''}
+        </span>
         <span class="db-apt-area-count">${escapeHtml(countLabel)}</span>
       </div>
     `;
