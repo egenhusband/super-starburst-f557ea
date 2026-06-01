@@ -2,8 +2,8 @@ name: Update apartment trade data
 
 on:
   schedule:
-    # Every day 04:00 KST.
-    - cron: '0 19 * * *'
+    # Mon/Wed/Fri 04:00 KST.
+    - cron: '0 19 * * 0,2,4'
   workflow_dispatch:
 
 permissions:
