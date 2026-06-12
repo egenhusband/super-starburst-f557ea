@@ -1162,6 +1162,14 @@ function formatTradeMonth(month) {
   return `${String(month).slice(0, 4)}.${String(month).slice(4, 6)}`;
 }
 
+function formatTradeMonthFromDate(dateText) {
+  const raw = String(dateText || '').trim();
+  if (!raw) return '';
+  const match = raw.match(/^(\d{4})-(\d{2})-/);
+  if (!match) return '';
+  return `${match[1]}.${match[2]}`;
+}
+
 function formatAreaToPyeong(area) {
   const numeric = Number(area);
   if (!Number.isFinite(numeric) || numeric <= 0) return '';
@@ -1314,12 +1322,16 @@ function renderTopDealsCard({ regionId, aptTrade }) {
   const scopeTabs = cityScopes.map(scope => ({ name: scope.name, label: scope.name }));
   const showCityTabs = regionId !== 500001 && scopeTabs.length > 0;
   const scopeTitle = selectedDealCity === 'all' ? selectedName : selectedDealCity;
-  const latestTradeMonth = aptTrade.latestDealMonth || aptTrade.summaryMonth || aptTrade.meta?.summaryMonth || '';
+  const latestTradeMonth = formatTradeMonthFromDate(aptTrade.latestDealDate)
+    || aptTrade.latestDealMonth
+    || aptTrade.summaryMonth
+    || aptTrade.meta?.summaryMonth
+    || '';
 
   return `
     <div class="db-actual-card db-actual-card--deals" id="dbTopDealsCard">
       <div class="db-deal-hero">
-        <div class="db-fact-label">거래 많은 단지 TOP5 · ${formatTradeMonth(latestTradeMonth)}</div>
+        <div class="db-fact-label">거래 많은 단지 TOP5 · ${formatTradeMonth(latestTradeMonth) || latestTradeMonth}</div>
         ${showCityTabs ? `
         <div class="db-deal-scope-tabs">
           ${scopeTabs.map(tab => `
@@ -1392,7 +1404,11 @@ function renderAptTradeCards({
 
   const countChange = aptTrade.signals?.countChangePct;
   const medianChange = aptTrade.signals?.medianChangePct;
-  const latestTradeMonth = aptTrade.latestDealMonth || aptTrade.summaryMonth || aptTrade.meta?.summaryMonth || '';
+  const latestTradeMonth = formatTradeMonthFromDate(aptTrade.latestDealDate)
+    || aptTrade.latestDealMonth
+    || aptTrade.summaryMonth
+    || aptTrade.meta?.summaryMonth
+    || '';
 
   return `
     <div class="db-actual-grid">
@@ -1408,7 +1424,7 @@ function renderAptTradeCards({
           <div class="db-fact-label">쉽게 보는 해석</div>
           <p class="db-summary-report-conclusion db-summary-report-conclusion--hero">${renderStreamingWords(summaryReport, 'db-summary-report-stream', 40)}</p>
         </div>
-        <div class="db-actual-data-head">최근 실제 거래 흐름 · ${formatTradeMonth(latestTradeMonth)}</div>
+        <div class="db-actual-data-head">최근 실제 거래 흐름 · ${formatTradeMonth(latestTradeMonth) || latestTradeMonth}</div>
         <div class="db-actual-main">
           <div class="db-actual-chip">
             <span class="db-actual-k">지역 평균 가격</span>
