@@ -196,6 +196,7 @@
     const prev = current;
     current = next;
     setProgress(current);
+    if (current !== 9) unmountResultFloatingSummary();
     document.getElementById('btnBack').disabled = current === 0;
     updateNextBtn();
 
@@ -1413,6 +1414,68 @@
     const labels = wrap.querySelectorAll('.loan-ratio-label > span');
     if (labels[0]) labels[0].innerHTML = `대출 <strong class="bar-label-loan">${formatLimit(loanEok)}</strong> (${Math.round(loanPct)}%)`;
     if (labels[1]) labels[1].innerHTML = `자기자금 <strong class="bar-label-cap">${formatLimit(capitalEok)}</strong> (${Math.round(100 - loanPct)}%)`;
+    updateResultFloatingSummary();
+  }
+
+  function resultFloatingSummaryHtml() {
+    return `<div class="result-floating-summary" id="resultFloatingSummary" aria-live="polite">
+      <div class="result-floating-summary-glow" aria-hidden="true"></div>
+      <div class="result-floating-summary-item">
+        <span>예상 한도</span>
+        <strong id="resultFloatLimit">—</strong>
+      </div>
+      <div class="result-floating-summary-item">
+        <span>필요 자기자금</span>
+        <strong id="resultFloatCapital">—</strong>
+      </div>
+      <div class="result-floating-summary-item">
+        <span>첫 달 납입액</span>
+        <strong id="resultFloatMonthly">—</strong>
+      </div>
+    </div>`;
+  }
+
+  function getActiveResultPane() {
+    return document.querySelector('.tab-pane.active, .tab-pane3.active') || document.getElementById('resultContent');
+  }
+
+  function updateResultFloatingSummary() {
+    const summary = document.getElementById('resultFloatingSummary');
+    if (!summary) return;
+    const pane = getActiveResultPane();
+    const rateSection = pane?.querySelector('.rate-calc-section[data-uid]') || document.querySelector('.rate-calc-section[data-uid]');
+    if (!rateSection) {
+      summary.hidden = true;
+      return;
+    }
+
+    const uid = rateSection.dataset.uid;
+    const card = rateSection.closest('.limit-detail-card');
+    const monthlyEl = document.getElementById('mc-amt-' + uid);
+    const principalWon = Number(monthlyEl?.dataset.principal || 0);
+    const priceEok = Number(card?.dataset.limitPrice || card?.dataset.bogeumPrice || card?.dataset.didimdolPrice || card?.dataset.newbornPrice || 0);
+    const limitEok = principalWon > 0 ? principalWon / 100000000 : 0;
+    const capitalEok = Math.max(0, priceEok - limitEok);
+
+    const limitEl = document.getElementById('resultFloatLimit');
+    const capitalEl = document.getElementById('resultFloatCapital');
+    const monthlyOutEl = document.getElementById('resultFloatMonthly');
+    if (limitEl) limitEl.textContent = limitEok > 0 ? formatLimit(limitEok) : '—';
+    if (capitalEl) capitalEl.textContent = priceEok > 0 ? formatLimit(capitalEok) : '—';
+    const monthlyTarget = Number(monthlyEl?.dataset.motionTarget || 0);
+    if (monthlyOutEl) monthlyOutEl.textContent = monthlyTarget > 0 ? formatWon(monthlyTarget) : (monthlyEl?.textContent?.trim() || '—');
+    summary.hidden = false;
+  }
+
+  function mountResultFloatingSummary() {
+    document.getElementById('resultFloatingSummary')?.remove();
+    const app = document.querySelector('.app');
+    if (!app) return;
+    app.insertAdjacentHTML('beforeend', resultFloatingSummaryHtml());
+  }
+
+  function unmountResultFloatingSummary() {
+    document.getElementById('resultFloatingSummary')?.remove();
   }
 
   function openDtiInfoSheet(button) {
@@ -2138,6 +2201,7 @@
     // 상환 스케줄 갱신 (초기화 후 렌더)
     scheduleShowCount[uid] = 12;
     renderSchedule(uid);
+    updateResultFloatingSummary();
   }
 
   // 기한 변경 시 기본금리도 갱신 (디딤돌/신생아 기한별 금리 반영)
@@ -2223,6 +2287,7 @@
     const amt   = calcMonthly(currentPrincipal, finalRate, method, years);
     if (amtEl) {
       amtEl.dataset.principal = String(currentPrincipal);
+      amtEl.dataset.motionTarget = String(Math.round(amt));
       amtEl.textContent = formatWon(amt);
     }
     const noteEl = document.getElementById('mc-note-' + uid);
@@ -2234,6 +2299,7 @@
     // 상환 스케줄 갱신 (초기화 후 렌더)
     scheduleShowCount[uid] = 12;
     renderSchedule(uid);
+    updateResultFloatingSummary();
   }
 
   const ROOM_DEDUCTION_AMOUNTS = {
@@ -3620,6 +3686,52 @@
 
     const resultContent = document.getElementById('resultContent');
     resultContent.innerHTML = html;
+    const hasFundResult = newbornOk || didimdolOk || bogeumjariOk;
+    if (hasFundResult) mountResultFloatingSummary();
+    else document.getElementById('resultFloatingSummary')?.remove();
+
+    // ── 단지 추천 CTA (자격 통과 상품이 1개 이상일 때만) ──
+    try {
+      const eligible = [];
+      if (newbornOk) eligible.push({ eok: getRoomDeductionState('newborn', nbFinalLimit, income, price, house, region, null, true, household).finalLimit, rate: nbDefaultRate });
+      if (didimdolOk) eligible.push({ eok: dDisplayLimit, rate: getDidimdolBaseRate(income, household, 30) });
+      if (bogeumjariOk) eligible.push({ eok: bFinalLimit, rate: bDefaultRate });
+      const best = eligible.reduce((acc, e) => (e.eok > (acc ? acc.eok : -1) ? e : acc), null);
+      const maxEok = best ? Math.max(0, best.eok) : 0;
+      if (maxEok > 0 && typeof buildRecommendCtaHtml === 'function') {
+        const assetEok = Math.max(0, Number(asset) || 0);
+        const targetPrice = Math.max(0, Number(price) || 0);
+        const ctaHtml = buildRecommendCtaHtml({
+          safeBudget: targetPrice,
+          maxBudget: targetPrice,
+          eligiblePriceCap: targetPrice,
+          targetPrice,
+          asset: assetEok,
+          maxLoan: maxEok,
+          region: 'all',
+        });
+        if (ctaHtml) {
+          const tmp = document.createElement('div');
+          tmp.innerHTML = ctaHtml;
+          const node = tmp.firstElementChild;
+          const productPanes = Array.from(resultContent.querySelectorAll('.tab-pane, .tab-pane3'));
+          const insertTargets = productPanes.length
+            ? productPanes.map(pane => pane.querySelector('.result-group')).filter(Boolean)
+            : [resultContent.querySelector('.result-group')].filter(Boolean);
+          if (node && insertTargets.length) {
+            insertTargets.forEach((target, index) => {
+              const item = index === 0 ? node : node.cloneNode(true);
+              target.insertAdjacentElement('afterend', item);
+            });
+          } else if (node) {
+            const restartBtn = resultContent.querySelector('.btn-restart');
+            if (restartBtn && restartBtn.parentNode) restartBtn.parentNode.insertBefore(node, restartBtn);
+            else resultContent.appendChild(node);
+          }
+        }
+      }
+    } catch (e) { /* CTA 실패는 결과 표시에 영향 없음 */ }
+
     resetResultScroll();
     resultContent.querySelectorAll('[data-motion-target]').forEach(function(el) {
       const target = Number(el.dataset.motionTarget || 0);
@@ -3644,6 +3756,7 @@
       resultContent.querySelectorAll('[data-loan-bar-uid]').forEach(function(wrap) {
         animateLoanBar(wrap.dataset.loanBarUid, Number(wrap.dataset.loanBarLoan), Number(wrap.dataset.loanBarPrice));
       });
+      updateResultFloatingSummary();
     });
 
     // 결과 카드 순차 페이드인
@@ -3651,6 +3764,7 @@
       const children = document.getElementById('resultContent')?.children;
       if (!children) return;
       Array.from(children).forEach((el, i) => {
+        if (el.classList.contains('result-floating-summary')) return;
         el.style.opacity = '0';
         el.style.animation = `cardFadeUp 0.32s cubic-bezier(0.4,0,0.2,1) ${i * 0.04}s forwards`;
       });
@@ -3679,6 +3793,7 @@
         tabsWrap.dataset.activeProduct = 'bogeumjari';
       }
     }
+    updateResultFloatingSummary();
   }
 
   function switchTab3(tab) {
@@ -3698,6 +3813,7 @@
         }
       }
     });
+    updateResultFloatingSummary();
   }
 
     function buildFailD(dHouseOk, dAssetOk, dIncomeOk, dPriceOk, asset, income, dIncomeLimit, price, dPriceLimit, house) {
@@ -3925,6 +4041,7 @@
     // 결과 슬라이드 초기화
     const resultSlide = document.querySelector('[data-slide="8"]');
     if (resultSlide) resultSlide.innerHTML = '<div id="resultContent"></div>';
+    document.getElementById('resultFloatingSummary')?.remove();
 
     const allSlides = document.querySelectorAll('.slide');
     allSlides[current].classList.remove('active');

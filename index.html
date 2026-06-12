@@ -6,6 +6,7 @@
 <title>주택 기금대출 추천</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="recommend.css?v=20260603d">
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 </head>
 <body>
@@ -391,6 +392,7 @@
 
   function showDashboard() {
     if (activeScreen === 'dashboard') return;
+    document.getElementById('resultFloatingSummary')?.remove();
     const app = document.querySelector('.app');
     const screen = document.getElementById('dashboardScreen');
     const aptScreen = document.getElementById('aptSearchScreen');
@@ -482,7 +484,7 @@
     }, SCREEN_TRANSITION_MS);
   }
 
-  function showAptSearchScreen() {
+  function showAptSearchScreen(options = {}) {
     if (activeScreen === 'apt-search') return;
     const app = document.querySelector('.app');
     const dashboardScreen = document.getElementById('dashboardScreen');
@@ -495,7 +497,7 @@
     aptScreen.style.display = 'block';
 
     if (typeof renderAptSearchScreen === 'function') {
-      renderAptSearchScreen();
+      renderAptSearchScreen(options);
     }
 
     app.classList.add('screen-dashboard-active', 'screen-transitioning', 'screen-from-dashboard');
@@ -515,7 +517,8 @@
 <script src="icons.js?v=20260518a"></script>
 <script src="calculator.js?v=20260521a"></script>
 <script src="dashboard.js?v=20260518a"></script>
-<script src="dashboard-apt-search.js?v=20260519a"></script>
+<script src="dashboard-apt-search.js?v=20260603a"></script>
+<script src="recommend.js?v=20260603e"></script>
 <script>
   (function () {
     const params = new URLSearchParams(window.location.search);

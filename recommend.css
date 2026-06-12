@@ -1,0 +1,112 @@
+/* ── 예산 기반 단지 추천 화면 (오버레이) ── */
+/* style.css의 토큰(--bg2/--bg3/--bg4/--separator/--accent/--green 등)을 상속.
+   앱의 일반 클래스와 충돌하지 않도록 모든 클래스를 reco- 로 프리픽스. */
+#recommendScreen{
+  position:absolute; inset:0; z-index:120;
+  background:var(--surface-2); color:var(--label1);
+  display:flex; flex-direction:column; overflow:hidden;
+  transform:translateX(100%); opacity:0; pointer-events:none;
+  transition:transform 380ms var(--ease-smooth), opacity 250ms var(--ease-snappy);
+}
+#recommendScreen.is-open{ transform:translateX(0); opacity:1; pointer-events:auto; }
+#recommendScreen .reco-scroll{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+
+/* 상단바 */
+.reco-topbar{display:flex;align-items:center;gap:14px;padding:14px 16px 12px;position:sticky;top:0;
+  background:var(--surface-2);z-index:6;border-bottom:1px solid var(--separator);}
+.reco-back{width:52px;height:52px;border-radius:14px;border:0;background:var(--bg3);
+  color:var(--label1);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+.reco-tt{font-size:16px;font-weight:600;letter-spacing:-.2px;}
+.reco-ts{font-size:12px;color:var(--label3);margin-top:2px;font-weight:300;}
+
+/* 필터바 */
+.reco-filterbar{position:sticky;top:0;z-index:5;background:var(--surface-2);padding:12px 20px;border-bottom:1px solid var(--separator);}
+.reco-note{font-size:11px;color:var(--label3);margin-bottom:11px;display:flex;align-items:center;gap:5px;font-weight:300;line-height:1.5;}
+.reco-note b{color:var(--label2);font-weight:600;}
+.reco-row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
+.reco-row::-webkit-scrollbar{display:none;}
+.reco-row + .reco-row{margin-top:9px;}
+.reco-chip{flex-shrink:0;padding:8px 16px;border-radius:10px;background:var(--bg2);border:1.5px solid var(--separator);
+  font-family:inherit;font-size:13px;font-weight:500;color:var(--label2);cursor:pointer;white-space:nowrap;
+  transition:all .15s;display:flex;align-items:center;gap:5px;}
+.reco-chip.on.pri{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+.reco-chip.budget.on.safe{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+.reco-chip.budget.on.max{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+.reco-region{appearance:none;-webkit-appearance:none;height:34px;min-width:0;
+  background:var(--bg2);border:1.5px solid var(--separator);border-radius:10px;color:var(--label1);
+  font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;padding:0 30px 0 12px;
+  background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.4)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 11px center;transition:border-color .18s;}
+.reco-region:focus{border-color:var(--accent);outline:none;}
+.reco-region option{background:#1c1c1e;color:#fff;}
+.reco-cap{font-size:11px;color:var(--label3);margin-top:10px;font-weight:300;}
+
+/* ── 가격 슬라이더 ── */
+.reco-budget-src{font-size:12px;color:var(--label2);font-weight:300;line-height:1.55;margin-bottom:12px;
+  padding:10px 12px;background:var(--accent-dim);border:1px solid rgba(10,132,255,.25);border-radius:10px;}
+.reco-budget-src b{color:var(--label1);font-weight:700;}
+.reco-slider-wrap{padding:4px 2px 12px;margin-bottom:4px;border-bottom:1px solid var(--border-subtle);}
+.reco-slider-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;}
+.reco-slider-label{font-size:12.5px;color:var(--label2);font-weight:500;}
+.reco-slider-val{font-size:24px;font-weight:800;letter-spacing:-.5px;}
+.reco-slider-tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:7px;margin-left:8px;}
+.reco-slider-tag.safe{background:var(--green-dim);color:var(--green);}
+.reco-slider-tag.tight{background:rgba(255,214,10,.14);color:var(--yellow);}
+input[type=range].reco-range{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:6px;
+  background:var(--bg4);outline:none;cursor:pointer;margin:2px 0;}
+input[type=range].reco-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:24px;height:24px;border-radius:50%;
+  background:#fff;border:3px solid var(--accent);cursor:pointer;box-shadow:0 1px 5px rgba(0,0,0,.45);}
+input[type=range].reco-range::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid var(--accent);cursor:pointer;}
+.reco-slider-scale{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;color:var(--label3);margin-top:9px;font-weight:300;}
+.reco-slider-scale #recoSafeMark{color:var(--green);font-weight:600;}
+.reco-slider-note{font-size:11px;color:var(--yellow);margin-top:9px;line-height:1.5;font-weight:400;}
+.reco-slider-note:empty{display:none;}
+
+/* 리스트 */
+.reco-body{padding:8px 20px 40px;}
+.reco-summary{padding:14px 2px 12px;font-size:13px;color:var(--label2);line-height:1.55;font-weight:300;}
+.reco-summary b{color:var(--label1);font-weight:600;}
+.reco-count{float:right;font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-dim);padding:4px 11px;border-radius:20px;}
+
+.reco-card{background:var(--bg3);border:1.5px solid var(--separator);border-radius:14px;padding:16px 18px;margin-bottom:10px;cursor:pointer;
+  transition:transform .12s,border-color .15s;overflow:hidden;}
+.reco-card:active{transform:scale(.99);}
+.reco-card-top{display:flex;align-items:flex-start;gap:14px;}
+.reco-grade{flex-shrink:0;width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;}
+.reco-g-s{background:var(--surface-4);color:var(--label1);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent);}
+.reco-g-a{background:var(--accent-dim);color:var(--accent);}
+.reco-g-b{background:var(--bg4);color:var(--green);}
+.reco-nm{font-size:16px;font-weight:600;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reco-loc{font-size:12px;color:var(--label3);margin-top:2px;font-weight:300;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reco-price{font-size:18px;font-weight:700;text-align:right;letter-spacing:-.4px;}
+.reco-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px;}
+.reco-meta span{font-size:11px;color:var(--label2);background:var(--bg4);padding:4px 9px;border-radius:8px;font-weight:300;}
+.reco-meta span.hi{font-weight:600;}
+.reco-meta span.fit{background:var(--green-dim);color:var(--green);font-weight:600;}
+.reco-meta span.fit.tight{background:rgba(255,214,10,.14);color:var(--yellow);}
+.reco-meta span.na{background:transparent;border:1px dashed var(--separator);color:var(--label3);}
+.reco-detail{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:12px;font-size:12px;color:var(--accent);font-weight:600;}
+
+.reco-empty{text-align:center;padding:50px 20px;color:var(--label3);}
+.reco-empty .e{font-size:40px;}
+.reco-empty p{font-size:14px;margin-top:14px;line-height:1.6;font-weight:300;}
+.reco-empty button{margin-top:18px;height:52px;padding:0 22px;border-radius:14px;background:var(--accent);border:none;color:#fff;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;}
+.reco-foot{font-size:11px;color:var(--label3);line-height:1.6;padding:18px 4px 30px;border-top:1px solid var(--separator);margin-top:14px;font-weight:300;}
+
+/* (단지 상세는 dashboard-apt-search의 기존 화면을 재사용 — 별도 CSS 없음) */
+
+/* 결과화면 CTA (calculator.js가 주입) */
+.reco-cta{border-radius:14px;padding:13px 44px 13px 14px;cursor:pointer;position:relative;overflow:hidden;margin:12px 0 0;
+  background:var(--surface-3);border:1.5px solid transparent;transition:transform 120ms var(--ease-snappy),border-color 150ms var(--ease-snappy);display:flex;align-items:center;gap:11px;
+  background-image:linear-gradient(var(--surface-3),var(--surface-3)),conic-gradient(from var(--reco-cta-angle),transparent 0deg,transparent 250deg,color-mix(in srgb,var(--accent) 72%,transparent) 292deg,transparent 330deg,transparent 360deg);
+  background-origin:border-box;background-clip:padding-box,border-box;animation:recoCtaBorderSweep 4.2s linear infinite;}
+.reco-cta:active{transform:scale(.97);}
+.reco-cta-ico{font-size:22px;line-height:1;flex-shrink:0;}
+.reco-cta-copy{min-width:0;}
+.reco-cta-t{font-size:14px;font-weight:700;letter-spacing:0;color:var(--label1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reco-cta-s{font-size:11.5px;color:var(--label3);margin-top:3px;line-height:1.45;font-weight:300;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.reco-cta-go{position:absolute;right:15px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--label3);}
+
+@property --reco-cta-angle{syntax:'<angle>';inherits:false;initial-value:0deg;}
+@keyframes recoCtaBorderSweep{to{--reco-cta-angle:360deg;}}
+@media (prefers-reduced-motion: reduce){.reco-cta{animation:none;background-image:linear-gradient(var(--surface-3),var(--surface-3)),linear-gradient(var(--separator),var(--separator));}}

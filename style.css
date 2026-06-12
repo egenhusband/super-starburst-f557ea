@@ -636,9 +636,86 @@
 
   /* RESULT */
   .result-slide {
-    padding: 28px 20px max(env(safe-area-inset-bottom), 28px);
+    padding: 28px 20px calc(max(env(safe-area-inset-bottom), 28px) + 96px);
     gap: 0;
     overflow-y: auto;
+  }
+
+  .result-floating-summary {
+    position: absolute;
+    left: 50%;
+    right: auto;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    z-index: 180;
+    width: calc(100% - 32px);
+    max-width: 398px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    transform: translateX(-50%);
+    padding: 14px 10px 15px;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 28px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0) 38%),
+      var(--bg3);
+    box-shadow:
+      0 18px 48px rgba(0,0,0,0.46),
+      0 2px 0 rgba(255,255,255,0.05) inset;
+    overflow: hidden;
+    isolation: isolate;
+    animation: resultFloatingSummaryEnter 260ms var(--ease-enter) both;
+  }
+  .result-floating-summary-glow {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.38), transparent);
+    pointer-events: none;
+  }
+  .result-floating-summary[hidden] {
+    display: none;
+  }
+  .result-floating-summary-item {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    text-align: center;
+  }
+  .result-floating-summary-item + .result-floating-summary-item {
+    border-left: 1px solid rgba(255,255,255,0.08);
+  }
+  .result-floating-summary-item span {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--label3);
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+  .result-floating-summary-item strong {
+    max-width: 100%;
+    font-size: 18px;
+    font-weight: 750;
+    color: var(--label1);
+    line-height: 1.12;
+    letter-spacing: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #resultFloatCapital {
+    font-size: 15px;
+  }
+  @keyframes resultFloatingSummaryEnter {
+    from { opacity: 0; transform: translateX(-50%) translateY(14px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
 
   /* 섹션 그룹 — 시각적으로 관련 카드끼리 묶음 */

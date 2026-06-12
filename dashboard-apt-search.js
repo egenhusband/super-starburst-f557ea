@@ -635,15 +635,34 @@ function renderDashboardAptSearchBar() {
   `;
 }
 
+// 단지 상세의 "뒤로" 동작 분기 — 추천 등 다른 진입점에서 재사용할 때 백 목적지를 바꾼다.
+// (단지 상세 UI 자체는 그대로 한 곳에서만 관리)
+let aptSearchBackOverride = null; // { label, handler }
+function setAptSearchBackOverride(o) { aptSearchBackOverride = o || null; }
+function handleAptSearchBack() {
+  if (aptSearchBackOverride && typeof aptSearchBackOverride.handler === 'function') {
+    const h = aptSearchBackOverride.handler;
+    aptSearchBackOverride = null;
+    h();
+    return;
+  }
+  showDashboard();
+}
+if (typeof window !== 'undefined') {
+  window.setAptSearchBackOverride = setAptSearchBackOverride;
+  window.handleAptSearchBack = handleAptSearchBack;
+}
+
 function renderAptSearchScreenLayout() {
   const screen = document.getElementById('aptSearchScreen');
   if (!screen) return;
 
+  const backLabel = aptSearchBackOverride ? aptSearchBackOverride.label : '← 대시보드로';
   screen.innerHTML = `
     <div class="db-apt-page">
       <div class="db-apt-page-sticky">
         <div class="db-topbar">
-          <button class="db-back-btn" type="button" onclick="showDashboard()">← 대시보드로</button>
+          <button class="db-back-btn" type="button" onclick="handleAptSearchBack()">${backLabel}</button>
           <div class="db-topbar-copy">
             <strong>아파트 분석</strong>
             <span>검색과 결과는 여기서만 확인해요</span>
@@ -664,7 +683,7 @@ function renderAptSearchScreenLayout() {
         </div>
       </div>
       <div class="db-apt-page-body">
-        <div class="db-apt-finder-copy">단지명과 지역명을 함께 입력하면 초품아 거리, 가까운 역, 세대수, 신축 여부와 핵심 업무지구 접근성을 함께 보여드려요.</div>
+        <div class="db-apt-finder-copy">단지명과 지역명을 함께 입력하면 초등학교 도보권, 가까운 역, 세대수, 신축 여부와 핵심 업무지구 접근성을 함께 보여드려요.</div>
         <div class="db-apt-search-results" id="dbAptSearchResults"></div>
         <div class="db-apt-search-selected" id="dbAptSearchSelected"></div>
       </div>
@@ -934,7 +953,7 @@ function renderDashboardSelectedApartment() {
         ` : ''}
         <div class="db-apt-grade-grid">
           <div class="db-apt-grade-chip">
-            <span>초품아</span>
+            <span>초등 도보권</span>
             <strong>${escapeHtml(schoolParts.primary || schoolText)}</strong>
             ${schoolParts.secondary ? `<em>${escapeHtml(schoolParts.secondary)}</em>` : ''}
           </div>
@@ -964,7 +983,7 @@ function renderDashboardSelectedApartment() {
         ${renderAreaPricesSectionHtml(insight?.areaPrices)}
         <div class="db-apt-grade-summary">
           <div class="db-apt-grade-reasons">
-            ${(gradeData?.reasons || ['초품아 거리와 가까운 역 거리를 우선 정리하는 중이에요.']).map(reason => `<p>${escapeHtml(reason)}</p>`).join('')}
+            ${(gradeData?.reasons || ['초등학교 도보권과 가까운 역 거리를 우선 정리하는 중이에요.']).map(reason => `<p>${escapeHtml(reason)}</p>`).join('')}
           </div>
         </div>
         <div class="db-apt-grade-disclaimer">
@@ -1363,7 +1382,8 @@ function hydrateDashboardApartmentInsight(entry) {
 }
 
 function pickDashboardApartment(id) {
-  const entry = dashboardAptSearchState.entriesById.get(id);
+  const entry = dashboardAptSearchState.entriesById.get(id)
+    || dashboardAptSearchState.entries.find(item => item.kaptCode === id);
   if (!entry) return;
 
   const currentQuery = dashboardAptSearchState.query.trim();
@@ -1406,9 +1426,10 @@ function returnToDashboardAptResults() {
   }
 }
 
-function renderAptSearchScreen() {
+function renderAptSearchScreen(options = {}) {
   syncDashboardAptSearchUi();
   loadDashboardAptSearchIndex().catch(() => {});
+  if (options.skipFocus) return;
   window.setTimeout(() => {
     const input = document.getElementById('dbAptSearchInput');
     if (input) input.focus();

@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>단지 추천 플로우 프로토타입 v2</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="style.css">
+<style>
+  /* style.css의 토큰/베이스를 상속 — 여기서는 프로토타입 전용 레이아웃만 정의하고
+     값은 실제 디자인 시스템(--bg2/--bg3/--bg4/--separator, 14px 라운드, 52px 버튼 등)에 맞춘다. */
+  :root{ --pink:#ff6b9d; }            /* style.css 미정의 토큰만 보강 */
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:#000;}
+  .app{ width:100%; max-width:430px; height:100dvh; margin:0 auto; }   /* 실제 앱과 동일 */
+
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;background:var(--surface-2);
+    overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateX(100%);opacity:0;pointer-events:none;
+    transition:transform .42s var(--ease-enter),opacity .3s ease;}
+  .screen.active{transform:translateX(0);opacity:1;pointer-events:auto;}
+  .screen.exit-left{transform:translateX(-22%);opacity:0;}
+  .pad{padding:8px 20px 40px;}
+
+  /* 상단바 — btn-back(52/14/bg3) 언어 차용 */
+  .topbar{display:flex;align-items:center;gap:14px;padding:14px 16px 12px;position:sticky;top:0;
+    background:var(--surface-2);z-index:6;border-bottom:1px solid var(--separator);}
+  .back-btn{width:52px;height:52px;border-radius:14px;border:0;background:var(--bg3);
+    color:var(--label1);font-size:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+  .topbar-title{font-size:16px;font-weight:600;letter-spacing:-.2px;}
+  .topbar-sub{font-size:12px;color:var(--label3);margin-top:2px;font-weight:300;}
+
+  /* ── 결과 화면(진입점) 목업 — result-header-area/result-group 언어 ── */
+  .result-faux{padding:24px 20px 0;}
+  .result-faux .badge{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;
+    background:var(--green-dim);border:1px solid rgba(48,209,88,.25);font-size:11px;font-weight:600;color:var(--green);}
+  .result-faux h1{font-size:30px;font-weight:700;letter-spacing:-.8px;line-height:1.1;margin:16px 0 6px;}
+  .result-faux .muted{font-size:13px;color:var(--label2);font-weight:300;}
+  .fake-card{background:var(--bg3);border:1.5px solid var(--separator);border-radius:14px;padding:16px 18px;margin-top:12px;}
+  .fake-card .row{display:flex;justify-content:space-between;align-items:baseline;}
+  .fake-card .pname{font-size:15px;font-weight:500;}
+  .fake-card .pamt{font-size:22px;font-weight:700;color:var(--green);letter-spacing:-.4px;}
+  .fake-card .pbar{height:7px;border-radius:6px;background:var(--bg4);margin-top:12px;overflow:hidden;}
+  .fake-card .pbar>i{display:block;height:100%;border-radius:6px;background:var(--accent);}
+
+  /* CTA — result-group 보더 + accent/green 그라데이션(앱 팔레트) */
+  .cta-reco{margin:20px 20px 0;border-radius:14px;padding:18px;cursor:pointer;position:relative;overflow:hidden;
+    background:linear-gradient(135deg,var(--accent-dim),var(--green-dim));
+    border:1.5px solid rgba(10,132,255,.35);transition:transform .12s;}
+  .cta-reco:active{transform:scale(.985);}
+  .cta-reco .ico{font-size:26px;}
+  .cta-reco .t{font-size:17px;font-weight:600;margin-top:8px;letter-spacing:-.3px;}
+  .cta-reco .s{font-size:13px;color:var(--label2);margin-top:5px;line-height:1.55;font-weight:300;}
+  .cta-reco .go{position:absolute;right:18px;bottom:18px;font-size:20px;color:var(--label1);}
+  .cta-reco .chip-budget{display:inline-block;margin-top:12px;font-size:12px;font-weight:600;color:var(--accent);
+    background:var(--accent-dim);padding:5px 11px;border-radius:10px;}
+  .restart{width:100%;height:52px;min-height:52px;margin:18px 20px;width:calc(100% - 40px);
+    border-radius:14px;border:1.5px solid var(--separator);background:transparent;color:var(--label3);
+    font-family:inherit;font-size:14px;letter-spacing:-.2px;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;}
+  .restart:hover{border-color:var(--label2);color:var(--label2);}
+  .hint{font-size:11px;color:var(--label3);text-align:center;padding:4px 20px 24px;line-height:1.6;font-weight:300;}
+
+  /* ── 리스트 상단 인라인 필터 (sticky) ── */
+  .filterbar{position:sticky;top:67px;z-index:5;background:var(--surface-2);padding:12px 20px 12px;
+    border-bottom:1px solid var(--separator);}
+  .region-note{font-size:11px;color:var(--label3);margin-bottom:11px;display:flex;align-items:center;gap:5px;font-weight:300;}
+  .region-note b{color:var(--label2);font-weight:600;}
+  .filter-row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;}
+  .filter-row::-webkit-scrollbar{display:none;}
+  .filter-row + .filter-row{margin-top:9px;}
+  /* 칩 — bank-tag-btn 사양(8/16, radius10, 1.5px separator, bg2, 13/500, active accent) */
+  .fchip{flex-shrink:0;padding:8px 16px;border-radius:10px;background:var(--bg2);border:1.5px solid var(--separator);
+    font-family:inherit;font-size:13px;font-weight:500;color:var(--label2);cursor:pointer;white-space:nowrap;
+    transition:all .15s;display:flex;align-items:center;gap:5px;}
+  .fchip.on.pri{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+  .fchip.budget.on.safe{border-color:var(--green);color:var(--green);background:var(--green-dim);}
+  .fchip.budget.on.max{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+  /* 지역 셀렉트 — bank-region-select 언어(bg2/separator/radius12) */
+  .fchip-region{padding:0;border:0;background:transparent;}
+  select.region-inline{appearance:none;-webkit-appearance:none;height:36px;min-width:0;
+    background:var(--bg2);border:1.5px solid var(--separator);border-radius:10px;color:var(--label1);
+    font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;padding:0 30px 0 12px;
+    background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.4)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 11px center;transition:border-color .18s;}
+  select.region-inline:focus{border-color:var(--accent);outline:none;}
+  select.region-inline option{background:#1c1c1e;color:#fff;}
+  .filter-cap{font-size:11px;color:var(--label3);margin-top:10px;font-weight:300;}
+
+  /* ── 리스트 ── */
+  .list-summary{padding:16px 2px 12px;font-size:13px;color:var(--label2);line-height:1.55;font-weight:300;}
+  .list-summary b{color:var(--label1);font-weight:600;}
+  .count-pill{float:right;font-size:13px;font-weight:700;color:var(--pink);background:rgba(255,107,157,.12);padding:4px 11px;border-radius:20px;}
+
+  /* 단지 카드 — result-group 사양(bg3, 1.5px separator, radius14, padding 16/18) */
+  .apt{background:var(--bg3);border:1.5px solid var(--separator);border-radius:14px;padding:16px 18px;margin-bottom:10px;cursor:pointer;
+    transition:transform .12s,border-color .15s;overflow:hidden;}
+  .apt:active{transform:scale(.99);}
+  .apt .top{display:flex;align-items:flex-start;gap:14px;}
+  /* 등급 배지 — result-icon 사양(52/radius16) 차용 */
+  .grade{flex-shrink:0;width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;}
+  .g-S{background:linear-gradient(135deg,#ff6b9d,#c850ff);color:#fff;}
+  .g-A{background:var(--accent-dim);color:var(--accent);}
+  .g-B{background:var(--bg4);color:var(--green);}
+  .apt .nm{font-size:16px;font-weight:600;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .apt .loc{font-size:12px;color:var(--label3);margin-top:2px;font-weight:300;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .apt .price{font-size:18px;font-weight:700;text-align:right;letter-spacing:-.4px;}
+  .apt .fit{font-size:10.5px;font-weight:700;color:var(--green);text-align:right;margin-top:2px;}
+  .apt .fit.tight{color:var(--yellow);}
+  .apt .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px;}
+  .apt .meta span{font-size:11px;color:var(--label2);background:var(--bg4);padding:4px 9px;border-radius:8px;font-weight:300;}
+  .apt .meta span.hi{font-weight:600;}
+  .apt .meta span.na{background:transparent;border:1px dashed var(--separator);color:var(--label3);}
+  .apt .detail{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:12px;font-size:12px;color:var(--accent);font-weight:600;}
+
+  .empty{text-align:center;padding:50px 20px;color:var(--label3);}
+  .empty .e{font-size:40px;}
+  .empty p{font-size:14px;margin-top:14px;line-height:1.6;font-weight:300;}
+  .empty button{margin-top:18px;height:52px;padding:0 22px;border-radius:14px;background:var(--accent);border:none;color:#fff;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;}
+
+  .foot-note{font-size:11px;color:var(--label3);line-height:1.6;padding:18px 4px 30px;border-top:1px solid var(--separator);margin-top:14px;font-weight:300;}
+
+  .toast{position:absolute;left:50%;bottom:40px;transform:translateX(-50%) translateY(20px);
+    background:var(--bg4);color:#fff;font-size:13px;padding:12px 18px;border-radius:12px;opacity:0;
+    transition:.3s;pointer-events:none;z-index:50;border:1px solid var(--border-strong);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ════ SCREEN 0 · 계산 결과(진입점) ════ -->
+  <div class="screen active" id="s0">
+    <div class="result-faux">
+      <span class="badge">● 계산 완료</span>
+      <h1>회원님은 최대<br><span style="color:var(--green)">4.2억</span>까지 받을 수 있어요</h1>
+      <div class="muted">디딤돌·보금자리론 조건 기준 · 참고용 예상치</div>
+      <div class="fake-card">
+        <div class="row"><span class="pname">🏛 보금자리론</span><span class="pamt">4.2억</span></div>
+        <div class="pbar"><i style="width:68%"></i></div>
+        <div class="muted" style="margin-top:8px">LTV 70% · DTI 60% 기준 · 월 약 198만원</div>
+      </div>
+    </div>
+
+    <!-- ★ 신규 진입점 CTA → 바로 리스트로 (1스텝) -->
+    <div class="cta-reco" onclick="go('sC')">
+      <div class="ico">🏘️</div>
+      <div class="t">이 예산으로 살 수 있는 단지 둘러보기</div>
+      <div class="s">대출 한도 + 보유 자산을 합친 예산으로<br>수도권 단지를 바로 보여드려요.</div>
+      <div class="chip-budget">예상 예산 5.4억 ~ 6.2억</div>
+      <div class="go">→</div>
+    </div>
+
+    <button class="restart">↺ 처음부터 다시하기</button>
+    <div class="hint">↑ 위쪽은 기존 결과화면(목업) · 강조된 CTA가 신규<br>탭하면 <b>중간 설문 없이 바로</b> 리스트로 진입합니다</div>
+  </div>
+
+  <!-- ════ SCREEN C · 추천 리스트 (단일 화면, 인라인 필터) ════ -->
+  <div class="screen" id="sC">
+    <div class="topbar">
+      <div class="back-btn" onclick="back('s0')">‹</div>
+      <div><div class="topbar-title">예산 안의 단지</div><div class="topbar-sub" id="cSub">수도권 우선 제공</div></div>
+    </div>
+
+    <!-- 인라인 필터바 -->
+    <div class="filterbar">
+      <div class="region-note">📍 현재 <b>수도권(서울·경기)</b> 단지를 우선 제공해요 · 지방은 데이터 보강 후 추가됩니다</div>
+      <!-- 1행: 예산 토글 + 지역 -->
+      <div class="filter-row">
+        <div class="fchip budget safe on" id="tSafe" onclick="setBudget('safe')">안전 5.4억</div>
+        <div class="fchip budget max" id="tMax" onclick="setBudget('max')">최대 6.2억</div>
+        <div class="fchip fchip-region">📍
+          <select class="region-inline" id="region" onchange="renderList()">
+            <option value="all">수도권 전체</option>
+          </select>
+        </div>
+      </div>
+      <!-- 2행: 우선순위 (MVP 4종) -->
+      <div class="filter-row" id="priRow">
+        <div class="fchip on" data-k="all" onclick="setPriority('all',this)">종합순</div>
+        <div class="fchip pri" data-k="school" onclick="setPriority('school',this)">🎒 초등 도보권</div>
+        <div class="fchip pri" data-k="new" onclick="setPriority('new',this)">🏗️ 신축</div>
+        <div class="fchip pri" data-k="big" onclick="setPriority('big',this)">🏢 대단지</div>
+      </div>
+      <div class="filter-cap" id="filterCap">기본 종합순 · 칩을 눌러 정렬 기준을 바꿔보세요</div>
+    </div>
+
+    <div class="pad" style="padding-top:4px">
+      <div class="list-summary"><span class="count-pill" id="countPill">0곳</span><span id="listSummary"></span></div>
+      <div id="aptList"></div>
+      <div class="foot-note">
+        · 표시 시세는 단지별 실거래가 기반 추정치이며 시점·층·향에 따라 달라질 수 있어요.<br>
+        · 직주근접·역세권은 지하철 데이터가 있는 단지에만 표시돼요. <b>데이터가 없으면 빈 값을 채우지 않고 항목을 숨깁니다.</b><br>
+        · 입지 등급은 수도권 기준이며, 실제 매수 판단의 보조 참고용이에요.
+      </div>
+    </div>
+    <div class="toast" id="toast">기존 단지 상세 화면으로 연결됩니다</div>
+  </div>
+
+</div>
+
+<script>
+  // ── 상태 ──
+  let budget = 'safe';
+  let priority = 'all';
+  const BUDGET_VAL = { safe: 5.4, max: 6.2 };   // 데모 예산(억) · 실제론 calc-loan에서 산출
+  const MAX_CARDS = 60;                          // 렌더 상한
+  let ITEMS = [];                                // 실데이터 (apt-recommend-index.json)
+  let loaded = false;
+
+  // ── 실데이터 로드 ──
+  async function loadIndex(){
+    if(loaded) return;
+    try{
+      const res = await fetch('data/apt-recommend-index.json');
+      const json = await res.json();
+      ITEMS = json.items || [];
+      buildRegionOptions();
+      loaded = true;
+    }catch(e){
+      ITEMS = [];
+      document.getElementById('aptList').innerHTML =
+        `<div class="empty"><div class="e">⚠️</div><p>인덱스를 불러오지 못했어요.<br><small>${e.message}</small></p></div>`;
+    }
+  }
+
+  // 지역 드롭다운: 서울/경기 + 단지수 많은 시군구 자동 채우기
+  function buildRegionOptions(){
+    const sel = document.getElementById('region');
+    const cnt = {};
+    ITEMS.forEach(x=>{ cnt[x.sigunguName]=(cnt[x.sigunguName]||0)+1; });
+    const top = Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,18).map(([s])=>s);
+    sel.innerHTML =
+      `<option value="all">수도권 전체</option>`+
+      `<option value="__seoul">서울 전체</option>`+
+      `<option value="__gyeonggi">경기 전체</option>`+
+      top.map(s=>`<option value="sgg:${s}">${s}</option>`).join('');
+  }
+
+  // ── 네비게이션 ──
+  function go(id){ transition(id,'forward'); }
+  function back(id){ transition(id,'back'); }
+  async function transition(id, dir){
+    const cur = document.querySelector('.screen.active');
+    const next = document.getElementById(id);
+    if(!next || cur===next) return;
+    cur.classList.remove('active');
+    if(dir==='forward') cur.classList.add('exit-left');
+    next.classList.remove('exit-left');
+    void next.offsetWidth;
+    next.classList.add('active');
+    setTimeout(()=>cur.classList.remove('exit-left'),460);
+    next.scrollTop = 0;
+    if(id==='sC'){
+      document.getElementById('aptList').innerHTML = `<div class="empty"><div class="e">⏳</div><p>단지를 불러오는 중…</p></div>`;
+      await loadIndex();
+      renderList();
+    }
+  }
+
+  // ── 필터 ──
+  function setBudget(kind){
+    budget = kind;
+    document.getElementById('tSafe').classList.toggle('on', kind==='safe');
+    document.getElementById('tMax').classList.toggle('on', kind==='max');
+    renderList();
+  }
+  function setPriority(k, el){
+    priority = k;
+    document.querySelectorAll('#priRow .fchip').forEach(c=>c.classList.remove('on'));
+    el.classList.add('on');
+    const caps = {
+      all:'기본 종합순(입지 등급) · 칩을 눌러 정렬 기준을 바꿔보세요',
+      school:'가까운 초등학교까지 거리가 짧은 순',
+      new:'준공 연식이 최근인 순',
+      big:'세대수가 많은 대단지 순',
+    };
+    document.getElementById('filterCap').textContent = caps[k];
+    renderList();
+  }
+
+  // 정렬 점수 (null은 항상 뒤로)
+  function sortKey(x){
+    if(priority==='school') return x.schoolDistance==null ? Infinity : x.schoolDistance;   // 작을수록 앞
+    if(priority==='new')    return x.buildYear==null ? -Infinity : x.buildYear;             // 클수록 앞
+    if(priority==='big')    return x.householdCount==null ? -Infinity : x.householdCount;   // 클수록 앞
+    return x.clampedScore==null ? -Infinity : x.clampedScore;                              // 종합순
+  }
+  function sortCmp(a,b){
+    const ka=sortKey(a), kb=sortKey(b);
+    return priority==='school' ? ka-kb : kb-ka;  // 초등 도보권만 오름차순
+  }
+
+  const eok = man => (man/10000);
+  const pyeong = m2 => Math.round(parseFloat(m2)/3.305);
+
+  function renderList(){
+    if(!loaded) return;
+    const cap = BUDGET_VAL[budget];
+    const capMan = cap*10000;
+    const rgn = document.getElementById('region').value;
+
+    // 지역 필터
+    const inRegion = x =>
+      rgn==='all' ? true :
+      rgn==='__seoul' ? x.regionKey==='seoul' :
+      rgn==='__gyeonggi' ? x.regionKey==='gyeonggi' :
+      rgn.startsWith('sgg:') ? x.sigunguName===rgn.slice(4) : true;
+
+    // 예산 내 평형이 하나라도 있는 단지
+    let list = ITEMS.filter(x => x.minAvgPrice<=capMan && inRegion(x));
+    list.sort(sortCmp);
+    const total = list.length;
+    list = list.slice(0, MAX_CARDS);
+
+    const rgnLabel = rgn==='all'?'수도권 전체':rgn==='__seoul'?'서울 전체':rgn==='__gyeonggi'?'경기 전체':rgn.slice(4);
+    document.getElementById('countPill').textContent = total.toLocaleString() + '곳';
+    const priLabel = priority!=='all' ? `<b>${({school:'초등 도보권',new:'신축',big:'대단지'})[priority]}</b> 위주로, ` : '';
+    document.getElementById('listSummary').innerHTML =
+      `${priLabel}<b>${rgnLabel}</b>에서 <b>${cap}억</b> 안에 둘러볼 만한 단지예요.`;
+    document.getElementById('cSub').textContent = `${rgnLabel} · ${cap}억 이하`;
+
+    const wrap = document.getElementById('aptList');
+    if(!total){
+      wrap.innerHTML = `<div class="empty"><div class="e">🔍</div>
+        <p>이 조건에 맞는 단지를 못 찾았어요.<br>예산을 올리거나 지역을 넓혀보세요.</p>
+        <button onclick="setBudget('max')">최대 예산으로 다시 보기</button></div>`;
+      return;
+    }
+
+    wrap.innerHTML = list.map((x,i)=>{
+      // 예산 내 최대 평형 찾기 (areas는 avgPrice 오름차순)
+      const within = x.areas.filter(a=>a.avgPrice<=capMan);
+      const top = within[within.length-1];
+      const gap = eok(capMan - top.avgPrice);
+      const tight = gap < 0.4;
+      const fitTag = `<span class="hi" style="${tight?'background:rgba(255,214,10,.14);color:var(--yellow)':'background:var(--green-dim);color:var(--green)'}">${top.area}까지 여력 내 · 여유 ${gap.toFixed(1)}억</span>`;
+      const rank = i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
+      const g = x.grade||'';
+      const gc = g.startsWith('S')?'g-S':g.startsWith('A')?'g-A':'g-B';
+      const latestTag = top.latestPrice
+        ? `<span>최근 ${eok(top.latestPrice).toFixed(1)}억${top.latestDate?`·${top.latestDate.slice(0,7)}`:''}</span>` : '';
+
+      // 메타: 여유 + 최근가 + 우선순위 강조 + 기본
+      const tags=[];
+      if(priority==='school') tags.push(x.schoolDistance!=null?`<span class="hi">초등 ${x.schoolDistance}m</span>`:`<span class="na">학교 거리 준비 중</span>`);
+      if(priority==='new')    tags.push(x.buildYear!=null?`<span class="hi">${x.buildYear}년 준공</span>`:`<span class="na">준공정보 준비 중</span>`);
+      if(priority==='big')    tags.push(x.householdCount!=null?`<span class="hi">${x.householdCount.toLocaleString()}세대</span>`:`<span class="na">세대수 준비 중</span>`);
+      if(x.householdCount!=null) tags.push(`<span>${x.householdCount.toLocaleString()}세대</span>`);
+      if(x.buildYear!=null) tags.push(`<span>${x.buildYear}년</span>`);
+      if(x.schoolDistance!=null) tags.push(`<span>초등 도보권 ${x.schoolDistance}m</span>`);
+
+      return `<div class="apt" onclick="openDetail('${x.kaptCode}')">
+        <div class="top">
+          <div class="grade ${gc}">${g}</div>
+          <div style="flex:1;min-width:0">
+            <div class="nm">${rank}${x.aptName}</div>
+            <div class="loc">${x.regionKey==='seoul'?'서울':'경기'} ${x.sigunguName} ${x.umdName||''}</div>
+          </div>
+          <div style="flex-shrink:0;text-align:right">
+            <div class="price">${eok(top.avgPrice).toFixed(1)}억</div>
+            <div class="loc">${top.area}·${pyeong(top.area)}평</div>
+          </div>
+        </div>
+        <div class="meta">${fitTag}${latestTag}${tags.slice(0,3).join('')}</div>
+        <div class="detail">입지 분석 자세히 보기 ›</div>
+      </div>`;
+    }).join('') + (total>MAX_CARDS?`<div class="foot-note" style="text-align:center;border:none">상위 ${MAX_CARDS}곳만 표시 중 · 전체 ${total.toLocaleString()}곳 (실제 구현 시 무한스크롤/페이지네이션)</div>`:'');
+  }
+
+  function openDetail(code){ flashToast(`단지 상세 연결 (kaptCode: ${code})`); }
+  let toastTimer;
+  function flashToast(msg){
+    const t=document.getElementById('toast'); if(!t)return;
+    t.textContent=msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1800);
+  }
+</script>
+</body>
+</html>

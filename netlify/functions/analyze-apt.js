@@ -268,9 +268,9 @@ function computeStationScore(distance) {
 }
 
 function computeSchoolScore(distance) {
-  if (!Number.isFinite(distance)) return { score: 8, label: '초품아 거리 확인 중' };
-  if (distance <= 300) return { score: 36, label: '초품아 성격이 아주 강한 거리' };
-  if (distance <= 500) return { score: 32, label: '도보 통학 체감이 좋은 편' };
+  if (!Number.isFinite(distance)) return { score: 8, label: '초등학교 도보권 확인 중' };
+  if (distance <= 300) return { score: 36, label: '초등학교 도보권이 매우 가까운 거리' };
+  if (distance <= 500) return { score: 32, label: '초등학교 도보 접근성이 좋은 편' };
   if (distance <= 700) return { score: 24, label: '가까운 초등학교 접근성이 무난한 편' };
   if (distance <= 1000) return { score: 16, label: '통학 거리가 아주 짧지는 않은 편' };
   return { score: 6, label: '초등학교 접근성은 비교가 필요한 편' };
@@ -484,8 +484,8 @@ function computeTransportAdjustment(entry, stationDistance, businessDistrictResu
 function computeInfraAdjustment(entry, schoolDistance) {
   const items = [];
   if (Number.isFinite(schoolDistance)) {
-    if (schoolDistance <= 400) items.push({ key: 'school', points: 1, label: '초등학교 접근성이 좋은 편' });
-    else if (schoolDistance >= 900) items.push({ key: 'school', points: -1, label: '초등학교 거리는 약점' });
+    if (schoolDistance <= 400) items.push({ key: 'school', points: 1, label: '초등학교 도보권이 가까운 편' });
+    else if (schoolDistance >= 900) items.push({ key: 'school', points: -1, label: '초등학교 도보권은 비교가 필요한 편' });
   }
   if (Number.isFinite(entry?.householdCount)) {
     if (entry.householdCount >= 1000) items.push({ key: 'household', points: 2, label: '대단지 스케일이 강점' });
