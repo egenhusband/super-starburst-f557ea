@@ -374,12 +374,13 @@ function renderAreaPricesSectionHtml(areaPrices) {
     const countLabel = `${data.tradeCount}건`;
     const latestDate = formatShortTradeDate(data.latestDate);
     const latestLabel = latest ? `최근 ${latest}${latestDate ? ` · ${latestDate}` : ''}` : '';
+    const highLabel = data.recentHigh?.within3M ? (data.recentHigh.label || '최근 최고가') : '';
     return `
       <div class="db-apt-area-row">
         <span class="db-apt-area-bucket">${escapeHtml(bucket)}</span>
         <span class="db-apt-area-price">
           <span class="db-apt-area-price-main">${escapeHtml(avg)}</span>
-          ${latestLabel ? `<span class="db-apt-area-price-sub">${escapeHtml(latestLabel)}</span>` : ''}
+          ${latestLabel ? `<span class="db-apt-area-price-sub">${escapeHtml(latestLabel)}${highLabel ? ` <em class="db-apt-area-high">${escapeHtml(highLabel)}</em>` : ''}</span>` : ''}
         </span>
         <span class="db-apt-area-count">${escapeHtml(countLabel)}</span>
       </div>

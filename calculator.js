@@ -1420,17 +1420,27 @@
   function resultFloatingSummaryHtml() {
     return `<div class="result-floating-summary" id="resultFloatingSummary" aria-live="polite">
       <div class="result-floating-summary-glow" aria-hidden="true"></div>
-      <div class="result-floating-summary-item">
-        <span>예상 한도</span>
-        <strong id="resultFloatLimit">—</strong>
+      <div class="result-floating-summary-head">
+        <span>집값 기준</span>
+        <strong id="resultFloatPrice">—</strong>
       </div>
-      <div class="result-floating-summary-item">
-        <span>필요 자기자금</span>
-        <strong id="resultFloatCapital">—</strong>
+      <div class="result-floating-summary-bar" aria-hidden="true">
+        <span class="result-floating-summary-bar-loan" id="resultFloatLoanBar"></span>
+        <span class="result-floating-summary-bar-capital" id="resultFloatCapitalBar"></span>
       </div>
-      <div class="result-floating-summary-item">
-        <span>첫 달 납입액</span>
-        <strong id="resultFloatMonthly">—</strong>
+      <div class="result-floating-summary-grid">
+        <div class="result-floating-summary-item">
+          <span>예상 한도</span>
+          <strong id="resultFloatLimit">—</strong>
+        </div>
+        <div class="result-floating-summary-item">
+          <span>필요 자기자금</span>
+          <strong id="resultFloatCapital">—</strong>
+        </div>
+        <div class="result-floating-summary-item">
+          <span>첫 달 납입액</span>
+          <strong id="resultFloatMonthly">—</strong>
+        </div>
       </div>
     </div>`;
   }
@@ -1457,11 +1467,18 @@
     const limitEok = principalWon > 0 ? principalWon / 100000000 : 0;
     const capitalEok = Math.max(0, priceEok - limitEok);
 
+    const priceEl = document.getElementById('resultFloatPrice');
     const limitEl = document.getElementById('resultFloatLimit');
     const capitalEl = document.getElementById('resultFloatCapital');
     const monthlyOutEl = document.getElementById('resultFloatMonthly');
+    const loanBarEl = document.getElementById('resultFloatLoanBar');
+    const capitalBarEl = document.getElementById('resultFloatCapitalBar');
+    const loanPct = priceEok > 0 ? Math.min(100, Math.max(0, (limitEok / priceEok) * 100)) : 0;
+    if (priceEl) priceEl.textContent = priceEok > 0 ? formatLimit(priceEok) : '—';
     if (limitEl) limitEl.textContent = limitEok > 0 ? formatLimit(limitEok) : '—';
     if (capitalEl) capitalEl.textContent = priceEok > 0 ? formatLimit(capitalEok) : '—';
+    if (loanBarEl) loanBarEl.style.width = loanPct + '%';
+    if (capitalBarEl) capitalBarEl.style.width = Math.max(0, 100 - loanPct) + '%';
     const monthlyTarget = Number(monthlyEl?.dataset.motionTarget || 0);
     if (monthlyOutEl) monthlyOutEl.textContent = monthlyTarget > 0 ? formatWon(monthlyTarget) : (monthlyEl?.textContent?.trim() || '—');
     summary.hidden = false;

@@ -84,6 +84,7 @@ input[type=range].reco-range::-moz-range-thumb{width:24px;height:24px;border-rad
 .reco-meta span.hi{font-weight:600;}
 .reco-meta span.fit{background:var(--green-dim);color:var(--green);font-weight:600;}
 .reco-meta span.fit.tight{background:rgba(255,214,10,.14);color:var(--yellow);}
+.reco-meta span.record{background:rgba(255,214,10,.14);color:var(--yellow);font-weight:650;}
 .reco-meta span.na{background:transparent;border:1px dashed var(--separator);color:var(--label3);}
 .reco-detail{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:12px;font-size:12px;color:var(--accent);font-weight:600;}
 
@@ -97,9 +98,10 @@ input[type=range].reco-range::-moz-range-thumb{width:24px;height:24px;border-rad
 
 /* 결과화면 CTA (calculator.js가 주입) */
 .reco-cta{border-radius:14px;padding:13px 44px 13px 14px;cursor:pointer;position:relative;overflow:hidden;margin:12px 0 0;
-  background:var(--surface-3);border:1.5px solid transparent;transition:transform 120ms var(--ease-snappy),border-color 150ms var(--ease-snappy);display:flex;align-items:center;gap:11px;
-  background-image:linear-gradient(var(--surface-3),var(--surface-3)),conic-gradient(from var(--reco-cta-angle),transparent 0deg,transparent 250deg,color-mix(in srgb,var(--accent) 72%,transparent) 292deg,transparent 330deg,transparent 360deg);
-  background-origin:border-box;background-clip:padding-box,border-box;animation:recoCtaBorderSweep 4.2s linear infinite;}
+  background:var(--surface-3);border:1px solid color-mix(in srgb,var(--separator) 72%,transparent);transition:transform 120ms var(--ease-snappy),border-color 150ms var(--ease-snappy);display:flex;align-items:center;gap:11px;isolation:isolate;}
+.reco-cta::before{content:"";position:absolute;inset:-55%;z-index:0;background:conic-gradient(from 0deg,transparent 0deg,transparent 250deg,color-mix(in srgb,var(--accent) 76%,transparent) 292deg,transparent 330deg,transparent 360deg);animation:recoCtaBorderSweep 4.2s linear infinite;}
+.reco-cta::after{content:"";position:absolute;inset:1.5px;z-index:0;border-radius:12.5px;background:var(--surface-3);}
+.reco-cta > *{position:relative;z-index:1;}
 .reco-cta:active{transform:scale(.97);}
 .reco-cta-ico{font-size:22px;line-height:1;flex-shrink:0;}
 .reco-cta-copy{min-width:0;}
@@ -107,6 +109,5 @@ input[type=range].reco-range::-moz-range-thumb{width:24px;height:24px;border-rad
 .reco-cta-s{font-size:11.5px;color:var(--label3);margin-top:3px;line-height:1.45;font-weight:300;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .reco-cta-go{position:absolute;right:15px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--label3);}
 
-@property --reco-cta-angle{syntax:'<angle>';inherits:false;initial-value:0deg;}
-@keyframes recoCtaBorderSweep{to{--reco-cta-angle:360deg;}}
-@media (prefers-reduced-motion: reduce){.reco-cta{animation:none;background-image:linear-gradient(var(--surface-3),var(--surface-3)),linear-gradient(var(--separator),var(--separator));}}
+@keyframes recoCtaBorderSweep{to{transform:rotate(360deg);}}
+@media (prefers-reduced-motion: reduce){.reco-cta::before{animation:none;display:none;}}

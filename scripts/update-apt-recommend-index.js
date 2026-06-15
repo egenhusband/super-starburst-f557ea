@@ -80,6 +80,15 @@ function compactAreas(byArea, minPerM2) {
       avgPrice,
       latestPrice: toFiniteNumber(v.latestPrice),
       latestDate: v.latestDate || null,
+      ...(v.recentHigh?.within3M ? {
+        recentHigh: {
+          within3M: true,
+          label: v.recentHigh.label || '최근 최고가',
+          price: toFiniteNumber(v.recentHigh.price),
+          date: v.recentHigh.date || null,
+          previousHighPrice: toFiniteNumber(v.recentHigh.previousHighPrice),
+        },
+      } : {}),
     });
     if (avgPrice < minAvg) minAvg = avgPrice;
     if (avgPrice > maxAvg) maxAvg = avgPrice;

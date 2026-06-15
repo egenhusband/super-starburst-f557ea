@@ -207,6 +207,8 @@
       const fitTag = `<span class="fit${tight ? ' tight' : ''}">${top.area} · 입력가 대비 ${gap.toFixed(1)}억 낮음</span>`;
       const latestTag = top.latestPrice
         ? `<span>최근 ${eok(top.latestPrice).toFixed(1)}억${top.latestDate ? '·' + top.latestDate.slice(0, 7) : ''}</span>` : '';
+      const highTag = top.recentHigh?.within3M
+        ? `<span class="record">${escapeReco(top.recentHigh.label || '최근 최고가')}</span>` : '';
       const rank = i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '';
       const g = x.grade || '';
       const gc = g.charAt(0) === 'S' ? 'reco-g-s' : g.charAt(0) === 'A' ? 'reco-g-a' : 'reco-g-b';
@@ -231,7 +233,7 @@
             <div class="reco-loc">${top.area}·${pyeong(top.area)}평</div>
           </div>
         </div>
-        <div class="reco-meta">${fitTag}${latestTag}${tags.slice(0, 3).join('')}</div>
+        <div class="reco-meta">${fitTag}${latestTag}${highTag}${tags.slice(0, 3).join('')}</div>
         <div class="reco-detail">입지 분석 자세히 보기 ›</div>
       </div>`;
     }).join('') + (total > MAX_CARDS
@@ -246,6 +248,7 @@
   // ── 공개 API ──
   function openRecommendScreen(ctx) {
     ctx = ctx || {};
+    document.getElementById('resultFloatingSummary')?.remove();
     recoDetailActive = false; // 새 세션 시작(계산기 결과 위에서 열림)
     RecoState.safeBudget = Number(ctx.safeBudget) || 0;
     RecoState.maxBudget = Number(ctx.maxBudget) || RecoState.safeBudget;
@@ -337,6 +340,7 @@
           recoDetailActive = false;
           if (typeof showCalculator === 'function') showCalculator();
           requestAnimationFrame(() => {
+            document.getElementById('resultFloatingSummary')?.remove();
             const s = document.getElementById('recommendScreen');
             if (s) s.classList.add('is-open');
           });

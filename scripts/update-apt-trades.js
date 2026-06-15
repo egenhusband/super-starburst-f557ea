@@ -12,7 +12,7 @@ const CODE_MAP_PATH = path.join('data', 'apt-code-map.json');
 const AREA_PRICES_DIR = path.join('data', 'apt-area-prices');
 const BASE_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade';
 const PAGE_SIZE = 1000;
-const MONTH_WINDOW = Number(process.env.MOLIT_MONTH_WINDOW || 3);
+const MONTH_WINDOW = Number(process.env.MOLIT_MONTH_WINDOW || 12);
 const CONCURRENCY = Number(process.env.MOLIT_CONCURRENCY || 8);
 const RECENT_DEAL_LIMIT = 12;
 const POPULAR_COMPLEX_LIMIT = 12;
@@ -326,9 +326,9 @@ function aggregateAreaPrices(deals) {
   for (const deal of deals) {
     const bucket = getAreaBucket(deal.area);
     if (!bucket) continue;
-    if (!byBucket.has(bucket)) byBucket.set(bucket, { prices: [], latestPrice: null, latestDate: '' });
+    if (!byBucket.has(bucket)) byBucket.set(bucket, { deals: [], latestPrice: null, latestDate: "" });
     const entry = byBucket.get(bucket);
-    entry.prices.push(deal.price);
+    entry.deals.push({ price: deal.price, dealDate: deal.dealDate });
     if (!entry.latestDate || deal.dealDate > entry.latestDate) {
       entry.latestDate = deal.dealDate;
       entry.latestPrice = deal.price;
@@ -337,12 +337,41 @@ function aggregateAreaPrices(deals) {
 
   const byArea = {};
   byBucket.forEach((entry, bucket) => {
-    if (entry.prices.length < 2) return;
+    const sortedDeals = entry.deals
+      .filter(deal => Number.isFinite(deal.price) && deal.dealDate)
+      .sort((a, b) => {
+        if (a.dealDate !== b.dealDate) return a.dealDate.localeCompare(b.dealDate);
+        return a.price - b.price;
+      });
+    if (sortedDeals.length < 2) return;
+
+    let highIndex = 0;
+    sortedDeals.forEach((deal, index) => {
+      const currentHigh = sortedDeals[highIndex];
+      if (deal.price > currentHigh.price || (deal.price === currentHigh.price && deal.dealDate > currentHigh.dealDate)) {
+        highIndex = index;
+      }
+    });
+
+    const highDeal = sortedDeals[highIndex];
+    const previousPrices = sortedDeals.slice(0, highIndex).map(deal => deal.price).filter(Number.isFinite);
+    const previousHighPrice = previousPrices.length ? Math.max(...previousPrices) : null;
+    const isNewWindowHigh = previousHighPrice !== null && highDeal.price > previousHighPrice;
+
     byArea[`${bucket}㎡`] = {
-      avgPrice: average(entry.prices),
-      tradeCount: entry.prices.length,
+      avgPrice: average(sortedDeals.map(deal => deal.price)),
+      tradeCount: sortedDeals.length,
       latestPrice: entry.latestPrice,
       latestDate: entry.latestDate,
+      ...(isNewWindowHigh ? {
+        recentHigh: {
+          within3M: true,
+          label: "최근 최고가",
+          price: highDeal.price,
+          date: highDeal.dealDate,
+          previousHighPrice,
+        },
+      } : {}),
     };
   });
 
