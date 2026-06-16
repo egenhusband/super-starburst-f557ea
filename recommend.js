@@ -5,8 +5,8 @@
 (function () {
   'use strict';
 
-  const INDEX_URL = 'data/apt-recommend-index.json?v=20260603b';
-  const MAX_CARDS = 60;
+  const INDEX_URL = 'data/apt-recommend-index.json?v=20260616a';
+  const MAX_CARDS = 30;
 
   const RecoState = {
     items: [],
@@ -29,6 +29,31 @@
 
   const eok = man => man / 10000;
   const pyeong = m2 => Math.round(parseFloat(m2) / 3.305);
+  const distanceLabel = m => {
+    const n = Number(m);
+    if (!Number.isFinite(n) || n <= 0) return '';
+    return n >= 1000 ? (n / 1000).toFixed(n >= 2000 ? 0 : 1) + 'km' : Math.round(n) + 'm';
+  };
+  function buildTrafficTag(x) {
+    const parts = [];
+    const station = distanceLabel(x.stationDistance);
+    const stationName = String(x.stationName || '').trim();
+    if (station) parts.push((stationName || '가까운 역') + ' ' + station);
+    const minutes = Number(x.businessDistrict?.totalMinutes);
+    if (Number.isFinite(minutes) && minutes > 0) parts.push('업무지구 ' + Math.round(minutes) + '분');
+    return parts.length ? '<span class="traffic">' + escapeReco(parts.join(' · ')) + '</span>' : '';
+  }
+
+  function recommendationSignalScore(x) {
+    let score = 0;
+    if ((x.clampedScore || 0) >= 6) score += 2;
+    if (Number.isFinite(Number(x.stationDistance))) score += 2;
+    if (Number.isFinite(Number(x.businessDistrict?.totalMinutes))) score += 2;
+    if (Number.isFinite(Number(x.schoolDistance)) && Number(x.schoolDistance) <= 700) score += 1;
+    if (Number.isFinite(Number(x.householdCount)) && Number(x.householdCount) >= 1000) score += 1;
+    if (Number.isFinite(Number(x.buildYear)) && Number(x.buildYear) >= 2015) score += 1;
+    return score;
+  }
 
   // 추천에서 단지 상세(apt-search)까지 진입했는지 — 닫을 때 계산기 결과로 복귀할지 판단
   let recoDetailActive = false;
@@ -156,6 +181,10 @@
   }
   function sortCmp(a, b) {
     const ka = sortKey(a), kb = sortKey(b);
+    if (RecoState.priority === 'all') {
+      const signalDiff = recommendationSignalScore(b) - recommendationSignalScore(a);
+      if (signalDiff) return signalDiff;
+    }
     return RecoState.priority === 'school' ? ka - kb : kb - ka;
   }
 
@@ -176,7 +205,9 @@
     let list = RecoState.items.filter(x => x.minAvgPrice <= capMan && inRegion(x));
     list.sort(sortCmp);
     const total = list.length;
-    list = list.slice(0, MAX_CARDS);
+    const featured = list.slice(0, MAX_CARDS);
+    const rest = list.slice(MAX_CARDS);
+    list = featured;
 
     const r = RecoState.region;
     const rgnLabel = r === 'all' ? '수도권 전체' : r === '__seoul' ? '서울 전체' : r === '__gyeonggi' ? '경기 전체' : r.slice(4);
@@ -186,9 +217,12 @@
     const countEl = document.getElementById('recoCount');
     const sumEl = document.getElementById('recoSummary');
     const subEl = document.getElementById('recoSub');
-    if (countEl) countEl.textContent = total.toLocaleString() + '곳';
-    if (sumEl) sumEl.innerHTML = `${priLabel}<b>${rgnLabel}</b>에서 입력가 <b>${cap.toFixed(1)}억 이하</b>로 둘러볼 만한 단지예요.`;
+    if (countEl) countEl.textContent = featured.length.toLocaleString() + '/' + total.toLocaleString() + '곳';
+    if (sumEl) sumEl.innerHTML = `${priLabel}<b>${rgnLabel}</b>에서 입력가 <b>${cap.toFixed(1)}억 이하</b> 후보 중 추천 신호가 뚜렷한 <b>상위 ${featured.length.toLocaleString()}곳</b>을 먼저 보여드려요.`;
     if (subEl) subEl.textContent = `${rgnLabel} · ${cap.toFixed(1)}억 이하`;
+    document.querySelectorAll('#recoPriRow .reco-chip').forEach(chip => {
+      chip.classList.toggle('on', chip.dataset.k === RecoState.priority);
+    });
 
     const wrap = document.getElementById('recoList');
     if (!wrap) return;
@@ -214,6 +248,8 @@
       const gc = g.charAt(0) === 'S' ? 'reco-g-s' : g.charAt(0) === 'A' ? 'reco-g-a' : 'reco-g-b';
 
       const tags = [];
+      const trafficTag = buildTrafficTag(x);
+      if (trafficTag) tags.push(trafficTag);
       if (RecoState.priority === 'school') tags.push(x.schoolDistance != null ? `<span class="hi">초등학교 ${x.schoolDistance}m</span>` : `<span class="na">초등학교 거리 준비 중</span>`);
       if (RecoState.priority === 'new') tags.push(x.buildYear != null ? `<span class="hi">${x.buildYear}년 준공</span>` : `<span class="na">준공정보 준비 중</span>`);
       if (RecoState.priority === 'big') tags.push(x.householdCount != null ? `<span class="hi">${x.householdCount.toLocaleString()}세대</span>` : `<span class="na">세대수 준비 중</span>`);
@@ -236,9 +272,43 @@
         <div class="reco-meta">${fitTag}${latestTag}${highTag}${tags.slice(0, 3).join('')}</div>
         <div class="reco-detail">입지 분석 자세히 보기 ›</div>
       </div>`;
-    }).join('') + (total > MAX_CARDS
-      ? `<div class="reco-foot" style="text-align:center;border:none">상위 ${MAX_CARDS}곳 표시 · 전체 ${total.toLocaleString()}곳`
-        + ` <span style="color:var(--label2)">— 지역·예산을 좁히면 더 정확해져요</span></div>` : '');
+    }).join('') + (rest.length
+      ? `<div class="reco-list-divider"><span>추천 단지 전체</span><em>나머지 후보 ${rest.length.toLocaleString()}곳</em></div>`
+        + rest.map((x, i) => {
+          const within = x.areas.filter(a => a.avgPrice <= capMan);
+          const top = within[within.length - 1];
+          const gap = eok(capMan - top.avgPrice);
+          const tight = gap < 0.4;
+          const fitTag = `<span class="fit${tight ? ' tight' : ''}">${top.area} · 입력가 대비 ${gap.toFixed(1)}억 낮음</span>`;
+          const latestTag = top.latestPrice
+            ? `<span>최근 ${eok(top.latestPrice).toFixed(1)}억${top.latestDate ? '·' + top.latestDate.slice(0, 7) : ''}</span>` : '';
+          const highTag = top.recentHigh?.within3M
+            ? `<span class="record">${escapeReco(top.recentHigh.label || '최근 최고가')}</span>` : '';
+          const g = x.grade || '';
+          const gc = g.charAt(0) === 'S' ? 'reco-g-s' : g.charAt(0) === 'A' ? 'reco-g-a' : 'reco-g-b';
+          const tags = [];
+          const trafficTag = buildTrafficTag(x);
+          if (trafficTag) tags.push(trafficTag);
+          if (x.householdCount != null) tags.push(`<span>${x.householdCount.toLocaleString()}세대</span>`);
+          if (x.buildYear != null) tags.push(`<span>${x.buildYear}년</span>`);
+          if (x.schoolDistance != null) tags.push(`<span>초등 도보권 ${x.schoolDistance}m</span>`);
+          return `<div class="reco-card" onclick="recoOpenDetail('${x.kaptCode}')">
+            <div class="reco-card-top">
+              <div class="reco-grade ${gc}">${g}</div>
+              <div style="flex:1;min-width:0">
+                <div class="reco-nm">${escapeReco(x.aptName)}</div>
+                <div class="reco-loc">${x.regionKey === 'seoul' ? '서울' : '경기'} ${escapeReco(x.sigunguName)} ${escapeReco(x.umdName || '')}</div>
+              </div>
+              <div style="flex-shrink:0;text-align:right">
+                <div class="reco-price">${eok(top.avgPrice).toFixed(1)}억</div>
+                <div class="reco-loc">${top.area}·${pyeong(top.area)}평</div>
+              </div>
+            </div>
+            <div class="reco-meta">${fitTag}${latestTag}${highTag}${tags.slice(0, 3).join('')}</div>
+            <div class="reco-detail">입지 분석 자세히 보기 ›</div>
+          </div>`;
+        }).join('')
+      : '');
   }
 
   function escapeReco(s) {
@@ -300,6 +370,9 @@
       recoDetailActive = false;
       if (window.setAptSearchBackOverride) window.setAptSearchBackOverride(null);
       if (typeof showCalculator === 'function') showCalculator();
+      requestAnimationFrame(() => window.restoreResultFloatingSummaryIfResult?.());
+    } else {
+      requestAnimationFrame(() => window.restoreResultFloatingSummaryIfResult?.());
     }
   }
 

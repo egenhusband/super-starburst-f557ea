@@ -1495,6 +1495,15 @@
     document.getElementById('resultFloatingSummary')?.remove();
   }
 
+  function restoreResultFloatingSummaryIfResult() {
+    const resultContent = document.getElementById('resultContent');
+    if (!resultContent || !resultContent.querySelector('.rate-calc-section[data-uid]')) return;
+    mountResultFloatingSummary();
+    updateResultFloatingSummary();
+  }
+
+  window.restoreResultFloatingSummaryIfResult = restoreResultFloatingSummaryIfResult;
+
   function openDtiInfoSheet(button) {
     const item = button?.closest('.limit-breakdown-item');
     const card = button?.closest('[data-limit-product]');

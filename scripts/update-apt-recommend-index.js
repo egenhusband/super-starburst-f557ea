@@ -57,6 +57,17 @@ function toFiniteNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
+function parseTransitWalkDistance(rawValue) {
+  const raw = String(rawValue || '').trim();
+  if (!raw) return null;
+  if (raw.includes('5분이내')) return 350;
+  if (raw.includes('5~10분')) return 600;
+  if (raw.includes('10~15분')) return 900;
+  if (raw.includes('15~20분')) return 1200;
+  if (raw.includes('20분초과')) return 1600;
+  return null;
+}
+
 function perM2(area, avgPrice) {
   const m2 = parseFloat(area);
   return m2 > 0 ? avgPrice / m2 : null;
@@ -220,7 +231,7 @@ function main() {
     const householdCount = toFiniteNumber(house.householdCount);
     const buildYear = parseBuildYear(house.kaptUsedate);
     const schoolDistance = school.schoolDistance ?? null;
-    const stationDistance = station.stationMetaDistance ?? null;
+    const stationDistance = station.stationMetaDistance ?? parseTransitWalkDistance(house.subwayDistance);
 
     // computeAptGrade 입력 (가격 레벨은 최고가 평형 avgPrice로 대표)
     const entry = {
@@ -235,7 +246,7 @@ function main() {
       subwayLine: house.subwayLine || '',
       subwayStation: house.subwayStation || '',
       subwayDistance: house.subwayDistance || '',
-      stationMetaName: station.stationMetaName || '',
+      stationMetaName: station.stationMetaName || house.subwayStation || '',
       stationMetaDistance: stationDistance,
       schoolName: school.schoolName || '',
       schoolDistance,
@@ -265,6 +276,13 @@ function main() {
       clampedScore: gradeResult.clampedScore,
       schoolDistance,
       stationDistance,
+      stationName: station.stationMetaName || house.subwayStation || null,
+      businessDistrict: gradeResult.businessDistrict ? {
+        available: Boolean(gradeResult.businessDistrict.available),
+        label: gradeResult.businessDistrict.label || '',
+        totalMinutes: toFiniteNumber(gradeResult.businessDistrict.totalMinutes),
+        bestDistrict: gradeResult.businessDistrict.bestDistrict || null,
+      } : null,
       householdCount,
       buildYear,
     });
