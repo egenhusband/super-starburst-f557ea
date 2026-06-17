@@ -87,27 +87,19 @@
       </div>
       <div class="reco-scroll">
         <div class="reco-filterbar">
-          <div class="reco-note">📍 입력한 주택가격 이하의 <b>수도권(서울·경기)</b> 단지를 우선 보여드려요</div>
-          <div class="reco-budget-src" id="recoBudgetSrc"></div>
-          <div class="reco-slider-wrap">
-            <div class="reco-slider-top">
-              <span class="reco-slider-label">원하는 가격</span>
-              <span><span class="reco-slider-val" id="recoVal">—</span><span class="reco-slider-tag" id="recoTag"></span></span>
-            </div>
+          <div class="reco-note">입력한 주택가격 기준으로 볼 수 있는 단지예요.</div>
+          <div class="reco-price-filter">
+            <span class="reco-price-caption">가격</span>
+            <strong class="reco-slider-val" id="recoVal">—</strong>
             <input type="range" class="reco-range" id="recoRange" oninput="recoSetPrice(this.value)" min="1" max="6" step="0.1" value="5">
-            <div class="reco-slider-scale"><span id="recoMin"></span><span id="recoSafeMark"></span><span id="recoMax"></span></div>
-            <div class="reco-slider-note" id="recoNote"></div>
           </div>
-          <div class="reco-row">
+          <div class="reco-row reco-filter-row" id="recoPriRow">
             <select class="reco-region" id="recoRegion" onchange="recoRender()"></select>
-          </div>
-          <div class="reco-row" id="recoPriRow">
             <div class="reco-chip on" data-k="all" onclick="recoSetPriority('all',this)">종합순</div>
             <div class="reco-chip pri" data-k="school" onclick="recoSetPriority('school',this)">🎒 초등 도보권</div>
             <div class="reco-chip pri" data-k="new" onclick="recoSetPriority('new',this)">🏗️ 신축</div>
             <div class="reco-chip pri" data-k="big" onclick="recoSetPriority('big',this)">🏢 대단지</div>
           </div>
-          <div class="reco-cap" id="recoCap">기본 종합순(입지 등급) · 칩을 눌러 정렬 기준을 바꿔보세요</div>
         </div>
         <div class="reco-body">
           <div class="reco-summary"><span class="reco-count" id="recoCount">…</span><span id="recoSummary"></span></div>
@@ -218,7 +210,7 @@
     const sumEl = document.getElementById('recoSummary');
     const subEl = document.getElementById('recoSub');
     if (countEl) countEl.textContent = featured.length.toLocaleString() + '/' + total.toLocaleString() + '곳';
-    if (sumEl) sumEl.innerHTML = `${priLabel}<b>${rgnLabel}</b>에서 입력가 <b>${cap.toFixed(1)}억 이하</b> 후보 중 추천 신호가 뚜렷한 <b>상위 ${featured.length.toLocaleString()}곳</b>을 먼저 보여드려요.`;
+    if (sumEl) sumEl.innerHTML = `${priLabel}<b>${rgnLabel}</b> · 입력가 <b>${cap.toFixed(1)}억 이하</b>`;
     if (subEl) subEl.textContent = `${rgnLabel} · ${cap.toFixed(1)}억 이하`;
     document.querySelectorAll('#recoPriRow .reco-chip').forEach(chip => {
       chip.classList.toggle('on', chip.dataset.k === RecoState.priority);
@@ -273,7 +265,7 @@
         <div class="reco-detail">입지 분석 자세히 보기 ›</div>
       </div>`;
     }).join('') + (rest.length
-      ? `<div class="reco-list-divider"><span>추천 단지 전체</span><em>나머지 후보 ${rest.length.toLocaleString()}곳</em></div>`
+      ? `<div class="reco-list-divider"><span>추천 단지 전체</span><em>상위 ${featured.length.toLocaleString()}곳 다음 · ${rest.length.toLocaleString()}곳</em></div>`
         + rest.map((x, i) => {
           const within = x.areas.filter(a => a.avgPrice <= capMan);
           const top = within[within.length - 1];

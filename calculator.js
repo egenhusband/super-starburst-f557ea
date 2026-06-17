@@ -1,7 +1,7 @@
   const TOTAL = 8;
   let current = 0;      // 0 = intro, 1~7 = 기금대출 슬라이드
   let loanType = null;  // 'fund' | 'bank'
-  const answers = { household: null, house: null, children: null, region: null };
+  const answers = { household: null, house: null, children: null, region: null, incomeType: 'salary', businessPeriod: null };
 
   function haptic(ms) {
     if (navigator.vibrate) navigator.vibrate(ms || 8);
@@ -14,9 +14,40 @@
       document.querySelectorAll(`[data-group="${group}"]`).forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
       answers[group] = card.dataset.val;
+      if (group === 'incomeType') updateIncomeTypeUi();
+      if (group === 'businessPeriod') updateBusinessPeriodNote();
       updateNextBtn();
     });
   });
+
+  function businessPeriodCopy(period) {
+    if (period === 'under1y') return '사업기간이 짧으면 신고소득 자료가 부족해 실제 심사에서 추가 확인이 필요할 수 있어요.';
+    if (period === 'over1y') return '신고소득 자료를 기준으로 인정소득이 확인될 수 있어요.';
+    if (period === 'over2y') return '최근 신고소득 기준으로 심사되며, 은행 기준에 따라 인정액이 달라질 수 있어요.';
+    return '사업기간을 선택하면 실제 심사 시 주의할 점을 함께 안내해드려요.';
+  }
+
+  function updateBusinessPeriodNote() {
+    const note = document.getElementById('businessPeriodNote');
+    if (note) note.textContent = businessPeriodCopy(answers.businessPeriod);
+  }
+
+  function updateIncomeTypeUi() {
+    const isBusiness = answers.incomeType === 'business';
+    const title = document.getElementById('incomeFieldTitle');
+    const help = document.getElementById('incomeFieldHelp');
+    const businessFields = document.getElementById('businessIncomeFields');
+    if (title) title.textContent = isBusiness ? '사업자 연소득' : '직장인 연봉';
+    if (help) help.innerHTML = isBusiness
+      ? '작년에 신고한 순소득을 입력해주세요.<br>매출이 아니라, 매출에서 비용을 뺀 금액이에요.'
+      : '세전 연봉을 입력해주세요.<br>원천징수영수증이나 급여명세로 확인되는 금액 기준이에요.';
+    if (businessFields) businessFields.hidden = !isBusiness;
+    updateBusinessPeriodNote();
+  }
+
+  window.updateIncomeTypeUi = updateIncomeTypeUi;
+  window.updateBusinessPeriodNote = updateBusinessPeriodNote;
+  updateIncomeTypeUi();
 
   ['income','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
     const el = document.getElementById(id);
@@ -29,7 +60,7 @@
     if (current === 2) return !!answers.house;
     if (current === 3) return !!answers.children;
     if (current === 4) return !!answers.region;
-    if (current === 5) return document.getElementById('income').value !== '';
+    if (current === 5) return document.getElementById('income').value !== '' && (answers.incomeType !== 'business' || !!answers.businessPeriod);
     if (current === 6) return document.getElementById('price').value !== '';
     if (current === 7) return document.getElementById('asset').value !== '';
     if (current === 8) {
@@ -3285,6 +3316,8 @@
       house: answers.house,
       children: answers.children,
       region: answers.region,
+      incomeType: answers.incomeType || 'salary',
+      businessPeriod: answers.incomeType === 'business' ? answers.businessPeriod : null,
     };
   }
 
@@ -3319,6 +3352,33 @@
 
   function readServerNumber(value, fallback) {
     return Number.isFinite(Number(value)) ? Number(value) : fallback;
+  }
+
+  function buildLocalIncomeProfile() {
+    const incomeType = answers.incomeType === 'business' ? 'business' : 'salary';
+    const businessPeriod = incomeType === 'business' ? answers.businessPeriod : null;
+    if (incomeType !== 'business') return { incomeType, businessPeriod: null, label: '직장인 연봉', warnings: [] };
+    const warnings = [
+      '사업자 신고소득 기준으로 계산했어요.',
+      '매출이 아니라, 매출에서 비용을 뺀 소득금액 기준이에요.',
+    ];
+    if (businessPeriod === 'under1y') warnings.push('사업기간이 짧으면 신고소득 자료가 부족해 실제 심사에서 추가 확인이 필요할 수 있어요.');
+    else if (businessPeriod === 'over1y') warnings.push('신고소득 자료를 기준으로 인정소득이 확인될 수 있어요.');
+    else if (businessPeriod === 'over2y') warnings.push('최근 신고소득 기준으로 심사되며, 은행 기준에 따라 인정액이 달라질 수 있어요.');
+    warnings.push('실제 심사에서는 소득금액증명원·종합소득세 신고자료 등에 따라 인정소득이 달라질 수 있습니다.');
+    return { incomeType, businessPeriod, label: '사업자 연소득', warnings };
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  }
+
+  function incomeProfileNoticeHtml(profile) {
+    if (!profile || profile.incomeType !== 'business' || !Array.isArray(profile.warnings) || !profile.warnings.length) return '';
+    return '<div class="income-profile-notice result-tagline grey-border">'
+      + '<strong>사업자 소득 안내</strong><br>'
+      + profile.warnings.map(w => escapeHtml(w)).join('<br>')
+      + '</div>';
   }
 
   function renderResult(income, price, asset, otherLoanInterest) {
@@ -3712,6 +3772,13 @@
 
     const resultContent = document.getElementById('resultContent');
     resultContent.innerHTML = html;
+    const incomeProfile = serverCalc?.incomeProfile || buildLocalIncomeProfile();
+    const incomeNotice = incomeProfileNoticeHtml(incomeProfile);
+    if (incomeNotice) {
+      const headerArea = resultContent.querySelector('.result-header-area');
+      if (headerArea) headerArea.insertAdjacentHTML('afterend', incomeNotice + '<div class="result-spacer-sm"></div>');
+      else resultContent.insertAdjacentHTML('afterbegin', incomeNotice + '<div class="result-spacer-sm"></div>');
+    }
     const hasFundResult = newbornOk || didimdolOk || bogeumjariOk;
     if (hasFundResult) mountResultFloatingSummary();
     else document.getElementById('resultFloatingSummary')?.remove();
@@ -4032,7 +4099,11 @@
     answers.house = null;
     answers.children = null;
     answers.region = null;
+    answers.incomeType = 'salary';
+    answers.businessPeriod = null;
     document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+    document.querySelector('[data-group="incomeType"][data-val="salary"]')?.classList.add('selected');
+    updateIncomeTypeUi();
     ['income','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';

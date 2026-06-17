@@ -254,6 +254,37 @@ function productResponse(key, eligible, values, failReasons = []) {
   };
 }
 
+function buildIncomeWarnings(incomeType, businessPeriod) {
+  if (incomeType !== 'business') return [];
+  const warnings = [
+    '사업자 신고소득 기준으로 계산했어요.',
+    '매출이 아니라, 매출에서 비용을 뺀 소득금액 기준이에요.',
+  ];
+  if (businessPeriod === 'under1y') {
+    warnings.push('사업기간이 짧으면 신고소득 자료가 부족해 실제 심사에서 추가 확인이 필요할 수 있어요.');
+  } else if (businessPeriod === 'over1y') {
+    warnings.push('신고소득 자료를 기준으로 인정소득이 확인될 수 있어요.');
+  } else if (businessPeriod === 'over2y') {
+    warnings.push('최근 신고소득 기준으로 심사되며, 은행 기준에 따라 인정액이 달라질 수 있어요.');
+  }
+  warnings.push('실제 심사에서는 소득금액증명원·종합소득세 신고자료 등에 따라 인정소득이 달라질 수 있습니다.');
+  return warnings;
+}
+
+function normalizeIncomeProfile(input) {
+  const incomeType = input.incomeType === 'business' ? 'business' : 'salary';
+  const validPeriods = ['under1y', 'over1y', 'over2y'];
+  const businessPeriod = incomeType === 'business' && validPeriods.includes(input.businessPeriod)
+    ? input.businessPeriod
+    : null;
+  return {
+    incomeType,
+    businessPeriod,
+    label: incomeType === 'business' ? '사업자 연소득' : '직장인 연봉',
+    warnings: buildIncomeWarnings(incomeType, businessPeriod),
+  };
+}
+
 function calculateFundLoan(input) {
   const income = Number(input.income || 0);
   const price = Number(input.price || 0);
@@ -264,6 +295,7 @@ function calculateFundLoan(input) {
   const children = input.children || '';
   const region = input.region || '';
   const isNewborn = children === '신생아';
+  const incomeProfile = normalizeIncomeProfile(input);
 
   const nbHouseOk = house === '무주택' || house === '생애최초' || house === '1주택(대환)';
   const nbIncomeOk = income <= 20000;
@@ -333,7 +365,8 @@ function calculateFundLoan(input) {
   return {
     ok: true,
     loanType: 'fund',
-    inputs: { income, price, asset, otherLoanInterest, household, house, children, region },
+    inputs: { income, price, asset, otherLoanInterest, household, house, children, region, incomeType: incomeProfile.incomeType, businessPeriod: incomeProfile.businessPeriod },
+    incomeProfile,
     eligibility: {
       isNewborn,
       newbornOk,
