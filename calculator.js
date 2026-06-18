@@ -1454,7 +1454,7 @@
       <div class="result-floating-summary-glow" aria-hidden="true"></div>
       <div class="result-floating-summary-head">
         <span>집값 기준</span>
-        <strong id="resultFloatPrice">—</strong>
+        <strong id="resultFloatPrice" data-motion-value="0" data-motion-target="0">—</strong>
       </div>
       <div class="result-floating-summary-bar" aria-hidden="true">
         <span class="result-floating-summary-bar-loan" id="resultFloatLoanBar"></span>
@@ -1463,15 +1463,15 @@
       <div class="result-floating-summary-grid">
         <div class="result-floating-summary-item">
           <span>예상 한도</span>
-          <strong id="resultFloatLimit">—</strong>
+          <strong id="resultFloatLimit" data-motion-value="0" data-motion-target="0">—</strong>
         </div>
         <div class="result-floating-summary-item">
           <span>필요 자기자금</span>
-          <strong id="resultFloatCapital">—</strong>
+          <strong id="resultFloatCapital" data-motion-value="0" data-motion-target="0">—</strong>
         </div>
         <div class="result-floating-summary-item">
           <span>첫 달 납입액</span>
-          <strong id="resultFloatMonthly">—</strong>
+          <strong id="resultFloatMonthly" data-motion-value="0" data-motion-target="0">—</strong>
         </div>
       </div>
     </div>`;
@@ -1506,13 +1506,32 @@
     const loanBarEl = document.getElementById('resultFloatLoanBar');
     const capitalBarEl = document.getElementById('resultFloatCapitalBar');
     const loanPct = priceEok > 0 ? Math.min(100, Math.max(0, (limitEok / priceEok) * 100)) : 0;
-    if (priceEl) priceEl.textContent = priceEok > 0 ? formatLimit(priceEok) : '—';
-    if (limitEl) limitEl.textContent = limitEok > 0 ? formatLimit(limitEok) : '—';
-    if (capitalEl) capitalEl.textContent = priceEok > 0 ? formatLimit(capitalEok) : '—';
+    const priceWon = Math.round(priceEok * 100000000);
+    const limitWon = Math.round(limitEok * 100000000);
+    const capitalWon = Math.round(capitalEok * 100000000);
+    if (priceEl) {
+      priceEl.dataset.motionTarget = String(priceWon);
+      if (priceWon > 0) setAnimatedAmount(priceEl, priceWon, formatLimitWon);
+      else { priceEl.dataset.motionValue = '0'; priceEl.textContent = '—'; }
+    }
+    if (limitEl) {
+      limitEl.dataset.motionTarget = String(limitWon);
+      if (limitWon > 0) setAnimatedAmount(limitEl, limitWon, formatLimitWon);
+      else { limitEl.dataset.motionValue = '0'; limitEl.textContent = '—'; }
+    }
+    if (capitalEl) {
+      capitalEl.dataset.motionTarget = String(capitalWon);
+      if (priceEok > 0) setAnimatedAmount(capitalEl, capitalWon, formatLimitWon);
+      else { capitalEl.dataset.motionValue = '0'; capitalEl.textContent = '—'; }
+    }
     if (loanBarEl) loanBarEl.style.width = loanPct + '%';
     if (capitalBarEl) capitalBarEl.style.width = Math.max(0, 100 - loanPct) + '%';
     const monthlyTarget = Number(monthlyEl?.dataset.motionTarget || 0);
-    if (monthlyOutEl) monthlyOutEl.textContent = monthlyTarget > 0 ? formatWon(monthlyTarget) : (monthlyEl?.textContent?.trim() || '—');
+    if (monthlyOutEl) {
+      monthlyOutEl.dataset.motionTarget = String(Math.round(monthlyTarget));
+      if (monthlyTarget > 0) setAnimatedAmount(monthlyOutEl, monthlyTarget, formatWon);
+      else { monthlyOutEl.dataset.motionValue = '0'; monthlyOutEl.textContent = monthlyEl?.textContent?.trim() || '—'; }
+    }
     summary.hidden = false;
   }
 

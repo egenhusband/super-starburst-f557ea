@@ -850,6 +850,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  #resultFloatCapital {
+    font-size: 14px;
+  }
   @keyframes resultFloatingSummaryEnter {
     from { opacity: 0; transform: translateX(-50%) translateY(14px); }
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
