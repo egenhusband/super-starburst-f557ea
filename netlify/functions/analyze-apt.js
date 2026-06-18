@@ -27,6 +27,7 @@ const LOCATION_TIER_SCORES = {
   T1: { base: 12, min: 9, max: 18, label: '서울 핵심 입지' },
   T2: { base: 9, min: 9, max: 12, label: '서울 준핵심 입지' },
   T3: { base: 6, min: 3, max: 9, label: '서울 일반·경기 핵심 생활권' },
+  T4_PLUS: { base: 3, min: 3, max: 9, label: '서울접근 우수 생활권' },
   T4: { base: 1, min: 0, max: 6, label: '서울 외곽·경기 일반 생활권' },
   T5: { base: 0, min: 0, max: 3, label: '경기 외곽 생활권' },
 };
@@ -35,9 +36,12 @@ const LOCATION_TIER_TRANSPORT_CAPS = {
   T1: 2,
   T2: 3,
   T3: 3,
+  T4_PLUS: 4,
   T4: 4,
   T5: 4,
 };
+
+const SEOUL_ACCESS_UPLIFT_LINES = /신분당|GTX|8호선|9호선|경의중앙|별내선/u;
 
 const NINE_LINE_944_BENEFIT_NAMES = [
   '미사강변리슈빌nhf',
@@ -503,6 +507,21 @@ function computeInfraAdjustment(entry, schoolDistance) {
   return { score: clampNumber(raw, -2, 2), raw, cap: 2, floor: -2, items };
 }
 
+function qualifiesSeoulAccessUplift(entry, stationDistance, businessDistrictResult, schoolDistance) {
+  if (!Number.isFinite(stationDistance) || stationDistance > 700) return false;
+  if (!businessDistrictResult?.available
+    || !Number.isFinite(businessDistrictResult.totalMinutes)
+    || businessDistrictResult.totalMinutes > 35) return false;
+
+  const lineText = `${entry?.subwayLine || ''} ${entry?.stationMetaName || ''} ${entry?.subwayStation || ''}`;
+  if (!SEOUL_ACCESS_UPLIFT_LINES.test(lineText) && !hasNineLineBenefitCandidate(entry)) return false;
+
+  const householdCount = Number(entry?.householdCount);
+  const schoolOk = Number.isFinite(schoolDistance) && schoolDistance <= 500;
+  const householdOk = Number.isFinite(householdCount) && householdCount >= 700;
+  return schoolOk && householdOk;
+}
+
 function computeAptGrade(entry, insight, graph) {
   const businessDistrictResult = computeBusinessDistrictScore(entry, insight, graph);
   const stationDistance = Number.isFinite(insight?.station?.distance)
@@ -514,7 +533,10 @@ function computeAptGrade(entry, insight, graph) {
   const priceLevelSource = getPriceLevelSource(entry);
   const priceLevelResult = computePriceLevelScore(entry);
   const hasOfficialFallback = priceLevelSource === 'official-fallback';
-  const locationTier = getLocationTier(entry);
+  let locationTier = getLocationTier(entry);
+  if (locationTier.tier === 'T4' && qualifiesSeoulAccessUplift(entry, stationDistance, businessDistrictResult, schoolDistance)) {
+    locationTier = { tier: 'T4_PLUS', label: LOCATION_TIER_SCORES.T4_PLUS.label, upliftFrom: 'T4' };
+  }
   const tierScore = LOCATION_TIER_SCORES[locationTier.tier] || LOCATION_TIER_SCORES.T5;
   const transportAdjustment = computeTransportAdjustment(entry, stationDistance, businessDistrictResult, locationTier.tier);
   const infraAdjustment = computeInfraAdjustment(entry, schoolDistance);
@@ -543,7 +565,9 @@ function computeAptGrade(entry, insight, graph) {
   const clampedScore = clampNumber(rawScore, tierScore.min, tierScore.max);
   const grade = gradeFromLocationScore(clampedScore);
   const reasons = [
-    `${locationTier.label} 기준으로 기본 등급 범위를 먼저 잡았어요.`,
+    locationTier.upliftFrom
+      ? '서울 접근성과 생활 인프라가 좋아 등급 범위를 넓혔어요.'
+      : `${locationTier.label} 기준으로 기본 등급 범위를 먼저 잡았어요.`,
     ...(transportAdjustment.items.length ? [transportAdjustment.items.slice().sort((a, b) => b.points - a.points)[0].label] : []),
     ...(infraAdjustment.items.length ? [infraAdjustment.items.slice().sort((a, b) => b.points - a.points)[0].label] : []),
     ...(hasOfficialFallback ? ['실거래 커버리지가 얇아 가격 레벨은 공시가격으로 우선 보완했어요.'] : []),

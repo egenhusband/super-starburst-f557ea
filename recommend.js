@@ -83,7 +83,7 @@
     screen.innerHTML = `
       <div class="reco-topbar">
         <button class="reco-back" type="button" onclick="closeRecommendScreen()" aria-label="닫기">‹</button>
-        <div><div class="reco-tt">이 가격대 단지</div><div class="reco-ts" id="recoSub">수도권 우선 제공</div></div>
+        <div><div class="reco-tt">이 가격대 단지</div></div>
       </div>
       <div class="reco-scroll">
         <div class="reco-filterbar">
@@ -208,10 +208,8 @@
 
     const countEl = document.getElementById('recoCount');
     const sumEl = document.getElementById('recoSummary');
-    const subEl = document.getElementById('recoSub');
     if (countEl) countEl.textContent = featured.length.toLocaleString() + '/' + total.toLocaleString() + '곳';
     if (sumEl) sumEl.innerHTML = `${priLabel}<b>${rgnLabel}</b> · 입력가 <b>${cap.toFixed(1)}억 이하</b>`;
-    if (subEl) subEl.textContent = `${rgnLabel} · ${cap.toFixed(1)}억 이하`;
     document.querySelectorAll('#recoPriRow .reco-chip').forEach(chip => {
       chip.classList.toggle('on', chip.dataset.k === RecoState.priority);
     });

@@ -1,6 +1,7 @@
   const TOTAL = 8;
   let current = 0;      // 0 = intro, 1~7 = 기금대출 슬라이드
   let loanType = null;  // 'fund' | 'bank'
+  let latestIncomeProfile = null;
   const answers = { household: null, house: null, children: null, region: null, incomeType: 'salary', businessPeriod: null };
 
   function haptic(ms) {
@@ -3373,13 +3374,53 @@
     return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   }
 
-  function incomeProfileNoticeHtml(profile) {
+  function incomeProfileTriggerHtml(profile) {
     if (!profile || profile.incomeType !== 'business' || !Array.isArray(profile.warnings) || !profile.warnings.length) return '';
-    return '<div class="income-profile-notice result-tagline grey-border">'
-      + '<strong>사업자 소득 안내</strong><br>'
-      + profile.warnings.map(w => escapeHtml(w)).join('<br>')
-      + '</div>';
+    return '<button class="income-profile-trigger" type="button" onclick="openIncomeProfileSheet()">'
+      + '<span>사업자 소득 기준 안내</span>'
+      + icon('info', 11)
+      + '</button>';
   }
+
+  function businessPeriodLabel(period) {
+    if (period === 'under1y') return '1년 미만';
+    if (period === 'over1y') return '1년 이상';
+    if (period === 'over2y') return '2년 이상';
+    return '선택 안 됨';
+  }
+
+  function openIncomeProfileSheet() {
+    const profile = latestIncomeProfile;
+    const overlay = document.getElementById('incomeProfileOverlay');
+    const sheet = document.getElementById('incomeProfileSheet');
+    const list = document.getElementById('incomeProfileSheetList');
+    const period = document.getElementById('incomeProfileSheetPeriod');
+    if (!profile || profile.incomeType !== 'business' || !overlay || !sheet || !list) return;
+
+    list.innerHTML = profile.warnings.map(w => '<li>' + escapeHtml(w) + '</li>').join('');
+    if (period) period.textContent = businessPeriodLabel(profile.businessPeriod);
+    overlay.style.display = 'block';
+    sheet.style.display = 'flex';
+    requestAnimationFrame(function() {
+      overlay.classList.add('open');
+      sheet.classList.add('open');
+    });
+  }
+
+  function closeIncomeProfileSheet() {
+    const overlay = document.getElementById('incomeProfileOverlay');
+    const sheet = document.getElementById('incomeProfileSheet');
+    if (!overlay || !sheet) return;
+    overlay.classList.remove('open');
+    sheet.classList.remove('open');
+    setTimeout(function() {
+      overlay.style.display = 'none';
+      sheet.style.display = 'none';
+    }, 220);
+  }
+
+  window.openIncomeProfileSheet = openIncomeProfileSheet;
+  window.closeIncomeProfileSheet = closeIncomeProfileSheet;
 
   function renderResult(income, price, asset, otherLoanInterest) {
     renderResultLoading();
@@ -3773,11 +3814,16 @@
     const resultContent = document.getElementById('resultContent');
     resultContent.innerHTML = html;
     const incomeProfile = serverCalc?.incomeProfile || buildLocalIncomeProfile();
-    const incomeNotice = incomeProfileNoticeHtml(incomeProfile);
-    if (incomeNotice) {
-      const headerArea = resultContent.querySelector('.result-header-area');
-      if (headerArea) headerArea.insertAdjacentHTML('afterend', incomeNotice + '<div class="result-spacer-sm"></div>');
-      else resultContent.insertAdjacentHTML('afterbegin', incomeNotice + '<div class="result-spacer-sm"></div>');
+    latestIncomeProfile = incomeProfile;
+    const incomeTrigger = incomeProfileTriggerHtml(incomeProfile);
+    if (incomeTrigger) {
+      const limitCards = Array.from(resultContent.querySelectorAll('.limit-detail-card'));
+      if (limitCards.length) {
+        limitCards.forEach(card => card.insertAdjacentHTML('beforeend', incomeTrigger));
+      } else {
+        const firstGroup = resultContent.querySelector('.result-group');
+        if (firstGroup) firstGroup.insertAdjacentHTML('afterend', incomeTrigger);
+      }
     }
     const hasFundResult = newbornOk || didimdolOk || bogeumjariOk;
     if (hasFundResult) mountResultFloatingSummary();

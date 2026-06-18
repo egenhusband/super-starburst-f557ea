@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
+const { _private: { buildDashboardSubwayGraph, computeAptGrade } } = require('../netlify/functions/analyze-apt');
+
 const root = process.cwd();
 
 function readJson(filePath) {
@@ -56,8 +58,7 @@ const payload = {
   subway: readJson('data/subway-seoul-times.json'),
 };
 
-sandbox.dashboardSubwayGraph = sandbox.buildDashboardSubwayGraph(payload.subway);
-vm.runInContext('dashboardSubwayGraph = globalThis.dashboardSubwayGraph;', sandbox);
+const dashboardSubwayGraph = buildDashboardSubwayGraph(payload.subway);
 
 const entries = sandbox.buildDashboardSearchIndex(payload);
 const entriesByCode = new Map(entries.map(entry => [String(entry.kaptCode), entry]));
@@ -77,7 +78,7 @@ function buildInsight(entry) {
 function summarizeScenario(label, kaptCode) {
   const entry = entriesByCode.get(String(kaptCode));
   if (!entry) return { label, kaptCode, error: 'entry not found' };
-  const result = sandbox.computeDashboardApartmentGrade(entry, buildInsight(entry));
+  const result = computeAptGrade(entry, buildInsight(entry), dashboardSubwayGraph);
   return {
     label,
     kaptCode,
@@ -110,6 +111,8 @@ function summarizeScenario(label, kaptCode) {
 const scenarios = [
   ['여의도 공작', 'A15001012'],
   ['판교 푸르지오그랑블', 'A46374606'],
+  ['성남단대푸르지오', 'A46170401'],
+  ['하남 창우 부영', 'A46571004'],
   ['구리 대림한숲', 'A47103203'],
   ['목동 구축 소형', 'A10020839'],
   ['목동 신시가지 대단지', 'A15875103'],

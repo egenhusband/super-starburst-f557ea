@@ -268,7 +268,7 @@
           <div class="option-card income-type-card" data-group="incomeType" data-val="business">
             <div>
               <div class="option-title">사업자</div>
-              <div class="option-desc">개인사업자 · 프리랜서 포함</div>
+              <div class="option-desc option-desc-lines"><span>개인사업자</span><span>프리랜서 포함</span></div>
             </div>
             <div class="option-check"></div>
           </div>
@@ -285,15 +285,24 @@
           <div class="business-period-title">사업 기간</div>
           <div class="income-type-row business-period-row">
             <div class="option-card income-type-card" data-group="businessPeriod" data-val="under1y">
-              <div><div class="option-title">1년 미만</div></div>
+              <div>
+                <div class="option-title">1년 미만</div>
+                <div class="option-desc">추가 확인 가능</div>
+              </div>
               <div class="option-check"></div>
             </div>
             <div class="option-card income-type-card" data-group="businessPeriod" data-val="over1y">
-              <div><div class="option-title">1년 이상</div></div>
+              <div>
+                <div class="option-title">1년 이상</div>
+                <div class="option-desc">신고소득 기준</div>
+              </div>
               <div class="option-check"></div>
             </div>
             <div class="option-card income-type-card" data-group="businessPeriod" data-val="over2y">
-              <div><div class="option-title">2년 이상</div></div>
+              <div>
+                <div class="option-title">2년 이상</div>
+                <div class="option-desc">최근 소득 기준</div>
+              </div>
               <div class="option-check"></div>
             </div>
           </div>
@@ -750,6 +759,24 @@
           <div class="dti-sheet-metric-value" id="dtiInfoMetricAfter">—</div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="dti-sheet-overlay" id="incomeProfileOverlay" onclick="closeIncomeProfileSheet()"></div>
+  <div class="dti-sheet income-profile-sheet" id="incomeProfileSheet" role="dialog" aria-modal="true" aria-labelledby="incomeProfileSheetTitle">
+    <div class="dti-sheet-handle"></div>
+    <div class="dti-sheet-head">
+      <div class="dti-sheet-title-group">
+        <div class="dti-sheet-kicker">소득 기준 안내</div>
+        <div class="dti-sheet-title" id="incomeProfileSheetTitle">사업자 소득 기준</div>
+      </div>
+      <button class="dti-sheet-close" type="button" onclick="closeIncomeProfileSheet()" aria-label="닫기">
+        <span data-icon="x" data-icon-size="14"></span>
+      </button>
+    </div>
+    <div class="dti-sheet-body">
+      <div class="income-profile-sheet-period">선택한 사업기간 <strong id="incomeProfileSheetPeriod">—</strong></div>
+      <ul class="income-profile-sheet-list" id="incomeProfileSheetList"></ul>
     </div>
   </div>
 

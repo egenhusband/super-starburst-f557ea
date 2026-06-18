@@ -496,8 +496,21 @@
     align-items: flex-start;
     gap: 10px;
   }
-  .income-type-card .option-title { font-size: 14px; }
-  .income-type-card .option-desc { font-size: 11px; line-height: 1.35; }
+  .income-type-card > div:first-child {
+    min-width: 0;
+  }
+  .income-type-card .option-title {
+    font-size: 14px;
+    line-height: 1.25;
+  }
+  .income-type-card .option-desc {
+    font-size: 11px;
+    line-height: 1.35;
+    word-break: keep-all;
+  }
+  .option-desc-lines span {
+    display: block;
+  }
   .income-field-title,
   .business-period-title {
     font-size: 12px;
@@ -525,7 +538,23 @@
   }
   .business-income-fields[hidden] { display: none; }
   .business-period-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .business-period-row .income-type-card { padding: 12px 10px; }
+  .business-period-row .income-type-card {
+    min-height: 72px;
+    padding: 12px 9px;
+  }
+  .business-period-row .income-type-card > div:first-child {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+  }
+  .business-period-row .option-title {
+    white-space: nowrap;
+  }
+  .business-period-row .option-desc {
+    margin-top: 0;
+    color: var(--label3);
+  }
   @media (max-width: 360px) {
     .business-period-row { grid-template-columns: 1fr; }
   }
@@ -1029,6 +1058,28 @@
     line-height: 1.55;
   }
   .limit-applied-note em { color: var(--label2); font-style: normal; }
+  .income-profile-trigger {
+    width: fit-content;
+    margin-top: 10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--label3);
+    font-family: 'Pretendard Variable', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.4;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+  .income-profile-trigger .ui-icon {
+    --ui-icon-size: var(--icon-size-2xs);
+  }
+  .income-profile-trigger:active {
+    color: var(--label2);
+  }
 
   /* ── 대출/자기자금 비율 바 ── */
   .loan-ratio-bar-wrap {
@@ -5646,6 +5697,44 @@
   font-size: 14px;
   font-weight: 760;
   letter-spacing: -0.2px;
+}
+.income-profile-sheet-period {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: var(--surface-3);
+  color: var(--label3);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.income-profile-sheet-period strong {
+  color: var(--label1);
+  font-weight: 700;
+}
+.income-profile-sheet-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.income-profile-sheet-list li {
+  position: relative;
+  padding-left: 13px;
+  color: var(--label2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.income-profile-sheet-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.72em;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--label3);
 }
 .apt-loan-price-label {
   display: block;
