@@ -540,7 +540,7 @@
   .business-period-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .business-period-row .income-type-card {
     min-height: 72px;
-    padding: 12px 9px;
+    padding: 14px 14px;
   }
   .business-period-row .income-type-card > div:first-child {
     display: flex;
@@ -863,7 +863,7 @@
     background: var(--bg3);
     border: 1.5px solid var(--separator);
     border-radius: 14px;
-    padding: 16px 18px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
     gap: 2px;
