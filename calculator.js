@@ -329,6 +329,9 @@
               <option value="reg_suwon">경기 — 수원시 (영통·장안·팔달구)</option>
               <option value="reg_anyang">경기 — 안양시 (동안구)</option>
               <option value="reg_yongin">경기 — 용인시 (수지구)</option>
+              <option value="reg_yongin_giheung">경기 — 용인시 (기흥구)</option>
+              <option value="reg_hwaseong_dongtan">경기 — 화성시 (동탄구)</option>
+              <option value="reg_guri">경기 — 구리시</option>
               <option value="reg_uiwang">경기 — 의왕시</option>
               <option value="reg_hanam">경기 — 하남시</option>
             </optgroup>
@@ -336,7 +339,7 @@
               <option value="incheon_gangwha">인천 — 강화군·옹진군</option>
               <option value="incheon_special">인천 — 서구 일부·경제특구</option>
               <option value="incheon_etc">인천 — 그 외</option>
-              <option value="metro_city">경기 — 의정부·구리·고양·수원 일부·부천·광명 일부·과천 일부·의왕 일부·군포·용인 일부·화성·세종·김포</option>
+              <option value="metro_city">경기 — 의정부·고양·수원 일부·부천·광명 일부·과천 일부·의왕 일부·군포·용인·화성 일부·세종·김포</option>
               <option value="siheung_banwol">시흥 — 반월특수지역</option>
               <option value="siheung_etc">시흥 — 그 외</option>
               <option value="namyangju_core">남양주 — 호평·별내·금곡·일패·이패·삼패·가운·수석·지금·도농</option>
@@ -433,7 +436,7 @@
 
   // ── 방공제 테이블 (단위: 만원) ──
   const BANG_TABLE = {
-    // 규제지역 (서울 전역 + 경기 8개)
+    // 규제지역 (서울 전역 + 경기 주요 지정 지역)
     reg_seoul:       5500,
     reg_gwacheon:    4800,
     reg_gwangmyeong: 4800,
@@ -441,6 +444,9 @@
     reg_suwon:       4800,
     reg_anyang:      4800,
     reg_yongin:      4800,
+    reg_yongin_giheung: 4800,
+    reg_hwaseong_dongtan: 4800,
+    reg_guri:        4800,
     reg_uiwang:      4800,
     reg_hanam:       4800,
     // 수도권 일반
@@ -461,13 +467,15 @@
   // 규제지역 — LTV 40% 적용
   const REG_ZONES = new Set([
     'reg_seoul','reg_gwacheon','reg_gwangmyeong','reg_seongnam',
-    'reg_suwon','reg_anyang','reg_yongin','reg_uiwang','reg_hanam'
+    'reg_suwon','reg_anyang','reg_yongin','reg_yongin_giheung',
+    'reg_hwaseong_dongtan','reg_guri','reg_uiwang','reg_hanam'
   ]);
 
   // 수도권 여부 (대출기간 30년 제한용)
   const METRO_REGIONS = new Set([
     'reg_seoul','reg_gwacheon','reg_gwangmyeong','reg_seongnam',
-    'reg_suwon','reg_anyang','reg_yongin','reg_uiwang','reg_hanam',
+    'reg_suwon','reg_anyang','reg_yongin','reg_yongin_giheung',
+    'reg_hwaseong_dongtan','reg_guri','reg_uiwang','reg_hanam',
     'incheon_gangwha','incheon_special','incheon_etc',
     'metro_city','siheung_banwol','siheung_etc',
     'namyangju_core','namyangju_etc','gyeonggi_city'
@@ -543,7 +551,7 @@
         </div>
         <div class="bank-notice-item">
           <div class="bank-notice-icon">🏙️</div>
-          <div class="bank-notice-text"><strong>규제지역(서울 전역·경기 8개 지역)</strong>은 LTV 40%가 적용됩니다. 드롭다운에서 🔴 규제지역을 선택하면 자동 반영돼요.</div>
+          <div class="bank-notice-text"><strong>규제지역(서울 전역·경기 주요 지정 지역)</strong>은 LTV 40%가 적용됩니다. 2026년 7월 1일부터 화성 동탄구·용인 기흥구·구리시도 포함돼요.</div>
         </div>
         <div class="bank-notice-item">
           <div class="bank-notice-icon">${icon('landmark', 18)}</div>
