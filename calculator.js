@@ -38,10 +38,10 @@
     const title = document.getElementById('incomeFieldTitle');
     const help = document.getElementById('incomeFieldHelp');
     const businessFields = document.getElementById('businessIncomeFields');
-    if (title) title.textContent = isBusiness ? '사업자 연소득' : '직장인 연봉';
+    if (title) title.textContent = isBusiness ? '사업소득 포함 합산소득' : '직장인 세전 연봉 합산';
     if (help) help.innerHTML = isBusiness
-      ? '작년에 신고한 순소득을 입력해주세요.<br>매출이 아니라, 매출에서 비용을 뺀 금액이에요.'
-      : '세전 연봉을 입력해주세요.<br>원천징수영수증이나 급여명세로 확인되는 금액 기준이에요.';
+      ? '부부 중 한 명이라도 사업자·프리랜서 소득이 있으면 선택해주세요.<br>직장인 세전 연봉과 사업자 소득금액을 합산해 입력하면 돼요.'
+      : '부부 모두 직장인이면 세전 연봉을 합산해 입력해주세요.<br>원천징수영수증이나 급여명세로 확인되는 금액 기준이에요.';
     if (businessFields) businessFields.hidden = !isBusiness;
     updateBusinessPeriodNote();
   }
@@ -1413,6 +1413,113 @@
     return formatLimit(won / 100000000);
   }
 
+  function formatTaxWon(won) {
+    const value = Math.max(0, Math.round(Number(won) || 0));
+    if (value >= 100000000) return formatLimitWon(value);
+    const manwon = Math.round(value / 10000);
+    return `${manwon.toLocaleString()}만원`;
+  }
+
+  function getTaxHomeCountFromHouse(house) {
+    if (house === '1주택이상') return 2;
+    return 1;
+  }
+
+  function getTaxRegulatedArea(region) {
+    return region === '투기과열' || region === '조정대상';
+  }
+
+  function buildResultTaxSummaryHtml(card) {
+    const tax = window.RealEstateTax;
+    if (!tax || !card) return '';
+    const priceEok = Number(card.dataset.limitPrice || card.dataset.bogeumPrice || card.dataset.didimdolPrice || card.dataset.newbornPrice || 0);
+    const barWrap = card.querySelector('.loan-ratio-bar-wrap');
+    const loanEok = Number(barWrap?.dataset.loanBarLoan || 0);
+    if (!(priceEok > 0)) return '';
+
+    const house = card.dataset.limitHouse || card.dataset.bogeumHouse || card.dataset.didimdolHouse || card.dataset.newbornHouse || '';
+    const region = card.dataset.limitRegion || card.dataset.bogeumRegion || card.dataset.didimdolRegion || card.dataset.newbornRegion || '';
+    const acquisition = tax.calculateAcquisitionTax({
+      priceEok,
+      homeCount: getTaxHomeCountFromHouse(house),
+      isRegulatedArea: getTaxRegulatedArea(region),
+      isOver85: false,
+    });
+    const capitalEok = Math.max(0, priceEok - loanEok);
+    const totalPrepareEok = capitalEok + acquisition.totalEok;
+
+    return `
+      <div class="result-tax-summary" data-result-tax-summary>
+        <div class="result-tax-summary-head">
+          <span>세금 포함 준비금</span>
+          <strong data-tax-total-prepare>${formatLimit(totalPrepareEok)}</strong>
+        </div>
+        <div class="result-tax-summary-grid">
+          <div>
+            <span>예상 취득세 등</span>
+            <strong data-tax-acquisition-total>${formatTaxWon(acquisition.total)}</strong>
+          </div>
+          <div>
+            <span>세율 기준</span>
+            <strong data-tax-basis>${acquisition.basisLabel}</strong>
+          </div>
+        </div>
+        <p>지방교육세${acquisition.ruralSpecialTax > 0 ? '·농어촌특별세' : ''} 포함 추정값이에요. 생애최초 감면 등은 실제 조건에 따라 달라질 수 있어요.</p>
+      </div>`;
+  }
+
+  function mountResultTaxSummaries(root) {
+    const scope = root || document;
+    scope.querySelectorAll('[data-result-tax-summary]').forEach(node => node.remove());
+    scope.querySelectorAll('.limit-detail-card[data-limit-product]').forEach(card => {
+      const html = buildResultTaxSummaryHtml(card);
+      if (html) card.insertAdjacentHTML('beforeend', html);
+    });
+  }
+
+  function updateResultTaxSummaries(root) {
+    const tax = window.RealEstateTax;
+    if (!tax) return;
+    const scope = root || document;
+    scope.querySelectorAll('.limit-detail-card[data-limit-product]').forEach(card => {
+      const summary = card.querySelector('[data-result-tax-summary]');
+      if (!summary) return;
+      const priceEok = Number(card.dataset.limitPrice || card.dataset.bogeumPrice || card.dataset.didimdolPrice || card.dataset.newbornPrice || 0);
+      const barWrap = card.querySelector('.loan-ratio-bar-wrap');
+      const loanEok = Number(barWrap?.dataset.loanBarLoan || 0);
+      if (!(priceEok > 0)) return;
+      const house = card.dataset.limitHouse || card.dataset.bogeumHouse || card.dataset.didimdolHouse || card.dataset.newbornHouse || '';
+      const region = card.dataset.limitRegion || card.dataset.bogeumRegion || card.dataset.didimdolRegion || card.dataset.newbornRegion || '';
+      const acquisition = tax.calculateAcquisitionTax({
+        priceEok,
+        homeCount: getTaxHomeCountFromHouse(house),
+        isRegulatedArea: getTaxRegulatedArea(region),
+        isOver85: false,
+      });
+      const totalPrepareEok = Math.max(0, priceEok - loanEok) + acquisition.totalEok;
+      const totalEl = summary.querySelector('[data-tax-total-prepare]');
+      const acquisitionEl = summary.querySelector('[data-tax-acquisition-total]');
+      const basisEl = summary.querySelector('[data-tax-basis]');
+      if (totalEl) totalEl.textContent = formatLimit(totalPrepareEok);
+      if (acquisitionEl) acquisitionEl.textContent = formatTaxWon(acquisition.total);
+      if (basisEl) basisEl.textContent = acquisition.basisLabel;
+    });
+  }
+
+  function getAcquisitionTaxForResultCard(card, priceEok) {
+    const tax = window.RealEstateTax;
+    if (!tax || !card || !(priceEok > 0)) return null;
+    const house = card.dataset.limitHouse || card.dataset.bogeumHouse || card.dataset.didimdolHouse || card.dataset.newbornHouse || '';
+    const region = card.dataset.limitRegion || card.dataset.bogeumRegion || card.dataset.didimdolRegion || card.dataset.newbornRegion || '';
+    return tax.calculateAcquisitionTax({
+      priceEok,
+      homeCount: getTaxHomeCountFromHouse(house),
+      isRegulatedArea: getTaxRegulatedArea(region),
+      isOver85: false,
+    });
+  }
+
+
   // ── 대출/자기자금 비율 바 ──
   function loanRatioBarHtml(uid, loanEok, priceEok, loanColor) {
     const loanPct    = priceEok > 0 ? Math.min(100, Math.max(0, (loanEok / priceEok) * 100)) : 0;
@@ -1439,6 +1546,8 @@
   function animateLoanBar(uid, loanEok, priceEok) {
     const wrap = document.getElementById('bar-wrap-' + uid);
     if (!wrap) return;
+    wrap.dataset.loanBarLoan = String(loanEok);
+    wrap.dataset.loanBarPrice = String(priceEok);
     const loanPct    = priceEok > 0 ? Math.min(100, Math.max(0, (loanEok / priceEok) * 100)) : 0;
     const capitalEok = Math.max(0, priceEok - loanEok);
     const loanBar = document.getElementById('bar-loan-' + uid);
@@ -1446,6 +1555,7 @@
     const labels = wrap.querySelectorAll('.loan-ratio-label > span');
     if (labels[0]) labels[0].innerHTML = `대출 <strong class="bar-label-loan">${formatLimit(loanEok)}</strong> (${Math.round(loanPct)}%)`;
     if (labels[1]) labels[1].innerHTML = `자기자금 <strong class="bar-label-cap">${formatLimit(capitalEok)}</strong> (${Math.round(100 - loanPct)}%)`;
+    updateResultTaxSummaries();
     updateResultFloatingSummary();
   }
 
@@ -1466,7 +1576,7 @@
           <strong id="resultFloatLimit" data-motion-value="0" data-motion-target="0">—</strong>
         </div>
         <div class="result-floating-summary-item">
-          <span>필요 자기자금</span>
+          <button class="result-floating-summary-label-compact" type="button" onclick="openResultTaxInfoSheet(this)" aria-expanded="false">필요 자금 (세금포함)<span class="result-floating-summary-info-dot">i</span></button>
           <strong id="resultFloatCapital" data-motion-value="0" data-motion-target="0">—</strong>
         </div>
         <div class="result-floating-summary-item">
@@ -1498,6 +1608,8 @@
     const priceEok = Number(card?.dataset.limitPrice || card?.dataset.bogeumPrice || card?.dataset.didimdolPrice || card?.dataset.newbornPrice || 0);
     const limitEok = principalWon > 0 ? principalWon / 100000000 : 0;
     const capitalEok = Math.max(0, priceEok - limitEok);
+    const acquisitionTax = getAcquisitionTaxForResultCard(card, priceEok);
+    const requiredCapitalEok = capitalEok + (acquisitionTax ? acquisitionTax.totalEok : 0);
 
     const priceEl = document.getElementById('resultFloatPrice');
     const limitEl = document.getElementById('resultFloatLimit');
@@ -1508,7 +1620,7 @@
     const loanPct = priceEok > 0 ? Math.min(100, Math.max(0, (limitEok / priceEok) * 100)) : 0;
     const priceWon = Math.round(priceEok * 100000000);
     const limitWon = Math.round(limitEok * 100000000);
-    const capitalWon = Math.round(capitalEok * 100000000);
+    const capitalWon = Math.round(requiredCapitalEok * 100000000);
     if (priceEl) {
       priceEl.dataset.motionTarget = String(priceWon);
       if (priceWon > 0) setAnimatedAmount(priceEl, priceWon, formatLimitWon);
@@ -1638,6 +1750,102 @@
       delete sheet.dataset.triggerId;
     }, 220);
   }
+
+  function getActiveResultTaxContext() {
+    const pane = getActiveResultPane();
+    const rateSection = pane?.querySelector('.rate-calc-section[data-uid]') || document.querySelector('.rate-calc-section[data-uid]');
+    if (!rateSection) return null;
+    const card = rateSection.closest('.limit-detail-card');
+    const monthlyEl = document.getElementById('mc-amt-' + rateSection.dataset.uid);
+    const priceEok = Number(card?.dataset.limitPrice || card?.dataset.bogeumPrice || card?.dataset.didimdolPrice || card?.dataset.newbornPrice || 0);
+    const limitEok = Number(monthlyEl?.dataset.principal || 0) / 100000000;
+    if (!(priceEok > 0)) return null;
+    const acquisition = getAcquisitionTaxForResultCard(card, priceEok);
+    const capitalEok = Math.max(0, priceEok - Math.max(0, limitEok));
+    const requiredEok = capitalEok + (acquisition ? acquisition.totalEok : 0);
+    return { priceEok, limitEok, capitalEok, requiredEok, acquisition };
+  }
+
+  function ensureResultTaxInfoSheet() {
+    let overlay = document.getElementById('resultTaxInfoOverlay');
+    let sheet = document.getElementById('resultTaxInfoSheet');
+    if (overlay && sheet) return { overlay, sheet };
+    const host = document.querySelector('.app') || document.body;
+    overlay = document.createElement('div');
+    overlay.id = 'resultTaxInfoOverlay';
+    overlay.className = 'dti-sheet-overlay result-tax-info-overlay';
+    overlay.setAttribute('onclick', 'closeResultTaxInfoSheet()');
+    sheet = document.createElement('div');
+    sheet.id = 'resultTaxInfoSheet';
+    sheet.className = 'dti-sheet result-tax-info-sheet';
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.innerHTML = ''
+      + '<div class="dti-sheet-handle"></div>'
+      + '<div class="dti-sheet-head">'
+      + '<div class="dti-sheet-title-group"><div class="dti-sheet-kicker">세금 안내</div><div class="dti-sheet-title">예상 세금 기준</div></div>'
+      + '<button class="dti-sheet-close" type="button" onclick="closeResultTaxInfoSheet()" aria-label="닫기">&times;</button>'
+      + '</div>'
+      + '<div class="dti-sheet-body">'
+      + '<p class="dti-sheet-copy" id="resultTaxInfoCopy"></p>'
+      + '<div class="dti-sheet-metrics result-tax-info-metrics">'
+      + '<div class="dti-sheet-metric"><span class="dti-sheet-metric-label">예상 취득세 등</span><strong class="dti-sheet-metric-value" id="resultTaxInfoAcquisition">-</strong></div>'
+      + '<div class="dti-sheet-metric"><span class="dti-sheet-metric-label">세율 기준</span><strong class="dti-sheet-metric-value" id="resultTaxInfoBasis">-</strong></div>'
+      + '</div>'
+      + '<ul class="result-tax-info-list">'
+      + '<li>취득세 등은 집을 살 때 한 번 내는 세금이에요.</li>'
+      + '<li>재산세와 종부세는 보유 중 따로 발생해요.</li>'
+      + '<li>생애최초 감면, 면적, 주택 수, 중과 여부에 따라 실제 금액은 달라질 수 있어요.</li>'
+      + '</ul>'
+      + '</div>';
+    sheet.addEventListener('click', function(event) { event.stopPropagation(); });
+    host.appendChild(overlay);
+    host.appendChild(sheet);
+    return { overlay, sheet };
+  }
+
+  function openResultTaxInfoSheet(button) {
+    const context = getActiveResultTaxContext();
+    const parts = ensureResultTaxInfoSheet();
+    if (!context || !parts) return;
+    const acquisitionText = context.acquisition ? formatTaxWon(context.acquisition.total) : '미반영';
+    const copyEl = document.getElementById('resultTaxInfoCopy');
+    const acquisitionEl = document.getElementById('resultTaxInfoAcquisition');
+    const basisEl = document.getElementById('resultTaxInfoBasis');
+    if (copyEl) copyEl.textContent = '하단 필요 자금에는 집을 살 때 바로 준비해야 하는 취득세 등 초기 세금만 더했어요.';
+    if (acquisitionEl) acquisitionEl.textContent = acquisitionText;
+    if (basisEl) basisEl.textContent = context.acquisition?.basisLabel || '-';
+    if (button) {
+      if (!button.id) button.id = 'result-tax-info-trigger-' + Math.random().toString(36).slice(2, 8);
+      button.setAttribute('aria-expanded', 'true');
+      parts.sheet.dataset.triggerId = button.id;
+    }
+    parts.overlay.style.display = 'block';
+    parts.sheet.style.display = 'flex';
+    requestAnimationFrame(function() {
+      parts.overlay.classList.add('open');
+      parts.sheet.classList.add('open');
+    });
+  }
+
+  function closeResultTaxInfoSheet() {
+    const overlay = document.getElementById('resultTaxInfoOverlay');
+    const sheet = document.getElementById('resultTaxInfoSheet');
+    if (!overlay || !sheet) return;
+    overlay.classList.remove('open');
+    sheet.classList.remove('open');
+    const triggerId = sheet.dataset.triggerId || '';
+    const trigger = triggerId ? document.getElementById(triggerId) : null;
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    setTimeout(function() {
+      overlay.style.display = 'none';
+      sheet.style.display = 'none';
+      delete sheet.dataset.triggerId;
+    }, 220);
+  }
+
+  window.openResultTaxInfoSheet = openResultTaxInfoSheet;
+  window.closeResultTaxInfoSheet = closeResultTaxInfoSheet;
 
   // ══ 기금대출 금리 테이블 ══
 
@@ -3377,16 +3585,16 @@
   function buildLocalIncomeProfile() {
     const incomeType = answers.incomeType === 'business' ? 'business' : 'salary';
     const businessPeriod = incomeType === 'business' ? answers.businessPeriod : null;
-    if (incomeType !== 'business') return { incomeType, businessPeriod: null, label: '직장인 연봉', warnings: [] };
+    if (incomeType !== 'business') return { incomeType, businessPeriod: null, label: '직장인 세전 연봉 합산', warnings: [] };
     const warnings = [
-      '사업자 신고소득 기준으로 계산했어요.',
-      '매출이 아니라, 매출에서 비용을 뺀 소득금액 기준이에요.',
+      '사업소득이 포함된 합산소득 기준으로 계산했어요.',
+      '직장인 소득은 세전 연봉, 사업자·프리랜서 소득은 매출이 아니라 소득금액 기준이에요.',
     ];
     if (businessPeriod === 'under1y') warnings.push('사업기간이 짧으면 신고소득 자료가 부족해 실제 심사에서 추가 확인이 필요할 수 있어요.');
     else if (businessPeriod === 'over1y') warnings.push('신고소득 자료를 기준으로 인정소득이 확인될 수 있어요.');
     else if (businessPeriod === 'over2y') warnings.push('최근 신고소득 기준으로 심사되며, 은행 기준에 따라 인정액이 달라질 수 있어요.');
     warnings.push('실제 심사에서는 소득금액증명원·종합소득세 신고자료 등에 따라 인정소득이 달라질 수 있습니다.');
-    return { incomeType, businessPeriod, label: '사업자 연소득', warnings };
+    return { incomeType, businessPeriod, label: '사업소득 포함 합산소득', warnings };
   }
 
   function escapeHtml(value) {
