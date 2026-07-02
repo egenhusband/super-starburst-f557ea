@@ -32,6 +32,7 @@ let dashboardAptSearchIndexPromise = null;
 const dashboardAptSearchInsightCache = new Map();
 const dashboardAptAreaPricesCache = new Map();
 const dashboardAptGradeCache = new Map();
+const dashboardAptTaxBasisSelection = new Map();
 
 function getAptGradeKey(entry) {
   return entry?.kaptCode || entry?.id || '';
@@ -993,6 +994,7 @@ function renderDashboardSelectedApartment() {
         </div>
         ${renderConvenienceSectionHtml(entry)}
         ${renderAreaPricesSectionHtml(insight?.areaPrices)}
+        ${renderDashboardAptTaxSummaryHtml(entry, insight?.areaPrices)}
         <div class="db-apt-grade-summary">
           <div class="db-apt-grade-reasons">
             ${(gradeData?.reasons || ['초등학교 도보권과 가까운 역 거리를 우선 정리하는 중이에요.']).map(reason => `<p>${escapeHtml(reason)}</p>`).join('')}
@@ -1034,7 +1036,7 @@ function renderDashboardSelectedApartment() {
   target.dataset.renderedEntryId = entry.id;
 }
 
-function getDashboardAptBasisPriceManwon(entry) {
+function getDashboardAptFallbackBasisPriceManwon(entry) {
   if (!entry) return null;
   const candidates = [
     Number(entry.latestTradePrice || 0),
@@ -1046,11 +1048,144 @@ function getDashboardAptBasisPriceManwon(entry) {
   return candidates.length ? candidates[0] : null;
 }
 
+function getDashboardAptTaxAreaOptions(areaPrices) {
+  const byArea = areaPrices?.byArea || null;
+  if (!byArea) return [];
+  return Object.entries(byArea)
+    .map(([bucket, data]) => ({
+      bucket,
+      avgPrice: Number(data?.avgPrice || 0),
+      tradeCount: Number(data?.tradeCount || 0),
+    }))
+    .filter(item => Number.isFinite(item.avgPrice) && item.avgPrice > 0)
+    .sort((a, b) => {
+      const aSize = parseInt(a.bucket, 10);
+      const bSize = parseInt(b.bucket, 10);
+      return aSize - bSize;
+    });
+}
+
+function getDashboardAptTaxDefaultBucket(options) {
+  if (!options.length) return '';
+  const preferred84 = options.find(item => parseInt(item.bucket, 10) === 84);
+  if (preferred84) return preferred84.bucket;
+  return options.slice().sort((a, b) => {
+    if (b.tradeCount !== a.tradeCount) return b.tradeCount - a.tradeCount;
+    return parseInt(a.bucket, 10) - parseInt(b.bucket, 10);
+  })[0]?.bucket || '';
+}
+
+function getDashboardAptTaxBasisKey(entry) {
+  return entry?.kaptCode || entry?.id || '';
+}
+
+function getDashboardAptTaxBasis(areaPrices, entry) {
+  const options = getDashboardAptTaxAreaOptions(areaPrices);
+  const selectionKey = getDashboardAptTaxBasisKey(entry);
+  const selectedBucket = selectionKey ? dashboardAptTaxBasisSelection.get(selectionKey) : '';
+  if (options.length) {
+    const fallbackBucket = getDashboardAptTaxDefaultBucket(options);
+    const selected = options.find(item => item.bucket === selectedBucket) || options.find(item => item.bucket === fallbackBucket) || options[0];
+    return {
+      priceManwon: selected.avgPrice,
+      label: selected.bucket + ' ' + formatDashboardAptPriceEok(selected.avgPrice) + '억 기준',
+      bucket: selected.bucket,
+      options,
+      source: 'area',
+    };
+  }
+
+  const fallbackPrice = getDashboardAptFallbackBasisPriceManwon(entry);
+  return fallbackPrice ? {
+    priceManwon: fallbackPrice,
+    label: formatDashboardAptPriceEok(fallbackPrice) + '억 기준',
+    bucket: '',
+    options: [],
+    source: 'fallback',
+  } : null;
+}
+
+function selectDashboardAptTaxBasis(entryKey, bucket) {
+  if (!entryKey || !bucket) return;
+  dashboardAptTaxBasisSelection.set(entryKey, bucket);
+  renderDashboardSelectedApartment();
+}
+window.selectDashboardAptTaxBasis = selectDashboardAptTaxBasis;
+
 function formatDashboardAptPriceEok(priceManwon) {
   if (!Number.isFinite(priceManwon) || priceManwon <= 0) return '';
   const eok = priceManwon / 10000;
   return Number.isInteger(eok) ? String(eok) : eok.toFixed(1).replace(/\.0$/, '');
 }
+function formatDashboardTaxWon(won) {
+  const value = Math.max(0, Math.round(Number(won) || 0));
+  if (value >= 100000000) {
+    const eok = value / 100000000;
+    return (Number.isInteger(eok) ? String(eok) : eok.toFixed(1).replace(/\.0$/, '')) + '억원';
+  }
+  return Math.round(value / 10000).toLocaleString() + '만원';
+}
+
+function getDashboardAptOfficialPriceEok(entry, priceEok, preferEstimate = false) {
+  if (preferEstimate) {
+    const tax = window.RealEstateTax;
+    return { officialPriceEok: tax?.estimateOfficialPriceEok ? tax.estimateOfficialPriceEok(priceEok) : priceEok * 0.65, isEstimated: true };
+  }
+  const officialManwon = [
+    Number(entry?.medianOfficialPrice || 0),
+    Number(entry?.avgOfficialPrice || 0),
+    Number(entry?.maxOfficialPrice || 0),
+  ].find(value => Number.isFinite(value) && value > 0);
+  if (officialManwon) return { officialPriceEok: officialManwon / 10000, isEstimated: false };
+  const tax = window.RealEstateTax;
+  return { officialPriceEok: tax?.estimateOfficialPriceEok ? tax.estimateOfficialPriceEok(priceEok) : priceEok * 0.65, isEstimated: true };
+}
+
+function renderDashboardAptTaxSummaryHtml(entry, areaPrices) {
+  const tax = window.RealEstateTax;
+  if (!tax || !entry) return '';
+  const basis = getDashboardAptTaxBasis(areaPrices, entry);
+  const priceManwon = Number(basis?.priceManwon || 0);
+  const priceEok = priceManwon / 10000;
+  if (!(priceEok > 0)) return '';
+
+  const acquisition = tax.calculateAcquisitionTax({
+    priceEok,
+    homeCount: 1,
+    isRegulatedArea: false,
+    isOver85: false,
+  });
+  const official = getDashboardAptOfficialPriceEok(entry, priceEok, basis.source === 'area');
+  const property = tax.calculatePropertyTax({
+    officialPriceEok: official.officialPriceEok,
+    isEstimated: official.isEstimated,
+    isOneHouseholdOneHome: true,
+  });
+  const jongboo = tax.getJongbooPossibility({
+    officialPriceEok: official.officialPriceEok,
+    isOneHouseholdOneHome: true,
+  });
+  const officialLabel = official.isEstimated ? '공시가격 추정 기준' : '공시가격 기준';
+
+  const entryKey = getDashboardAptTaxBasisKey(entry);
+  const basisSelectHtml = basis.options?.length
+    ? '<select class="db-apt-tax-select" aria-label="세금 계산 기준 평형" onchange="selectDashboardAptTaxBasis(' + escapeHtml(JSON.stringify(entryKey)) + ', this.value)">'
+      + basis.options.map(option => '<option value="' + escapeHtml(option.bucket) + '"' + (option.bucket === basis.bucket ? ' selected' : '') + '>' + escapeHtml(option.bucket + ' ' + formatDashboardAptPriceEok(option.avgPrice) + '억') + '</option>').join('')
+      + '</select>'
+    : '<strong>' + escapeHtml(basis.label) + '</strong>';
+
+  return ''
+    + '<section class="db-apt-tax-card">'
+    + '<div class="db-apt-tax-head"><span>세금 예상</span><div class="db-apt-tax-control">' + basisSelectHtml + '</div></div>'
+    + '<div class="db-apt-tax-grid">'
+    + '<div class="db-apt-tax-item"><span>예상 취득세 등</span><strong>' + escapeHtml(formatDashboardTaxWon(acquisition.total)) + '</strong><em>1주택·전용 85㎡ 이하</em></div>'
+    + '<div class="db-apt-tax-item"><span>예상 재산세 등</span><strong>' + escapeHtml(formatDashboardTaxWon(property.total)) + '</strong><em>' + escapeHtml(officialLabel) + '</em></div>'
+    + '</div>'
+    + '<div class="db-apt-tax-jongboo ' + (jongboo.status === 'check' ? 'is-check' : '') + '"><strong>' + escapeHtml(jongboo.label) + '</strong><span>' + escapeHtml(jongboo.desc) + '</span></div>'
+    + '<p>감면·공제와 보유 주택 합산에 따라 실제 세액은 달라질 수 있어요.</p>'
+    + '</section>';
+}
+
 
 function updateAptLoanSheetState() {
   const input = document.getElementById('aptLoanPriceInput');

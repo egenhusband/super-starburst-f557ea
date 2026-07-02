@@ -839,6 +839,37 @@
     line-height: 1.1;
     white-space: nowrap;
   }
+  .result-floating-summary-item .result-floating-summary-label-compact {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: var(--label3);
+    font: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.1px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .result-floating-summary-info-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.1);
+    color: var(--label2);
+    font-size: 8px;
+    font-weight: 800;
+    line-height: 1;
+  }
   .result-floating-summary-item strong {
     max-width: 100%;
     font-size: 16px;
@@ -858,6 +889,10 @@
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
   }
 
+  .loan-ratio-bar-wrap {
+    display: none;
+  }
+
   /* 섹션 그룹 — 시각적으로 관련 카드끼리 묶음 */
   .result-group {
     background: var(--bg3);
@@ -871,6 +906,62 @@
     overflow: hidden;
   }
   .result-group:last-child { margin-bottom: 0; }
+  .result-tax-summary {
+    margin-top: 12px;
+    padding: 13px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.035);
+  }
+  .result-tax-summary-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .result-tax-summary-head span {
+    font-size: 12px;
+    font-weight: 720;
+    color: var(--label2);
+  }
+  .result-tax-summary-head strong {
+    font-size: 15px;
+    font-weight: 780;
+    color: var(--label1);
+    white-space: nowrap;
+  }
+  .result-tax-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 11px;
+  }
+  .result-tax-summary-grid div {
+    min-width: 0;
+    padding: 10px;
+    border-radius: 12px;
+    background: rgba(0,0,0,0.18);
+  }
+  .result-tax-summary-grid span,
+  .result-tax-summary p {
+    display: block;
+    font-size: 11px;
+    font-weight: 620;
+    line-height: 1.45;
+    color: var(--label3);
+  }
+  .result-tax-summary-grid strong {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 760;
+    line-height: 1.25;
+    color: var(--label1);
+  }
+  .result-tax-summary p {
+    margin: 10px 0 0;
+  }
+
 
   /* 그룹 레이블 */
   .group-label {
@@ -1086,6 +1177,7 @@
 
   /* ── 대출/자기자금 비율 바 ── */
   .loan-ratio-bar-wrap {
+    display: none;
     margin: 14px 0 4px;
     padding: 12px 14px;
     background: var(--bg3);
@@ -5491,6 +5583,113 @@
 .db-apt-convenience-chip.is-gray strong {
   color: rgba(214,223,236,0.38);
 }
+
+.db-apt-tax-card {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.035);
+}
+.db-apt-tax-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.db-apt-tax-head span {
+  font-size: 12px;
+  font-weight: 760;
+  color: rgba(208,217,230,0.56);
+}
+.db-apt-tax-head strong {
+  font-size: 13px;
+  font-weight: 760;
+  color: rgba(246,248,251,0.92);
+  white-space: nowrap;
+}
+.db-apt-tax-control {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.db-apt-tax-select {
+  max-width: 132px;
+  border: 0;
+  border-radius: 0;
+  padding: 0 6px 0 0;
+  background: transparent;
+  color: rgba(246,248,251,0.92);
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: -0.1px;
+  outline: none;
+}
+.db-apt-tax-select:focus {
+  color: #ffffff;
+}
+.db-apt-tax-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.db-apt-tax-item {
+  min-width: 0;
+  padding: 11px 10px;
+  border-radius: 14px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.db-apt-tax-item span,
+.db-apt-tax-item em,
+.db-apt-tax-card p,
+.db-apt-tax-jongboo span {
+  display: block;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 620;
+  line-height: 1.45;
+  color: rgba(208,217,230,0.48);
+}
+.db-apt-tax-item strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 14px;
+  font-weight: 780;
+  line-height: 1.2;
+  color: #f6f8fb;
+}
+.db-apt-tax-item em {
+  margin-top: 4px;
+}
+.db-apt-tax-jongboo {
+  margin-top: 8px;
+  padding: 10px 11px;
+  border-radius: 14px;
+  background: rgba(45,120,255,0.08);
+  border: 1px solid rgba(45,120,255,0.16);
+}
+.db-apt-tax-jongboo.is-check {
+  background: rgba(255,176,32,0.08);
+  border-color: rgba(255,176,32,0.18);
+}
+.db-apt-tax-jongboo strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 12px;
+  font-weight: 760;
+  color: #8db8ff;
+}
+.db-apt-tax-jongboo.is-check strong {
+  color: #f0c36a;
+}
+.db-apt-tax-card p {
+  margin: 10px 0 0;
+}
+
 .db-apt-loan-cta {
   width: 100%;
   min-height: 52px;
@@ -5701,6 +5900,36 @@
   font-weight: 760;
   letter-spacing: -0.2px;
 }
+.result-tax-info-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.result-tax-info-list li {
+  position: relative;
+  padding-left: 13px;
+  color: var(--label2);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.result-tax-info-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.72em;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--label3);
+}
+
+.result-tax-info-note {
+  color: var(--label3);
+}
+
 .income-profile-sheet-period {
   width: fit-content;
   border-radius: 999px;
