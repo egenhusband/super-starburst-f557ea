@@ -635,6 +635,7 @@
   const BANK_OPERATIONAL_LIMITS = [
     {
       bankName: 'KB국민은행',
+      aliases: ['국민은행', '케이비국민은행'],
       maxLoanEok: 3,
       effectiveFrom: '2026-07-10',
       label: '은행 자체한도 적용',
@@ -942,11 +943,14 @@
   }
 
   // ── 주요은행 필터 ──
-  const MAJOR_BANKS = ['KB국민은행', '우리은행', '신한은행', 'KEB하나은행', 'NH농협은행'];
+  const MAJOR_BANKS = ['KB국민은행', '국민은행', '우리은행', '신한은행', 'KEB하나은행', 'NH농협은행'];
 
   function getBankOperationalLimit(bankName) {
     const normalized = String(bankName || '').replace(/\s+/g, '');
-    return BANK_OPERATIONAL_LIMITS.find(rule => normalized.includes(rule.bankName.replace(/\s+/g, ''))) || null;
+    return BANK_OPERATIONAL_LIMITS.find(rule => {
+      const names = [rule.bankName, ...(rule.aliases || [])];
+      return names.some(name => normalized.includes(String(name).replace(/\s+/g, '')));
+    }) || null;
   }
 
   function bankOperationalLimitHtml(bankName) {
