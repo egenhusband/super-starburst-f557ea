@@ -632,6 +632,15 @@
 
   // ── 시중대출 필터 + 전역 상태 ──
   const bankFilter   = { mrtg: ['A'], rate: ['F','C'], rpay: ['D','S'] };
+  const BANK_OPERATIONAL_LIMITS = [
+    {
+      bankName: 'KB국민은행',
+      maxLoanEok: 3,
+      effectiveFrom: '2026-07-10',
+      label: '은행 자체한도 적용',
+      source: '가계대출 관리 정책'
+    }
+  ];
   let bankCompareSet = new Set();
   let bankAllProds   = [];
   let bankLoanCtx    = { loanEok: 0, loanInputEok: 0, bangMan: 0, years: 30 };
@@ -935,6 +944,31 @@
   // ── 주요은행 필터 ──
   const MAJOR_BANKS = ['KB국민은행', '우리은행', '신한은행', 'KEB하나은행', 'NH농협은행'];
 
+  function getBankOperationalLimit(bankName) {
+    const normalized = String(bankName || '').replace(/\s+/g, '');
+    return BANK_OPERATIONAL_LIMITS.find(rule => normalized.includes(rule.bankName.replace(/\s+/g, ''))) || null;
+  }
+
+  function bankOperationalLimitHtml(bankName) {
+    const rule = getBankOperationalLimit(bankName);
+    if (!rule) return '';
+    const requestedLoan = bankLoanCtx.loanInputEok || bankLoanCtx.loanEok || 0;
+    const isOverLimit = requestedLoan > rule.maxLoanEok + 0.001;
+    const toneClass = isOverLimit ? ' is-warning' : ' is-safe';
+    const desc = isOverLimit
+      ? `입력 금액 ${requestedLoan.toFixed(1)}억은 현재 ${bankName} 자체 취급한도 ${rule.maxLoanEok}억을 초과해 실제 진행이 어려울 수 있어요.`
+      : `입력 금액은 ${bankName} 자체 취급한도 ${rule.maxLoanEok}억 이내예요.`;
+    return `
+      <div class="bank-operational-limit${toneClass}">
+        <div class="bank-operational-limit-top">
+          <span class="bank-operational-limit-badge">${rule.label}</span>
+          <span class="bank-operational-limit-date">${rule.effectiveFrom} 기준</span>
+        </div>
+        <div class="bank-operational-limit-desc">${desc}</div>
+      </div>
+    `;
+  }
+
   function toggleMajorFirst() {
     bankMajorFirst = !bankMajorFirst;
     bankCurrentPage = 1;
@@ -990,6 +1024,11 @@
         : '';
 
       const isChecked = bankCompareSet.has(p.key);
+      const operationalLimit = getBankOperationalLimit(b.kor_co_nm);
+      const operationalBadge = operationalLimit
+        ? `<span class="bank-operational-chip">${operationalLimit.maxLoanEok}억 한도</span>`
+        : '';
+      const operationalNotice = bankOperationalLimitHtml(b.kor_co_nm);
 
       // 상세 정보 필드
       const erlyRpayFee = b.erly_rpay_fee || '-';
@@ -1009,10 +1048,12 @@
                 ${rankBadge}
                 <span style="font-weight:700;font-size:15px">${b.kor_co_nm}</span>
                 ${isOnline?'<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(10,132,255,0.12);color:var(--accent)">앱/인터넷</span>':''}
+                ${operationalBadge}
               </div>
               <div style="font-size:12px;color:var(--label3)">${b.fin_prdt_nm}</div>
             </div>
           </div>
+          ${operationalNotice}
           <div class="rate-limit-row" style="margin-bottom:8px">
             <div class="info-pill">
               <span class="info-pill-label">금리 범위</span>

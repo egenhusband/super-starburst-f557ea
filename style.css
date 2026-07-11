@@ -2276,6 +2276,53 @@
     font-weight: 700;
   }
 
+  .bank-operational-chip {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 214, 10, 0.14);
+    color: var(--yellow);
+    font-weight: 700;
+  }
+  .bank-operational-limit {
+    margin: 0 0 8px 34px;
+    padding: 9px 10px;
+    border-radius: 12px;
+    background: var(--bg3);
+    border: 1px solid var(--separator);
+  }
+  .bank-operational-limit.is-warning {
+    background: rgba(255, 214, 10, 0.08);
+    border-color: rgba(255, 214, 10, 0.24);
+  }
+  .bank-operational-limit.is-safe {
+    background: rgba(48, 209, 88, 0.08);
+    border-color: rgba(48, 209, 88, 0.22);
+  }
+  .bank-operational-limit-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .bank-operational-limit-badge {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--label1);
+  }
+  .bank-operational-limit-date {
+    font-size: 10px;
+    color: var(--label3);
+    white-space: nowrap;
+  }
+  .bank-operational-limit-desc {
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--label2);
+    word-break: keep-all;
+  }
+
   /* ── 상품 상세 정보 ── */
   .bank-detail-row {
     display: flex;
