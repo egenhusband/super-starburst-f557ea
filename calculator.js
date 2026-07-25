@@ -2,6 +2,8 @@
   let current = 0;      // 0 = intro, 1~7 = 기금대출 슬라이드
   let loanType = null;  // 'fund' | 'bank'
   let latestIncomeProfile = null;
+  let isFundEditMode = false;
+  let pendingFundEditFeedback = false;
   const answers = { household: null, house: null, children: null, region: null, incomeType: 'salary', businessPeriod: null };
 
   function haptic(ms) {
@@ -75,7 +77,22 @@
   }
 
   function updateNextBtn() {
-    document.getElementById('btnNext').disabled = !canProceed();
+    const btnNext = document.getElementById('btnNext');
+    const btnEditDone = document.getElementById('btnEditDone');
+    const canGo = canProceed();
+    if (btnNext) {
+      btnNext.disabled = !canGo;
+      btnNext.textContent = isFundEditMode ? '다음' : '다음';
+    }
+    if (btnEditDone) btnEditDone.disabled = !canGo;
+    syncFundEditNav();
+  }
+
+  function syncFundEditNav() {
+    const bottomNav = document.getElementById('bottomNav');
+    const btnEditDone = document.getElementById('btnEditDone');
+    if (bottomNav) bottomNav.classList.toggle('is-edit-mode', !!isFundEditMode);
+    if (btnEditDone) btnEditDone.hidden = !isFundEditMode;
   }
 
   function setProgress(step) {
@@ -93,6 +110,71 @@
     window.setTimeout(() => { resultSlide.scrollTop = 0; }, 280);
   }
 
+  function calculateCurrentOtherLoanInterest() {
+    const noneChecked = document.getElementById('otherLoanNone')?.checked;
+    if (noneChecked) return 0;
+    const principal = parseFloat(document.getElementById('otherLoanPrincipal')?.value) || 0;
+    const rate      = parseFloat(document.getElementById('otherLoanRate')?.value) || 0;
+    const yrs       = parseFloat(document.getElementById('otherLoanYears')?.value) || 0;
+    if (!(principal > 0 && rate > 0 && yrs > 0)) return 0;
+    const P = principal * 100000000;
+    const r = rate / 12 / 100;
+    const n = yrs * 12;
+    const monthly = (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+    const annualPayment = monthly * 12;
+    const annualInterestWon = annualPayment - (P / n * 12);
+    return Math.round(annualInterestWon / 10000);
+  }
+
+  function readFundInputValues() {
+    return {
+      income: parseFloat(document.getElementById('income')?.value),
+      price: parseFloat(document.getElementById('price')?.value),
+      asset: parseFloat(document.getElementById('asset')?.value),
+      otherLoanInterest: calculateCurrentOtherLoanInterest(),
+    };
+  }
+
+  function validateFundInputsForResult() {
+    const { income, price, asset } = readFundInputValues();
+    if (isNaN(income) || income < 0) { document.getElementById('incomeErr').textContent = '올바른 소득을 입력해주세요'; return null; }
+    if (isNaN(price)  || price  < 0) { document.getElementById('priceErr').textContent  = '올바른 금액을 입력해주세요'; return null; }
+    if (isNaN(asset)  || asset  < 0) { document.getElementById('assetErr').textContent  = '올바른 금액을 입력해주세요'; return null; }
+    return readFundInputValues();
+  }
+
+  function showFundEditFeedback() {
+    const toast = document.getElementById('prefToast');
+    if (!toast) return;
+    const original = toast.innerHTML;
+    toast.innerHTML = '<span class="pref-toast-icon" data-icon="check" data-icon-size="16"></span>조건을 다시 계산했어요';
+    if (typeof window.renderIcons === 'function') window.renderIcons(toast);
+    showPrefToast();
+    window.setTimeout(function() {
+      toast.innerHTML = original;
+      if (typeof window.renderIcons === 'function') window.renderIcons(toast);
+    }, 3600);
+  }
+
+  function completeFundEdit() {
+    if (!canProceed()) {
+      updateNextBtn();
+      return;
+    }
+    const values = validateFundInputsForResult();
+    if (!values) return;
+    isFundEditMode = false;
+    pendingFundEditFeedback = true;
+    syncFundEditNav();
+    renderResult(values.income, values.price, values.asset, values.otherLoanInterest);
+    navigateTo(9, 'forward');
+    resetResultScroll();
+    const bottomNav = document.getElementById('bottomNav');
+    const progressWrap = document.getElementById('progressWrap');
+    if (bottomNav) bottomNav.style.display = 'none';
+    if (progressWrap) progressWrap.style.display = 'none';
+  }
+
   function goNext() {
     // intro 슬라이드: 선택에 따라 분기
     if (current === 0) {
@@ -105,33 +187,9 @@
       return;
     }
     if (current === 8) {
-      const income = parseFloat(document.getElementById('income').value);
-      const price  = parseFloat(document.getElementById('price').value);
-      const asset  = parseFloat(document.getElementById('asset').value);
-      if (isNaN(income) || income < 0) { document.getElementById('incomeErr').textContent = '올바른 소득을 입력해주세요'; return; }
-      if (isNaN(price)  || price  < 0) { document.getElementById('priceErr').textContent  = '올바른 금액을 입력해주세요'; return; }
-      if (isNaN(asset)  || asset  < 0) { document.getElementById('assetErr').textContent  = '올바른 금액을 입력해주세요'; return; }
-      const noneChecked = document.getElementById('otherLoanNone')?.checked;
-      let otherLoanInterest = 0;
-      if (!noneChecked) {
-        const principal = parseFloat(document.getElementById('otherLoanPrincipal').value) || 0;
-        const rate      = parseFloat(document.getElementById('otherLoanRate').value) || 0;
-        const yrs       = parseFloat(document.getElementById('otherLoanYears').value) || 0;
-        if (principal > 0 && rate > 0 && yrs > 0) {
-          // 원리금균등 월납입 계산 후 연간 이자 추출
-          const P = principal * 100000000;
-          const r = rate / 12 / 100;
-          const n = yrs * 12;
-          const monthly = (P * r * Math.pow(1+r,n)) / (Math.pow(1+r,n) - 1);
-          // 연간 원리금 - 연간 원금상환 = 연간 이자
-          const annualPayment     = monthly * 12;
-          const annualPrincipalRep = P / n * 12; // 원금균등 근사
-          // 원리금균등 기준 연간 이자 = 총납입 - 원금 (1년치 근사)
-          const annualInterestWon = annualPayment - (P / n * 12);
-          otherLoanInterest = Math.round(annualInterestWon / 10000); // 만원 단위
-        }
-      }
-      renderResult(income, price, asset, otherLoanInterest);
+      const values = validateFundInputsForResult();
+      if (!values) return;
+      renderResult(values.income, values.price, values.asset, values.otherLoanInterest);
       navigateTo(9, 'forward');
       resetResultScroll();
       document.getElementById('bottomNav').style.display = 'none';
@@ -161,10 +219,16 @@
 
   function goBack() {
     if (current === 0) return;
+    if (isFundEditMode) {
+      completeFundEdit();
+      return;
+    }
     navigateTo(current - 1, 'back');
   }
 
   function resetCalculatorToIntro() {
+    isFundEditMode = false;
+    pendingFundEditFeedback = false;
     const allSlides = document.querySelectorAll('.slide');
     allSlides.forEach(slide => {
       slide.classList.remove('active', 'exit-left', 'exit-right');
@@ -177,6 +241,7 @@
     document.getElementById('bottomNav').style.display = 'flex';
     document.getElementById('progressWrap').style.display = 'block';
     document.getElementById('btnBack').disabled = true;
+    syncFundEditNav();
     updateNextBtn();
   }
 
@@ -3673,6 +3738,139 @@
     return '선택 안 됨';
   }
 
+  function formatOptionalEok(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num <= 0) return '없음';
+    return num.toLocaleString(undefined, { maximumFractionDigits: 1 }) + '억';
+  }
+
+  function getOtherLoanSummaryText() {
+    const noneChecked = document.getElementById('otherLoanNone')?.checked;
+    const principal = parseFloat(document.getElementById('otherLoanPrincipal')?.value) || 0;
+    if (noneChecked || principal <= 0) return '없음';
+    return formatOptionalEok(principal);
+  }
+
+  function getFundSummaryItems() {
+    const incomeValue = parseFloat(document.getElementById('income')?.value) || 0;
+    const priceValue = parseFloat(document.getElementById('price')?.value) || 0;
+    const assetValue = parseFloat(document.getElementById('asset')?.value) || 0;
+    return [
+      { key: 'price', label: '주택가격', value: formatOptionalEok(priceValue), step: 6 },
+      { key: 'income', label: '연소득', value: incomeValue > 0 ? incomeValue.toLocaleString() + '만원' : '미입력', step: 5 },
+      { key: 'region', label: '지역', value: answers.region || '미선택', step: 4 },
+      { key: 'house', label: '주택상황', value: answers.house || '미선택', step: 2 },
+      { key: 'household', label: '가구조건', value: answers.household || '미선택', step: 1 },
+      { key: 'children', label: '자녀수', value: answers.children || '미선택', step: 3 },
+      { key: 'asset', label: '순자산', value: formatOptionalEok(assetValue), step: 7 },
+      { key: 'otherLoan', label: '기타대출', value: getOtherLoanSummaryText(), step: 8 },
+      { key: 'term', label: '대출기간', value: '상품 카드에서 선택', step: null },
+      { key: 'repay', label: '상환방식', value: '상품 카드에서 선택', step: null },
+    ];
+  }
+
+  function fundResultSummaryHtml() {
+    const items = getFundSummaryItems();
+    const compact = items
+      .filter(item => ['price', 'income', 'region', 'house'].includes(item.key))
+      .map(item => item.value)
+      .join(' · ');
+    return `
+      <button class="fund-input-summary" type="button" onclick="openFundInputSheet()" aria-label="입력 조건 확인 및 수정">
+        <span class="fund-input-summary-label">입력조건</span>
+        <span class="fund-input-summary-text">${escapeHtml(compact)}</span>
+        <span class="fund-input-summary-chevron">${icon('chevronDown', 12)}</span>
+      </button>
+    `;
+  }
+
+  function ensureFundInputSheet() {
+    let overlay = document.getElementById('fundInputSheetOverlay');
+    let sheet = document.getElementById('fundInputSheet');
+    if (overlay && sheet) return { overlay, sheet };
+    const app = document.querySelector('.app');
+    if (!app) return {};
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `
+      <div class="fund-input-sheet-overlay" id="fundInputSheetOverlay" onclick="closeFundInputSheet()"></div>
+      <div class="fund-input-sheet" id="fundInputSheet" role="dialog" aria-modal="true" aria-labelledby="fundInputSheetTitle">
+        <div class="fund-input-sheet-handle"></div>
+        <div class="fund-input-sheet-head">
+          <div>
+            <div class="fund-input-sheet-kicker">입력 조건</div>
+            <div class="fund-input-sheet-title" id="fundInputSheetTitle">수정할 항목을 선택해주세요</div>
+          </div>
+          <button class="fund-input-sheet-close" type="button" onclick="closeFundInputSheet()" aria-label="닫기">
+            <span data-icon="x" data-icon-size="14"></span>
+          </button>
+        </div>
+        <div class="fund-input-sheet-body" id="fundInputSheetBody"></div>
+      </div>
+    `;
+    Array.from(wrap.children).forEach(node => app.appendChild(node));
+    overlay = document.getElementById('fundInputSheetOverlay');
+    sheet = document.getElementById('fundInputSheet');
+    return { overlay, sheet };
+  }
+
+  function openFundInputSheet() {
+    const { overlay, sheet } = ensureFundInputSheet();
+    const body = document.getElementById('fundInputSheetBody');
+    if (!overlay || !sheet || !body) return;
+    const rows = getFundSummaryItems().map(item => {
+      const disabled = item.step == null;
+      const action = disabled
+        ? '<span class="fund-input-sheet-static">결과에서 조정</span>'
+        : '<button class="fund-input-sheet-edit" type="button" onclick="startFundEditAt(' + item.step + ')">수정</button>';
+      return `
+        <div class="fund-input-sheet-row">
+          <div>
+            <div class="fund-input-sheet-label">${escapeHtml(item.label)}</div>
+            <div class="fund-input-sheet-value">${escapeHtml(item.value)}</div>
+          </div>
+          ${action}
+        </div>
+      `;
+    }).join('');
+    body.innerHTML = rows;
+    overlay.style.display = 'block';
+    sheet.style.display = 'flex';
+    requestAnimationFrame(function() {
+      overlay.classList.add('open');
+      sheet.classList.add('open');
+    });
+    if (typeof window.renderIcons === 'function') window.renderIcons(sheet);
+  }
+
+  function closeFundInputSheet() {
+    const overlay = document.getElementById('fundInputSheetOverlay');
+    const sheet = document.getElementById('fundInputSheet');
+    if (!overlay || !sheet) return;
+    overlay.classList.remove('open');
+    sheet.classList.remove('open');
+    setTimeout(function() {
+      overlay.style.display = 'none';
+      sheet.style.display = 'none';
+    }, 240);
+  }
+
+  function startFundEditAt(step) {
+    closeFundInputSheet();
+    isFundEditMode = true;
+    loanType = 'fund';
+    const bottomNav = document.getElementById('bottomNav');
+    const progressWrap = document.getElementById('progressWrap');
+    if (bottomNav) bottomNav.style.display = 'flex';
+    if (progressWrap) progressWrap.style.display = 'block';
+    syncFundEditNav();
+    navigateTo(step, 'back');
+    updateNextBtn();
+  }
+
+  window.openFundInputSheet = openFundInputSheet;
+  window.closeFundInputSheet = closeFundInputSheet;
+  window.startFundEditAt = startFundEditAt;
+
   function openIncomeProfileSheet() {
     const profile = latestIncomeProfile;
     const overlay = document.getElementById('incomeProfileOverlay');
@@ -4096,7 +4294,7 @@
     }
 
     const resultContent = document.getElementById('resultContent');
-    resultContent.innerHTML = html;
+    resultContent.innerHTML = fundResultSummaryHtml() + html;
     const incomeProfile = serverCalc?.incomeProfile || buildLocalIncomeProfile();
     latestIncomeProfile = incomeProfile;
     const incomeTrigger = incomeProfileTriggerHtml(incomeProfile);
@@ -4192,6 +4390,10 @@
         el.style.animation = `cardFadeUp 0.32s cubic-bezier(0.4,0,0.2,1) ${i * 0.04}s forwards`;
       });
     });
+    if (pendingFundEditFeedback) {
+      pendingFundEditFeedback = false;
+      setTimeout(showFundEditFeedback, 260);
+    }
   }
 
   function switchTab(tab) {
@@ -4425,6 +4627,8 @@
   function restartApp(options = {}) {
     const { showDashboardAfterReset = true } = options;
     loanType = null;
+    isFundEditMode = false;
+    pendingFundEditFeedback = false;
     answers.household = null;
     answers.house = null;
     answers.children = null;
@@ -4480,6 +4684,7 @@
     setProgress(0);
     document.getElementById('btnBack').disabled = true;
     document.getElementById('btnNext').disabled = true;
+    syncFundEditNav();
     if (showDashboardAfterReset) showDashboard();
   }
 
