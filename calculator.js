@@ -3751,21 +3751,27 @@
     return formatOptionalEok(principal);
   }
 
-  function getFundSummaryItems() {
+  function getIncomeSummaryText() {
     const incomeValue = parseFloat(document.getElementById('income')?.value) || 0;
+    const amountText = incomeValue > 0 ? incomeValue.toLocaleString() + '만원' : '미입력';
+    if (answers.incomeType === 'business') {
+      return '사업소득 포함 · ' + businessPeriodLabel(answers.businessPeriod) + ' · ' + amountText;
+    }
+    return '직장인만 · ' + amountText;
+  }
+
+  function getFundSummaryItems() {
     const priceValue = parseFloat(document.getElementById('price')?.value) || 0;
     const assetValue = parseFloat(document.getElementById('asset')?.value) || 0;
     return [
-      { key: 'price', label: '주택가격', value: formatOptionalEok(priceValue), step: 6 },
-      { key: 'income', label: '연소득', value: incomeValue > 0 ? incomeValue.toLocaleString() + '만원' : '미입력', step: 5 },
-      { key: 'region', label: '지역', value: answers.region || '미선택', step: 4 },
-      { key: 'house', label: '주택상황', value: answers.house || '미선택', step: 2 },
       { key: 'household', label: '가구조건', value: answers.household || '미선택', step: 1 },
+      { key: 'house', label: '주택상황', value: answers.house || '미선택', step: 2 },
       { key: 'children', label: '자녀수', value: answers.children || '미선택', step: 3 },
+      { key: 'region', label: '지역', value: answers.region || '미선택', step: 4 },
+      { key: 'income', label: '소득', value: getIncomeSummaryText(), step: 5 },
+      { key: 'price', label: '주택가격', value: formatOptionalEok(priceValue), step: 6 },
       { key: 'asset', label: '순자산', value: formatOptionalEok(assetValue), step: 7 },
       { key: 'otherLoan', label: '기타대출', value: getOtherLoanSummaryText(), step: 8 },
-      { key: 'term', label: '대출기간', value: '상품 카드에서 선택', step: null },
-      { key: 'repay', label: '상환방식', value: '상품 카드에서 선택', step: null },
     ];
   }
 
