@@ -1677,6 +1677,134 @@
     updateResultFloatingSummary();
   }
 
+  function loanAmountControlHtml(uid, principalWon, colorCls) {
+    const maxEok = Math.max(0, principalWon / 100000000);
+    const maxLabel = formatLimit(maxEok);
+    return `<div class="loan-amount-control ${colorCls}" data-loan-amount-control>
+      <div class="loan-amount-control-head">
+        <div>
+          <div class="loan-amount-control-label">선택 대출금액</div>
+          <div class="loan-amount-control-sub">최대 한도 안에서 실제 빌릴 금액을 조절해보세요.</div>
+        </div>
+        <strong id="loan-amount-val-${uid}" data-motion-value="${Math.round(principalWon)}" data-motion-target="${Math.round(principalWon)}">${maxLabel}</strong>
+      </div>
+      <input class="loan-amount-range" id="loan-amount-${uid}" type="range" min="0" max="${maxEok.toFixed(2)}" step="0.01" value="${maxEok.toFixed(2)}" data-max-eok="${maxEok.toFixed(4)}" data-touched="0" oninput="handleLoanAmountInput('${uid}')" onchange="handleLoanAmountInput('${uid}')">
+      <div class="loan-amount-control-foot">
+        <span>0원</span>
+        <span id="loan-amount-ltv-${uid}">집값 대비</span>
+        <span id="loan-amount-max-${uid}">최대 ${maxLabel}</span>
+      </div>
+    </div>`;
+  }
+
+  function getActiveRepayMethod(uid) {
+    const tabs = document.getElementById('tabs-' + uid);
+    let method = 'annuity';
+    if (tabs) {
+      const activeTab = tabs.querySelector('.repay-method-tab.active-blue, .repay-method-tab.active-green, .repay-method-tab.active-nb');
+      if (activeTab?.id?.includes('equal-principal')) method = 'equal-principal';
+      else if (activeTab?.id?.includes('increasing')) method = 'increasing';
+    }
+    return method;
+  }
+
+  function getSelectedLoanPrincipal(uid, fallbackWon) {
+    const range = document.getElementById('loan-amount-' + uid);
+    if (!range) return Math.max(0, fallbackWon || 0);
+    const eok = parseFloat(range.value || 0);
+    return Math.max(0, eok * 100000000);
+  }
+
+  function updateLoanAmountControlUi(uid, maxPrincipalWon, selectedPrincipalWon) {
+    const range = document.getElementById('loan-amount-' + uid);
+    const valueEl = document.getElementById('loan-amount-val-' + uid);
+    const maxEl = document.getElementById('loan-amount-max-' + uid);
+    const ltvEl = document.getElementById('loan-amount-ltv-' + uid);
+    const control = range?.closest('[data-loan-amount-control]');
+    const card = range?.closest('.limit-detail-card');
+    if (!range) return selectedPrincipalWon;
+
+    const maxEok = Math.max(0, maxPrincipalWon / 100000000);
+    const selectedEok = Math.max(0, Math.min(maxEok, selectedPrincipalWon / 100000000));
+    range.max = maxEok.toFixed(2);
+    range.dataset.maxEok = maxEok.toFixed(4);
+    range.value = selectedEok.toFixed(2);
+    const pct = maxEok > 0 ? Math.min(100, Math.max(0, (selectedEok / maxEok) * 100)) : 0;
+    range.style.setProperty('--loan-amount-pct', pct + '%');
+    if (control) control.style.setProperty('--loan-amount-pct', pct + '%');
+    let priceEok = 0;
+    if (card) {
+      card.dataset.maxSelectableLoanEok = maxEok.toFixed(4);
+      card.dataset.selectedLoanEok = selectedEok.toFixed(4);
+      priceEok = Number(card.dataset.limitPrice || card.dataset.bogeumPrice || card.dataset.didimdolPrice || card.dataset.newbornPrice || 0);
+    }
+    if (valueEl) {
+      const selectedWon = Math.round(selectedEok * 100000000);
+      valueEl.dataset.motionTarget = String(selectedWon);
+      setAnimatedAmount(valueEl, selectedWon, formatLimitWon);
+    }
+    if (ltvEl) ltvEl.textContent = priceEok > 0 ? 'LTV ' + Math.round((selectedEok / priceEok) * 100) + '%' : '집값 대비';
+    if (maxEl) maxEl.textContent = '최대 ' + formatLimit(maxEok);
+    return selectedEok * 100000000;
+  }
+
+  function syncLoanAmountControl(uid, maxPrincipalWon, options) {
+    const range = document.getElementById('loan-amount-' + uid);
+    if (!range) return Math.max(0, maxPrincipalWon || 0);
+    const maxWon = Math.max(0, maxPrincipalWon || 0);
+    const touched = range.dataset.touched === '1';
+    const shouldPreserve = options && options.preserve && touched;
+    const currentWon = getSelectedLoanPrincipal(uid, maxWon);
+    const selectedWon = shouldPreserve ? Math.min(currentWon, maxWon) : maxWon;
+    return updateLoanAmountControlUi(uid, maxWon, selectedWon);
+  }
+
+  function refreshSelectedLoanMonthly(uid) {
+    const amtEl = document.getElementById('mc-amt-' + uid);
+    if (!amtEl) return;
+    const selectedPrincipal = getSelectedLoanPrincipal(uid, parseFloat(amtEl.dataset.principal || 0));
+    const finalRate = parseFloat(document.getElementById('rs-final-' + uid)?.textContent || 0);
+    const years = parseInt(document.getElementById('yr-' + uid)?.value || 30, 10) || 30;
+    const method = getActiveRepayMethod(uid);
+    amtEl.dataset.principal = String(selectedPrincipal);
+    if (selectedPrincipal > 0 && finalRate > 0) {
+      const amt = calcMonthly(selectedPrincipal, finalRate, method, years);
+      amtEl.dataset.motionTarget = String(Math.round(amt));
+      setAnimatedAmount(amtEl, amt, formatWon);
+    } else {
+      amtEl.dataset.motionTarget = '0';
+      amtEl.textContent = '—';
+    }
+
+    const rateSection = document.querySelector('.rate-calc-section[data-uid="' + uid + '"]');
+    const card = rateSection?.closest('.limit-detail-card');
+    const priceEok = Number(card?.dataset.limitPrice || card?.dataset.bogeumPrice || card?.dataset.didimdolPrice || card?.dataset.newbornPrice || 0);
+    animateLoanBar(uid, selectedPrincipal / 100000000, priceEok);
+    updateRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
+  }
+
+  function handleLoanAmountInput(uid) {
+    const range = document.getElementById('loan-amount-' + uid);
+    if (!range) return;
+    range.dataset.touched = '1';
+    const maxWon = Math.max(0, parseFloat(range.dataset.maxEok || range.max || 0) * 100000000);
+    const selectedWon = updateLoanAmountControlUi(uid, maxWon, getSelectedLoanPrincipal(uid, maxWon));
+    const amtEl = document.getElementById('mc-amt-' + uid);
+    if (amtEl) amtEl.dataset.principal = String(selectedWon);
+    refreshSelectedLoanMonthly(uid);
+  }
+
+  function updateRecommendCtaLoanPayload(card, selectedLoanEok) {
+    if (!card) return;
+    const pane = card.closest('.tab-pane, .tab-pane3') || document.getElementById('resultContent');
+    const ctas = pane ? pane.querySelectorAll('.reco-cta[data-reco-cta]') : document.querySelectorAll('.reco-cta[data-reco-cta]');
+    ctas.forEach(cta => {
+      cta.dataset.recoMaxLoan = String(Math.max(0, selectedLoanEok || 0));
+    });
+  }
+
+  window.handleLoanAmountInput = handleLoanAmountInput;
+
   function resultFloatingSummaryHtml() {
     return `<div class="result-floating-summary" id="resultFloatingSummary" aria-live="polite">
       <div class="result-floating-summary-glow" aria-hidden="true"></div>
@@ -1690,7 +1818,7 @@
       </div>
       <div class="result-floating-summary-grid">
         <div class="result-floating-summary-item">
-          <span>예상 한도</span>
+          <span>선택 대출</span>
           <strong id="resultFloatLimit" data-motion-value="0" data-motion-target="0">—</strong>
         </div>
         <div class="result-floating-summary-item">
@@ -2341,8 +2469,9 @@
           <button class="repay-method-tab" id="tab-equal-principal-${uid}" onclick="selectRepayTab('${uid}','equal-principal','${product}','${colorCls}',${principal})">원금균등</button>
           <button class="repay-method-tab" id="tab-increasing-${uid}" onclick="selectRepayTab('${uid}','increasing','${product}','${colorCls}',${principal})">체증식</button>
         </div>
+        ${loanAmountControlHtml(uid, principal, colorCls)}
         <div class="monthly-result-row" style="align-items:flex-end">
-          <span class="monthly-result-label">첫 달 월 납입액</span>
+          <span class="monthly-result-label">선택 금액 기준 첫 달 월 납입액</span>
           <span class="monthly-result-amount" id="mc-amt-${uid}" data-principal="${principal}" data-motion-value="0" data-motion-target="${Math.round(initAmt)}" style="color:${accentColor};text-align:right">${formatWon(initAmt)}</span>
         </div>
         <div class="monthly-result-note" id="mc-note-${uid}" style="text-align:right">적용금리 ${initFinalRate.toFixed(2)}% · ${defaultYear}년 만기 · 원리금균등 · 1회차 기준</div>
@@ -2591,9 +2720,9 @@
       const dynamicNewborn = syncNewbornDynamicLimit(uid, finalRate, years, method);
       const dynamicDidimdol = syncDidimdolDynamicLimit(uid, finalRate, years, method);
       const dynamicBogeum = syncBogeumDynamicLimit(uid, finalRate, years, method);
-      if (dynamicNewborn) principal = Math.max(0, dynamicNewborn.displayLimit) * 100000000;
-      else if (dynamicDidimdol) principal = Math.max(0, dynamicDidimdol.displayLimit) * 100000000;
-      else if (dynamicBogeum) principal = Math.max(0, dynamicBogeum.finalLimit) * 100000000;
+      if (dynamicNewborn) principal = dynamicNewborn.selectedPrincipal ?? Math.max(0, dynamicNewborn.displayLimit) * 100000000;
+      else if (dynamicDidimdol) principal = dynamicDidimdol.selectedPrincipal ?? Math.max(0, dynamicDidimdol.displayLimit) * 100000000;
+      else if (dynamicBogeum) principal = dynamicBogeum.selectedPrincipal ?? Math.max(0, dynamicBogeum.finalLimit) * 100000000;
       if (principal > 0) {
         const amt = calcMonthly(principal, finalRate, method, years);
         amtEl.dataset.motionTarget = String(Math.round(amt));
@@ -2688,9 +2817,9 @@
     const dynamicNewborn = syncNewbornDynamicLimit(uid, finalRate, years, method);
     const dynamicDidimdol = syncDidimdolDynamicLimit(uid, finalRate, years, method);
     const dynamicBogeum = syncBogeumDynamicLimit(uid, finalRate, years, method);
-    if (dynamicNewborn) currentPrincipal = Math.max(0, dynamicNewborn.displayLimit) * 100000000;
-    else if (dynamicDidimdol) currentPrincipal = Math.max(0, dynamicDidimdol.displayLimit) * 100000000;
-    else if (dynamicBogeum) currentPrincipal = Math.max(0, dynamicBogeum.finalLimit) * 100000000;
+    if (dynamicNewborn) currentPrincipal = dynamicNewborn.selectedPrincipal ?? Math.max(0, dynamicNewborn.displayLimit) * 100000000;
+    else if (dynamicDidimdol) currentPrincipal = dynamicDidimdol.selectedPrincipal ?? Math.max(0, dynamicDidimdol.displayLimit) * 100000000;
+    else if (dynamicBogeum) currentPrincipal = dynamicBogeum.selectedPrincipal ?? Math.max(0, dynamicBogeum.finalLimit) * 100000000;
     const amt   = calcMonthly(currentPrincipal, finalRate, method, years);
     if (amtEl) {
       amtEl.dataset.principal = String(currentPrincipal);
@@ -2813,7 +2942,7 @@
   function applyRoomLimitToRate(uid, finalLimit) {
     const amtEl = document.getElementById('mc-amt-' + uid);
     if (!amtEl) return;
-    amtEl.dataset.principal = String(finalLimit * 100000000);
+    syncLoanAmountControl(uid, finalLimit * 100000000, { preserve: true });
     recalcRate(uid);
   }
 
@@ -3515,9 +3644,12 @@
     const dtiLimit = getBogeumDtiLoanLimitEok(income, price, region, house, otherLoan, annualRate, years, method);
     const finalLimit = Math.min(ltvLimit, maxLimit, Number.isFinite(dtiLimit) ? dtiLimit : Infinity);
 
-    amtEl.dataset.principal = String(finalLimit * 100000000);
     updateBogeumLimitUi(rateSection, finalLimit, dtiLimit);
-    return { finalLimit, dtiLimit };
+    const selectedPrincipal = syncLoanAmountControl(sectionUid, finalLimit * 100000000, { preserve: true });
+    amtEl.dataset.principal = String(selectedPrincipal);
+    animateLoanBar(sectionUid, selectedPrincipal / 100000000, price);
+    updateRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
+    return { finalLimit, selectedPrincipal, dtiLimit };
   }
 
   function syncDidimdolDynamicLimit(sectionUid, annualRate, years, method) {
@@ -3548,9 +3680,12 @@
       card.dataset.didimdolHousehold || ''
     );
 
-    amtEl.dataset.principal = String(roomState.finalLimit * 100000000);
     updateDidimdolLimitUi(rateSection, finalLimit, dtiLimit);
-    return { finalLimit, displayLimit: roomState.finalLimit, dtiLimit };
+    const selectedPrincipal = syncLoanAmountControl(sectionUid, roomState.finalLimit * 100000000, { preserve: true });
+    amtEl.dataset.principal = String(selectedPrincipal);
+    animateLoanBar(sectionUid, selectedPrincipal / 100000000, parseFloat(card.dataset.didimdolPrice || 0));
+    updateRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
+    return { finalLimit, displayLimit: roomState.finalLimit, selectedPrincipal, dtiLimit };
   }
 
   function syncNewbornDynamicLimit(sectionUid, annualRate, years, method) {
@@ -3581,9 +3716,12 @@
       card.dataset.newbornHousehold || ''
     );
 
-    amtEl.dataset.principal = String(roomState.finalLimit * 100000000);
     updateNewbornLimitUi(rateSection, finalLimit, dtiLimit);
-    return { finalLimit, displayLimit: roomState.finalLimit, dtiLimit };
+    const selectedPrincipal = syncLoanAmountControl(sectionUid, roomState.finalLimit * 100000000, { preserve: true });
+    amtEl.dataset.principal = String(selectedPrincipal);
+    animateLoanBar(sectionUid, selectedPrincipal / 100000000, parseFloat(card.dataset.newbornPrice || 0));
+    updateRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
+    return { finalLimit, displayLimit: roomState.finalLimit, selectedPrincipal, dtiLimit };
   }
 
   // 체증식 초기 평균 원리금 산출 (초기 10년 또는 5년 평균)

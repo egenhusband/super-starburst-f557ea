@@ -430,15 +430,27 @@
     const asset = Number(ctx.asset) || 0;
     const maxLoan = Number(ctx.maxLoan) || 0;
     if (target <= 0) return '';
-    const payload = encodeURIComponent(JSON.stringify({
-      safeBudget: target, maxBudget: target, eligiblePriceCap: target, targetPrice: target, asset, maxLoan, region: ctx.region || 'all',
-    }));
-    return `<div class="reco-cta" onclick="openRecommendScreenFromPayload('${payload}')">
+    const region = ctx.region || 'all';
+    return `<div class="reco-cta" data-reco-cta="true" data-reco-target-price="${target}" data-reco-asset="${asset}" data-reco-max-loan="${maxLoan}" data-reco-region="${escapeReco(region)}" onclick="openRecommendScreenFromCta(this)">
       <div class="reco-cta-ico">🏘️</div>
       <div class="reco-cta-copy"><div class="reco-cta-t">이 가격대 단지 둘러보기</div>
       <div class="reco-cta-s">입력한 주택가격 ${target.toFixed(1)}억 이하 · 평균 실거래가 기준</div></div>
       <div class="reco-cta-go">→</div>
     </div>`;
+  }
+  function openRecommendScreenFromCta(el) {
+    const target = Number(el?.dataset.recoTargetPrice) || 0;
+    const asset = Number(el?.dataset.recoAsset) || 0;
+    const maxLoan = Number(el?.dataset.recoMaxLoan) || 0;
+    openRecommendScreen({
+      safeBudget: target,
+      maxBudget: target,
+      eligiblePriceCap: target,
+      targetPrice: target,
+      asset,
+      maxLoan,
+      region: el?.dataset.recoRegion || 'all',
+    });
   }
   function openRecommendScreenFromPayload(payload) {
     try { openRecommendScreen(JSON.parse(decodeURIComponent(payload))); }
@@ -448,6 +460,7 @@
   // 전역 노출
   window.openRecommendScreen = openRecommendScreen;
   window.openRecommendScreenFromPayload = openRecommendScreenFromPayload;
+  window.openRecommendScreenFromCta = openRecommendScreenFromCta;
   window.closeRecommendScreen = closeRecommendScreen;
   window.recoSetPrice = recoSetPrice;
   window.recoSetPriority = recoSetPriority;
