@@ -920,6 +920,7 @@
   }
 
   .result-floating-summary {
+    --result-summary-accent: var(--accent);
     position: absolute;
     left: 50%;
     right: auto;
@@ -993,8 +994,8 @@
     width: 0%;
     min-width: 0;
     border-radius: 999px 0 0 999px;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 72%, #ffffff 8%), var(--accent));
-    transition: width 220ms var(--ease-smooth);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--result-summary-accent) 72%, #ffffff 8%), var(--result-summary-accent));
+    transition: width 220ms var(--ease-smooth), background 220ms var(--ease-smooth);
   }
   .result-floating-summary-bar-capital {
     width: 100%;
@@ -1319,6 +1320,7 @@
   .breakdown-val   { font-size: 13px; font-weight: 600; color: var(--label1); }
   .breakdown-val.applied      { color: var(--accent); }
   .breakdown-val.applied.green { color: var(--green); }
+  .breakdown-val.applied.nb { color: #ff6b9d; }
   .limit-info-trigger {
     width: 12px;
     height: 12px;
@@ -1478,10 +1480,82 @@
   }
 
   /* ── 새 금리 계산기 UI ── */
+  .loan-result-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
   .rate-calc-section {
-    margin-top: 14px;
-    border-top: 1px solid var(--separator);
-    padding-top: 14px;
+    margin-top: 0;
+    padding-top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .rate-calc-card {
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--surface-3) 76%, transparent);
+    border: 1px solid rgba(255,255,255,0.07);
+    padding: 14px;
+  }
+  .rate-calc-card--conditions {
+    margin-top: 0;
+  }
+  .rate-flow-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 10px;
+  }
+  .rate-flow-head--result {
+    margin-top: 0;
+    padding-top: 0;
+  }
+  .rate-flow-title {
+    font-size: 13px;
+    font-weight: 760;
+    color: var(--label1);
+    letter-spacing: -0.1px;
+    line-height: 1.25;
+  }
+  .rate-flow-sub {
+    margin-top: 3px;
+    font-size: 10.8px;
+    font-weight: 400;
+    color: var(--label3);
+    line-height: 1.45;
+    word-break: keep-all;
+  }
+  .rate-option-panel {
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    border: 0;
+  }
+  .rate-option-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 13px 2px 8px;
+  }
+  .rate-option-label--compact {
+    margin-top: 13px;
+  }
+  .rate-option-label span {
+    font-size: 11.5px;
+    font-weight: 720;
+    color: var(--label2);
+    white-space: nowrap;
+  }
+  .rate-option-label small {
+    min-width: 0;
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--label3);
+    line-height: 1.35;
+    text-align: right;
   }
   /* 대출기한 / 청약저축 공통 드롭다운 박스 */
   .rate-dropdown-box {
@@ -1493,7 +1567,7 @@
     border: 1.5px solid var(--separator);
     border-radius: 14px;
     padding: 14px 16px;
-    margin-bottom: 10px;
+    margin-bottom: 0;
     cursor: pointer;
     transition: border-color 0.15s;
     overflow: visible;
@@ -1626,7 +1700,7 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
   }
   .rate-pref-card {
     display: flex;
@@ -1671,7 +1745,7 @@
   .rate-pref-card.selected-nb    .rate-pref-card-val { color: #ff6b9d; }
   .rate-pref-group-label {
     font-size: 10px; font-weight: 700; color: var(--label3);
-    letter-spacing: 0.5px; margin: 8px 0 4px;
+    letter-spacing: 0.5px; margin: 8px 2px 5px;
   }
 
   /* 가산금리 선택 */
@@ -1713,31 +1787,32 @@
 
   /* 금리 요약 박스 */
   .rate-summary {
-    background: var(--bg4);
-    border-radius: 10px;
-    padding: 10px 12px;
-    margin-bottom: 12px;
+    background: transparent;
+    border-top: 1px solid var(--separator);
+    border-radius: 0;
+    padding: 12px 2px 0;
+    margin: 14px 0 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 7px;
   }
   .rate-summary-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 12px;
+    font-size: 13px;
   }
-  .rate-summary-row .rs-label { color: var(--label3); }
-  .rate-summary-row .rs-val   { color: var(--label2); font-weight: 500; }
-  .rate-summary-row.rs-final  { border-top: 1px solid var(--separator); margin-top: 4px; padding-top: 4px; }
-  .rate-summary-row.rs-final .rs-label { color: var(--label2); font-weight: 600; }
-  .rate-summary-row.rs-final .rs-val   { color: var(--accent); font-size: 14px; font-weight: 700; }
+  .rate-summary-row .rs-label { color: var(--label3); font-weight: 620; }
+  .rate-summary-row .rs-val   { color: var(--label2); font-size: 14px; font-weight: 720; }
+  .rate-summary-row.rs-final  { border-top: 1px solid var(--separator); margin-top: 5px; padding-top: 9px; }
+  .rate-summary-row.rs-final .rs-label { color: var(--label2); font-weight: 760; }
+  .rate-summary-row.rs-final .rs-val   { color: var(--accent); font-size: 18px; font-weight: 820; letter-spacing: -0.2px; }
 
   /* 상환방식 탭 */
   .repay-method-tabs {
     display: flex;
     gap: 4px;
-    margin-bottom: 10px;
+    margin-bottom: 0;
   }
   .repay-method-tab {
     flex: 1; padding: 6px 4px;
@@ -1755,10 +1830,17 @@
     --loan-amount-accent: var(--accent);
     --loan-amount-pct: 100%;
     margin: 12px 0 13px;
-    padding: 13px 14px 12px;
+    padding: 14px 16px 13px;
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 16px;
     background: color-mix(in srgb, var(--bg2) 72%, var(--bg3));
+  }
+  .rate-calc-card--result .loan-amount-control {
+    margin: 12px 0 14px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
   }
   .loan-amount-control.green { --loan-amount-accent: var(--green); }
   .loan-amount-control.nb { --loan-amount-accent: #ff6b9d; }
@@ -1766,8 +1848,13 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 14px;
+    margin-bottom: 13px;
+  }
+  .loan-amount-control-copy {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 2px;
   }
   .loan-amount-control-label {
     font-size: 12px;
@@ -1780,18 +1867,21 @@
     font-size: 10.5px;
     font-weight: 500;
     color: var(--label3);
-    line-height: 1.35;
+    line-height: 1.45;
+    max-width: 250px;
+    word-break: keep-all;
   }
   .loan-amount-control-head strong {
-    flex: 0 0 96px;
-    width: 96px;
+    flex: 0 0 auto;
+    max-width: 48%;
     min-height: 21px;
     display: block;
-    font-size: 17px;
+    padding-right: 2px;
+    font-size: clamp(18px, 5.2vw, 24px);
     font-weight: 780;
     color: var(--loan-amount-accent);
-    line-height: 21px;
-    letter-spacing: 0;
+    line-height: 1.05;
+    letter-spacing: -0.5px;
     text-align: right;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
@@ -1847,33 +1937,70 @@
   .loan-amount-control-foot {
     display: flex;
     justify-content: space-between;
-    gap: 10px;
-    margin-top: 5px;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
     font-size: 10px;
     font-weight: 600;
     color: var(--label4);
     line-height: 1.2;
   }
+  .loan-amount-foot-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+    text-align: right;
+  }
+  .loan-amount-foot-right span:first-child {
+    color: var(--loan-amount-accent);
+  }
 
   /* 월납입 결과 */
-  .monthly-result-row {
-    display: flex; align-items: baseline;
-    justify-content: space-between; gap: 8px;
+  .monthly-result-block {
+    margin-top: 2px;
+    padding: 12px 0 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
   }
-  .monthly-result-label { font-size: 11px; color: var(--label3); }
+  .monthly-result-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 0;
+  }
+  .monthly-result-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-top: 5px;
+    font-size: 12px;
+    font-weight: 760;
+    color: var(--label2);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
   .monthly-result-amount {
-    min-width: 128px;
+    flex: 0 1 auto;
+    min-width: 0;
     min-height: 27px;
     display: inline-block;
-    font-size: 22px; font-weight: 700; letter-spacing: -0.2px;
-    line-height: 27px;
+    padding-right: 2px;
+    font-size: clamp(24px, 7vw, 34px);
+    font-weight: 760;
+    letter-spacing: -0.7px;
+    line-height: 1;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
   }
   .monthly-result-note {
     font-size: 10.5px; color: var(--label3);
-    margin-top: 4px; line-height: 1.5;
+    margin-top: 8px;
+    padding-top: 0;
+    border-top: 0;
+    line-height: 1.5;
+    text-align: right;
   }
 
   /* 한도 적용 이유 설명 행 */

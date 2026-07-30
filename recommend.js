@@ -13,6 +13,7 @@
     loaded: false,
     loading: null,
     priority: 'all',         // 'all' | 'school' | 'new' | 'big'
+    areaBucket: 'all',       // 'all' | 'lte59' | 'mid59_84' | 'gte84'
     region: 'all',
     // 가격 슬라이더 (단위: 억)
     sliderPrice: 0,          // 현재 슬라이더 값
@@ -29,6 +30,35 @@
 
   const eok = man => man / 10000;
   const pyeong = m2 => Math.round(parseFloat(m2) / 3.305);
+  const AREA_BUCKETS = {
+    all: { label: '전체', summary: '전체 평형' },
+    lte59: { label: '59㎡ 이하', summary: '59㎡ 이하' },
+    mid59_84: { label: '59~84㎡', summary: '59~84㎡' },
+    gte84: { label: '84㎡ 이상', summary: '84㎡ 이상' },
+  };
+  function areaM2(area) {
+    const n = parseFloat(String(area || '').replace(/[^0-9.]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  }
+  function inAreaBucket(area, bucket) {
+    if (bucket === 'all') return true;
+    const m2 = areaM2(area);
+    if (!Number.isFinite(m2)) return false;
+    if (bucket === 'lte59') return m2 <= 59.99;
+    if (bucket === 'mid59_84') return m2 >= 60 && m2 <= 84.99;
+    if (bucket === 'gte84') return m2 >= 85;
+    return true;
+  }
+  function areaBucketSummary() {
+    return (AREA_BUCKETS[RecoState.areaBucket] || AREA_BUCKETS.all).summary;
+  }
+  function matchingAreas(x) {
+    return (x.areas || []).filter(a => inAreaBucket(a.area, RecoState.areaBucket));
+  }
+  function pickTopArea(x, capMan) {
+    const within = matchingAreas(x).filter(a => a.avgPrice <= capMan);
+    return within.reduce((best, area) => (!best || area.avgPrice > best.avgPrice ? area : best), null);
+  }
   const distanceLabel = m => {
     const n = Number(m);
     if (!Number.isFinite(n) || n <= 0) return '';
@@ -99,6 +129,12 @@
             <div class="reco-chip pri" data-k="school" onclick="recoSetPriority('school',this)">🎒 초등 도보권</div>
             <div class="reco-chip pri" data-k="new" onclick="recoSetPriority('new',this)">🏗️ 신축</div>
             <div class="reco-chip pri" data-k="big" onclick="recoSetPriority('big',this)">🏢 대단지</div>
+          </div>
+          <div class="reco-row reco-area-row" id="recoAreaRow" aria-label="평형 필터">
+            <div class="reco-chip reco-area-chip on" data-k="all" onclick="recoSetAreaBucket('all',this)">전체</div>
+            <div class="reco-chip reco-area-chip" data-k="lte59" onclick="recoSetAreaBucket('lte59',this)">59㎡ 이하</div>
+            <div class="reco-chip reco-area-chip" data-k="mid59_84" onclick="recoSetAreaBucket('mid59_84',this)">59~84㎡</div>
+            <div class="reco-chip reco-area-chip" data-k="gte84" onclick="recoSetAreaBucket('gte84',this)">84㎡ 이상</div>
           </div>
         </div>
         <div class="reco-body">
@@ -194,8 +230,10 @@
     const cap = RecoState.sliderPrice;
     const capMan = cap * 10000;
 
-    let list = RecoState.items.filter(x => x.minAvgPrice <= capMan && inRegion(x));
-    list.sort(sortCmp);
+    let list = RecoState.items
+      .map(x => ({ item: x, topArea: pickTopArea(x, capMan) }))
+      .filter(row => row.topArea && inRegion(row.item));
+    list.sort((a, b) => sortCmp(a.item, b.item));
     const total = list.length;
     const featured = list.slice(0, MAX_CARDS);
     const rest = list.slice(MAX_CARDS);
@@ -209,26 +247,30 @@
     const countEl = document.getElementById('recoCount');
     const sumEl = document.getElementById('recoSummary');
     if (countEl) countEl.textContent = featured.length.toLocaleString() + '/' + total.toLocaleString() + '곳';
-    if (sumEl) sumEl.innerHTML = `${priLabel}<b>${rgnLabel}</b> · 입력가 <b>${cap.toFixed(1)}억 이하</b>`;
+    if (sumEl) sumEl.innerHTML = `${priLabel}<b>${rgnLabel}</b> · <b>${areaBucketSummary()}</b> · 입력가 <b>${cap.toFixed(1)}억 이하</b>`;
     document.querySelectorAll('#recoPriRow .reco-chip').forEach(chip => {
       chip.classList.toggle('on', chip.dataset.k === RecoState.priority);
+    });
+    document.querySelectorAll('#recoAreaRow .reco-chip').forEach(chip => {
+      chip.classList.toggle('on', chip.dataset.k === RecoState.areaBucket);
     });
 
     const wrap = document.getElementById('recoList');
     if (!wrap) return;
     if (!total) {
       wrap.innerHTML = `<div class="reco-empty"><div class="e">🔍</div>
-        <p>이 조건에 맞는 단지를 못 찾았어요.<br>지역을 넓히거나 조건을 다시 확인해보세요.</p>
+        <p>이 조건에 맞는 단지를 못 찾았어요.<br>평형 탭을 전체로 바꾸거나 지역을 넓혀보세요.</p>
         <button type="button" onclick="recoSetPrice(${RecoState.ceiling})">입력가 ${RecoState.ceiling.toFixed(1)}억 기준으로 보기</button></div>`;
       return;
     }
 
     wrap.innerHTML = list.map((x, i) => {
-      const within = x.areas.filter(a => a.avgPrice <= capMan);
-      const top = within[within.length - 1];
+      const top = x.topArea;
+      x = x.item;
       const gap = eok(capMan - top.avgPrice);
       const tight = gap < 0.4;
-      const fitTag = `<span class="fit${tight ? ' tight' : ''}">${top.area} · 입력가 대비 ${gap.toFixed(1)}억 낮음</span>`;
+      const areaTag = RecoState.areaBucket === 'all' ? top.area : areaBucketSummary();
+      const fitTag = `<span class="fit${tight ? ' tight' : ''}">${escapeReco(areaTag)} · 입력가 대비 ${gap.toFixed(1)}억 낮음</span>`;
       const latestTag = top.latestPrice
         ? `<span>최근 ${eok(top.latestPrice).toFixed(1)}억${top.latestDate ? '·' + top.latestDate.slice(0, 7) : ''}</span>` : '';
       const highTag = top.recentHigh?.within3M
@@ -256,7 +298,7 @@
           </div>
           <div style="flex-shrink:0;text-align:right">
             <div class="reco-price">${eok(top.avgPrice).toFixed(1)}억</div>
-            <div class="reco-loc">${top.area}·${pyeong(top.area)}평</div>
+            <div class="reco-loc">${top.area} · 전용 ${pyeong(top.area)}평</div>
           </div>
         </div>
         <div class="reco-meta">${fitTag}${latestTag}${highTag}${tags.slice(0, 3).join('')}</div>
@@ -265,11 +307,12 @@
     }).join('') + (rest.length
       ? `<div class="reco-list-divider"><span>추천 단지 전체</span><em>상위 ${featured.length.toLocaleString()}곳 다음 · ${rest.length.toLocaleString()}곳</em></div>`
         + rest.map((x, i) => {
-          const within = x.areas.filter(a => a.avgPrice <= capMan);
-          const top = within[within.length - 1];
+          const top = x.topArea;
+          x = x.item;
           const gap = eok(capMan - top.avgPrice);
           const tight = gap < 0.4;
-          const fitTag = `<span class="fit${tight ? ' tight' : ''}">${top.area} · 입력가 대비 ${gap.toFixed(1)}억 낮음</span>`;
+          const areaTag = RecoState.areaBucket === 'all' ? top.area : areaBucketSummary();
+          const fitTag = `<span class="fit${tight ? ' tight' : ''}">${escapeReco(areaTag)} · 입력가 대비 ${gap.toFixed(1)}억 낮음</span>`;
           const latestTag = top.latestPrice
             ? `<span>최근 ${eok(top.latestPrice).toFixed(1)}억${top.latestDate ? '·' + top.latestDate.slice(0, 7) : ''}</span>` : '';
           const highTag = top.recentHigh?.within3M
@@ -291,7 +334,7 @@
               </div>
               <div style="flex-shrink:0;text-align:right">
                 <div class="reco-price">${eok(top.avgPrice).toFixed(1)}억</div>
-                <div class="reco-loc">${top.area}·${pyeong(top.area)}평</div>
+                <div class="reco-loc">${top.area} · 전용 ${pyeong(top.area)}평</div>
               </div>
             </div>
             <div class="reco-meta">${fitTag}${latestTag}${highTag}${tags.slice(0, 3).join('')}</div>
@@ -318,6 +361,7 @@
     RecoState.targetPrice = Number(ctx.targetPrice) || 0;
     RecoState.region = ctx.region || 'all';
     RecoState.priority = 'all';
+    RecoState.areaBucket = 'all';
 
     // 천장 = 계산기에 입력한 주택가격. 다른 가격대는 별도 재계산이 필요하므로 MVP에서는 넘기지 않는다.
     let ceiling = RecoState.targetPrice || RecoState.maxBudget || RecoState.eligiblePriceCap || 6;
@@ -383,6 +427,12 @@
     };
     const capEl = document.getElementById('recoCap');
     if (capEl) capEl.textContent = caps[k];
+    render();
+  }
+  function recoSetAreaBucket(k, el) {
+    RecoState.areaBucket = AREA_BUCKETS[k] ? k : 'all';
+    document.querySelectorAll('#recoAreaRow .reco-chip').forEach(c => c.classList.remove('on'));
+    if (el) el.classList.add('on');
     render();
   }
   function recoRender() {
@@ -464,6 +514,7 @@
   window.closeRecommendScreen = closeRecommendScreen;
   window.recoSetPrice = recoSetPrice;
   window.recoSetPriority = recoSetPriority;
+  window.recoSetAreaBucket = recoSetAreaBucket;
   window.recoRender = recoRender;
   window.recoOpenDetail = recoOpenDetail;
   window.buildRecommendCtaHtml = buildRecommendCtaHtml;

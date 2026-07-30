@@ -1551,7 +1551,7 @@
     const tax = window.RealEstateTax;
     if (!tax || !card) return '';
     const priceEok = Number(card.dataset.limitPrice || card.dataset.bogeumPrice || card.dataset.didimdolPrice || card.dataset.newbornPrice || 0);
-    const barWrap = card.querySelector('.loan-ratio-bar-wrap');
+    const barWrap = getLimitLoanBar(card);
     const loanEok = Number(barWrap?.dataset.loanBarLoan || 0);
     if (!(priceEok > 0)) return '';
 
@@ -1603,7 +1603,7 @@
       const summary = card.querySelector('[data-result-tax-summary]');
       if (!summary) return;
       const priceEok = Number(card.dataset.limitPrice || card.dataset.bogeumPrice || card.dataset.didimdolPrice || card.dataset.newbornPrice || 0);
-      const barWrap = card.querySelector('.loan-ratio-bar-wrap');
+      const barWrap = getLimitLoanBar(card);
       const loanEok = Number(barWrap?.dataset.loanBarLoan || 0);
       if (!(priceEok > 0)) return;
       const house = card.dataset.limitHouse || card.dataset.bogeumHouse || card.dataset.didimdolHouse || card.dataset.newbornHouse || '';
@@ -1682,17 +1682,18 @@
     const maxLabel = formatLimit(maxEok);
     return `<div class="loan-amount-control ${colorCls}" data-loan-amount-control>
       <div class="loan-amount-control-head">
-        <div>
+        <div class="loan-amount-control-copy">
           <div class="loan-amount-control-label">선택 대출금액</div>
-          <div class="loan-amount-control-sub">최대 한도 안에서 실제 빌릴 금액을 조절해보세요.</div>
         </div>
         <strong id="loan-amount-val-${uid}" data-motion-value="${Math.round(principalWon)}" data-motion-target="${Math.round(principalWon)}">${maxLabel}</strong>
       </div>
       <input class="loan-amount-range" id="loan-amount-${uid}" type="range" min="0" max="${maxEok.toFixed(2)}" step="0.01" value="${maxEok.toFixed(2)}" data-max-eok="${maxEok.toFixed(4)}" data-touched="0" oninput="handleLoanAmountInput('${uid}')" onchange="handleLoanAmountInput('${uid}')">
       <div class="loan-amount-control-foot">
         <span>0원</span>
-        <span id="loan-amount-ltv-${uid}">집값 대비</span>
-        <span id="loan-amount-max-${uid}">최대 ${maxLabel}</span>
+        <span class="loan-amount-foot-right">
+          <span id="loan-amount-ltv-${uid}">현재 LTV</span>
+          <span id="loan-amount-max-${uid}">최대 ${maxLabel}</span>
+        </span>
       </div>
     </div>`;
   }
@@ -1715,13 +1716,28 @@
     return Math.max(0, eok * 100000000);
   }
 
+  function getRateLimitCard(rateSection) {
+    if (!rateSection) return null;
+    return rateSection.closest('.loan-result-flow')?.querySelector('.limit-detail-card') || rateSection.closest('.limit-detail-card');
+  }
+
+  function getLimitRateSection(card) {
+    if (!card) return null;
+    return card.closest('.loan-result-flow')?.querySelector('.rate-calc-section[data-uid]') || card.querySelector('.rate-calc-section[data-uid]');
+  }
+
+  function getLimitLoanBar(card) {
+    if (!card) return null;
+    return card.querySelector('.loan-ratio-bar-wrap') || card.closest('.loan-result-flow')?.querySelector('.loan-ratio-bar-wrap');
+  }
+
   function updateLoanAmountControlUi(uid, maxPrincipalWon, selectedPrincipalWon) {
     const range = document.getElementById('loan-amount-' + uid);
     const valueEl = document.getElementById('loan-amount-val-' + uid);
     const maxEl = document.getElementById('loan-amount-max-' + uid);
     const ltvEl = document.getElementById('loan-amount-ltv-' + uid);
     const control = range?.closest('[data-loan-amount-control]');
-    const card = range?.closest('.limit-detail-card');
+    const card = getRateLimitCard(range?.closest('.rate-calc-section'));
     if (!range) return selectedPrincipalWon;
 
     const maxEok = Math.max(0, maxPrincipalWon / 100000000);
@@ -1743,7 +1759,7 @@
       valueEl.dataset.motionTarget = String(selectedWon);
       setAnimatedAmount(valueEl, selectedWon, formatLimitWon);
     }
-    if (ltvEl) ltvEl.textContent = priceEok > 0 ? 'LTV ' + Math.round((selectedEok / priceEok) * 100) + '%' : '집값 대비';
+    if (ltvEl) ltvEl.textContent = priceEok > 0 ? '현재 LTV ' + Math.round((selectedEok / priceEok) * 100) + '%' : '현재 LTV';
     if (maxEl) maxEl.textContent = '최대 ' + formatLimit(maxEok);
     return selectedEok * 100000000;
   }
@@ -1777,7 +1793,7 @@
     }
 
     const rateSection = document.querySelector('.rate-calc-section[data-uid="' + uid + '"]');
-    const card = rateSection?.closest('.limit-detail-card');
+    const card = getRateLimitCard(rateSection);
     const priceEok = Number(card?.dataset.limitPrice || card?.dataset.bogeumPrice || card?.dataset.didimdolPrice || card?.dataset.newbornPrice || 0);
     animateLoanBar(uid, selectedPrincipal / 100000000, priceEok);
     updateRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
@@ -1848,7 +1864,10 @@
     }
 
     const uid = rateSection.dataset.uid;
-    const card = rateSection.closest('.limit-detail-card');
+    const colorCls = rateSection.dataset.color || 'blue';
+    const summaryAccent = colorCls === 'green' ? 'var(--green)' : colorCls === 'nb' ? '#ff6b9d' : 'var(--accent)';
+    summary.style.setProperty('--result-summary-accent', summaryAccent);
+    const card = getRateLimitCard(rateSection);
     const monthlyEl = document.getElementById('mc-amt-' + uid);
     const principalWon = Number(monthlyEl?.dataset.principal || 0);
     const priceEok = Number(card?.dataset.limitPrice || card?.dataset.bogeumPrice || card?.dataset.didimdolPrice || card?.dataset.newbornPrice || 0);
@@ -1937,7 +1956,7 @@
     const beforeLimit = Math.min(ltvLimit, maxLimit);
     const dtiLimitText = item.querySelector('[data-limit-dti]')?.textContent || '미반영';
     const afterLimit = card.querySelector('[data-limit-amount]')?.textContent || '—';
-    const rateSection = card.querySelector('.rate-calc-section[data-uid]');
+    const rateSection = getLimitRateSection(card);
     const sectionUid = rateSection?.dataset.uid || '';
     const years = parseInt(document.getElementById('yr-' + sectionUid)?.value || 30, 10) || 30;
     const annualRate = parseFloat((document.getElementById('rs-final-' + sectionUid)?.textContent || '').replace(/[^0-9.]/g, '')) || 0;
@@ -2001,7 +2020,7 @@
     const pane = getActiveResultPane();
     const rateSection = pane?.querySelector('.rate-calc-section[data-uid]') || document.querySelector('.rate-calc-section[data-uid]');
     if (!rateSection) return null;
-    const card = rateSection.closest('.limit-detail-card');
+    const card = getRateLimitCard(rateSection);
     const monthlyEl = document.getElementById('mc-amt-' + rateSection.dataset.uid);
     const priceEok = Number(card?.dataset.limitPrice || card?.dataset.bogeumPrice || card?.dataset.didimdolPrice || card?.dataset.newbornPrice || 0);
     const limitEok = Number(monthlyEl?.dataset.principal || 0) / 100000000;
@@ -2435,49 +2454,74 @@
 
     return `
       <div class="rate-calc-section" data-color="${colorCls}" data-uid="${uid}" data-product="${product}" data-region="${region}">
-        <div class="rate-dropdown-box" id="yr-box-${uid}">
-          <span class="rate-dropdown-label">대출기한</span>
-          <div class="rate-dropdown-right">
-            <span class="rate-dropdown-val" id="yr-val-${uid}">${defaultYear}년</span>
-            <span class="rate-dropdown-chevron">${chevronSvg}</span>
+        <div class="rate-calc-card rate-calc-card--conditions">
+          <div class="rate-flow-head">
+            <div>
+              <div class="rate-flow-title">월 납입금 계산 조건</div>
+              <div class="rate-flow-sub">대출기간과 우대금리를 따로 조정해서 적용금리를 확인해요.</div>
+            </div>
           </div>
-          <input type="hidden" id="yr-${uid}" value="${defaultYear}">
-          <button class="rate-dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false" onclick="toggleRateYearMenu('${uid}', event)"></button>
-          <div class="rate-dropdown-menu" role="listbox" aria-label="대출기한">
-            ${yearOptsHtml}
+          <div class="rate-dropdown-box" id="yr-box-${uid}">
+            <span class="rate-dropdown-label">대출 기간</span>
+            <div class="rate-dropdown-right">
+              <span class="rate-dropdown-val" id="yr-val-${uid}">${defaultYear}년</span>
+              <span class="rate-dropdown-chevron">${chevronSvg}</span>
+            </div>
+            <input type="hidden" id="yr-${uid}" value="${defaultYear}">
+            <button class="rate-dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false" onclick="toggleRateYearMenu('${uid}', event)"></button>
+            <div class="rate-dropdown-menu" role="listbox" aria-label="대출 기간">
+              ${yearOptsHtml}
+            </div>
+          </div>
+          <div class="rate-option-label">
+            <span>우대금리</span>
+            <small>선택하면 적용금리와 월 납입액이 바뀌어요.</small>
+          </div>
+          ${prefListHtml(uid, product, household, house, region)}
+          ${isDidimdol ? surchargeHtml(uid) : ''}
+          <div class="rate-summary" id="rs-${uid}">
+            <div class="rate-summary-row">
+              <span class="rs-label">기본금리</span>
+              <span class="rs-val" id="rs-base-${uid}">${baseRate.toFixed(2)}%</span>
+            </div>
+            <div class="rate-summary-row">
+              <span class="rs-label">우대금리</span>
+              <span class="rs-val" id="rs-pref-${uid}">0.00%p</span>
+            </div>
+            ${(isDidimdol || isBogeumjari) ? `<div class="rate-summary-row"><span class="rs-label">가산금리</span><span class="rs-val" id="rs-surcharge-${uid}">+${initSurcharge.toFixed(2)}%p</span></div>` : ''}
+            <div class="rate-summary-row rs-final">
+              <span class="rs-label">최종 적용금리</span>
+              <span class="rs-val" id="rs-final-${uid}" style="color:${accentColor}">${initFinalRate.toFixed(2)}%</span>
+            </div>
           </div>
         </div>
-        ${prefListHtml(uid, product, household, house, region)}
-        ${isDidimdol ? surchargeHtml(uid) : ''}
-        <div class="rate-summary" id="rs-${uid}">
-          <div class="rate-summary-row">
-            <span class="rs-label">기본금리</span>
-            <span class="rs-val" id="rs-base-${uid}">${baseRate.toFixed(2)}%</span>
+        <div class="rate-calc-card rate-calc-card--result">
+          <div class="rate-flow-head rate-flow-head--result">
+            <div>
+              <div class="rate-flow-title">계산 결과</div>
+              <div class="rate-flow-sub">상환방식과 대출금액을 바꾸며 첫 달 월 납입액을 확인해요.</div>
+            </div>
           </div>
-          <div class="rate-summary-row">
-            <span class="rs-label">우대금리</span>
-            <span class="rs-val" id="rs-pref-${uid}">0.00%p</span>
+          ${loanAmountControlHtml(uid, principal, colorCls)}
+          <div class="monthly-result-block">
+            <div class="monthly-result-row">
+              <span class="monthly-result-label">첫 달 납입액</span>
+              <span class="monthly-result-amount" id="mc-amt-${uid}" data-principal="${principal}" data-motion-value="0" data-motion-target="${Math.round(initAmt)}" style="color:${accentColor};text-align:right">${formatWon(initAmt)}</span>
+            </div>
+            <div class="monthly-result-note" id="mc-note-${uid}">적용금리 ${initFinalRate.toFixed(2)}% · ${defaultYear}년 만기 · 원리금균등 · 1회차 기준</div>
           </div>
-          ${(isDidimdol || isBogeumjari) ? `<div class="rate-summary-row"><span class="rs-label">가산금리</span><span class="rs-val" id="rs-surcharge-${uid}">+${initSurcharge.toFixed(2)}%p</span></div>` : ''}
-          <div class="rate-summary-row rs-final">
-            <span class="rs-label">적용금리</span>
-            <span class="rs-val" id="rs-final-${uid}" style="color:${accentColor}">${initFinalRate.toFixed(2)}%</span>
+          <div class="rate-option-label rate-option-label--compact">
+            <span>상환 방식</span>
           </div>
+          <div class="repay-method-tabs" id="tabs-${uid}">
+            <button class="repay-method-tab ${activeClass}" id="tab-annuity-${uid}" onclick="selectRepayTab('${uid}','annuity','${product}','${colorCls}',${principal})">원리금균등</button>
+            <button class="repay-method-tab" id="tab-equal-principal-${uid}" onclick="selectRepayTab('${uid}','equal-principal','${product}','${colorCls}',${principal})">원금균등</button>
+            <button class="repay-method-tab" id="tab-increasing-${uid}" onclick="selectRepayTab('${uid}','increasing','${product}','${colorCls}',${principal})">체증식</button>
+          </div>
+          <button class="sch-open-btn" onclick="openScheduleSheet('${uid}','${colorCls}')" style="color:${accentColor}">
+            전체 상환 스케줄 보기 →
+          </button>
         </div>
-        <div class="repay-method-tabs" id="tabs-${uid}">
-          <button class="repay-method-tab ${activeClass}" id="tab-annuity-${uid}" onclick="selectRepayTab('${uid}','annuity','${product}','${colorCls}',${principal})">원리금균등</button>
-          <button class="repay-method-tab" id="tab-equal-principal-${uid}" onclick="selectRepayTab('${uid}','equal-principal','${product}','${colorCls}',${principal})">원금균등</button>
-          <button class="repay-method-tab" id="tab-increasing-${uid}" onclick="selectRepayTab('${uid}','increasing','${product}','${colorCls}',${principal})">체증식</button>
-        </div>
-        ${loanAmountControlHtml(uid, principal, colorCls)}
-        <div class="monthly-result-row" style="align-items:flex-end">
-          <span class="monthly-result-label">선택 금액 기준 첫 달 월 납입액</span>
-          <span class="monthly-result-amount" id="mc-amt-${uid}" data-principal="${principal}" data-motion-value="0" data-motion-target="${Math.round(initAmt)}" style="color:${accentColor};text-align:right">${formatWon(initAmt)}</span>
-        </div>
-        <div class="monthly-result-note" id="mc-note-${uid}" style="text-align:right">적용금리 ${initFinalRate.toFixed(2)}% · ${defaultYear}년 만기 · 원리금균등 · 1회차 기준</div>
-        <button class="sch-open-btn" onclick="openScheduleSheet('${uid}','${colorCls}')" style="color:${accentColor}">
-          전체 상환 스케줄 보기 →
-        </button>
       </div>`;
   }
 
@@ -2942,8 +2986,11 @@
   function applyRoomLimitToRate(uid, finalLimit) {
     const amtEl = document.getElementById('mc-amt-' + uid);
     if (!amtEl) return;
-    syncLoanAmountControl(uid, finalLimit * 100000000, { preserve: true });
+    const selectedPrincipal = syncLoanAmountControl(uid, finalLimit * 100000000, { preserve: false });
+    amtEl.dataset.principal = String(selectedPrincipal);
     recalcRate(uid);
+    refreshSelectedLoanMonthly(uid);
+    requestAnimationFrame(updateResultFloatingSummary);
   }
 
   function updateRoomDeduction(uid) {
@@ -3017,6 +3064,7 @@
     const principalWon = displayLimit * 100000000;
 
     return `
+        <div class="loan-result-flow loan-result-flow--${colorCls}">
         <div class="limit-detail-card ${colorCls}-top"${(colorCls === 'green' || colorCls === 'blue') ? ` data-limit-product="${product}" data-limit-ltv-limit="${ltvLimit}" data-limit-max-limit="${maxLimit}" data-limit-price="${price}" data-limit-income="${income}" data-limit-region="${region}" data-limit-house="${house}" data-limit-household="${household}" data-limit-other-loan="${otherLoanInterest || 0}"` : ''}${colorCls === 'green' ? ` data-bogeum-limit-card data-bogeum-ltv-limit="${ltvLimit}" data-bogeum-max-limit="${maxLimit}" data-bogeum-price="${price}" data-bogeum-income="${income}" data-bogeum-region="${region}" data-bogeum-house="${house}" data-bogeum-household="${household}" data-bogeum-other-loan="${otherLoanInterest || 0}"` : ''}${colorCls === 'blue' ? ` data-didimdol-limit-card data-didimdol-ltv-limit="${ltvLimit}" data-didimdol-max-limit="${maxLimit}" data-didimdol-price="${price}" data-didimdol-income="${income}" data-didimdol-region="${region}" data-didimdol-house="${house}" data-didimdol-household="${household}" data-didimdol-other-loan="${otherLoanInterest || 0}"` : ''}>
           <div class="limit-detail-label">예상 대출 한도</div>
           <div class="limit-detail-amount ${colorCls}" data-room-final-amount ${(colorCls === 'green' || colorCls === 'blue') ? 'data-limit-amount' : ''} ${colorCls === 'green' ? 'data-bogeum-limit-amount' : ''} ${colorCls === 'blue' ? 'data-didimdol-limit-amount' : ''} data-motion-value="0" data-motion-target="${Math.round(displayLimit * 100000000)}">${formatLimit(displayLimit)}</div>
@@ -3048,7 +3096,8 @@
             <div class="ltv80-notice-text"><strong>LTV 80% 적용 안내</strong><br>특례구입자금 보증 가입 및 아파트인 경우 LTV 80%까지 가능합니다. 정확한 적용 기준은 심사를 통해 결정되며, 이 수치는 참고용 예측치입니다.</div>
           </div>` : ''}
           ${loanRatioBarHtml(uid, displayLimit, price, colorCls === 'green' ? 'var(--green)' : 'var(--accent)')}
-          ${rateCalcHtml(uid, product, income, principalWon, household, house, region, colorCls)}
+        </div>
+        ${rateCalcHtml(uid, product, income, principalWon, household, house, region, colorCls)}
         </div>`;
   }
 
@@ -3086,9 +3135,9 @@
     const safeDtiLimit = typeof dtiLimit === 'number' ? dtiLimit : Infinity;
     const appliedValue = Math.min(ltvLimit, maxLimit, safeDtiLimit);
     const ltvApplied = appliedValue === ltvLimit;
-    const appliedCls = ltvApplied ? ' applied' : '';
-    const maxAppliedCls = appliedValue === maxLimit ? ' applied' : '';
-    const dtiAppliedCls = appliedValue === safeDtiLimit ? ' applied' : '';
+    const appliedCls = ltvApplied ? ' applied nb' : '';
+    const maxAppliedCls = appliedValue === maxLimit ? ' applied nb' : '';
+    const dtiAppliedCls = appliedValue === safeDtiLimit ? ' applied nb' : '';
     let reasonText = ltvApplied
       ? 'LTV ' + ltvLabel + ' 기준 · 주택가격 <em>' + price + '억 × ' + ltvLabel + '</em> = <em>' + formatLimit(ltvLimit) + '</em>'
       : '상품 한도 기준 · 최대 <em>' + formatLimit(maxLimit) + '</em>';
@@ -3101,7 +3150,8 @@
     const displayLimit = roomState.finalLimit;
     const principalWon = displayLimit * 100000000;
 
-    return '<div class="limit-detail-card" style="border-top:3px solid #ff6b9d" data-limit-product="newborn" data-limit-ltv-limit="' + ltvLimit + '" data-limit-max-limit="' + maxLimit + '" data-limit-price="' + price + '" data-limit-income="' + income + '" data-limit-region="' + region + '" data-limit-house="' + house + '" data-limit-household="' + household + '" data-limit-other-loan="' + (otherLoanInterest || 0) + '" data-newborn-limit-card data-newborn-ltv-limit="' + ltvLimit + '" data-newborn-max-limit="' + maxLimit + '" data-newborn-price="' + price + '" data-newborn-income="' + income + '" data-newborn-region="' + region + '" data-newborn-house="' + house + '" data-newborn-household="' + household + '" data-newborn-other-loan="' + (otherLoanInterest || 0) + '">'
+    return '<div class="loan-result-flow loan-result-flow--nb">'
+      + '<div class="limit-detail-card" style="border-top:3px solid #ff6b9d" data-limit-product="newborn" data-limit-ltv-limit="' + ltvLimit + '" data-limit-max-limit="' + maxLimit + '" data-limit-price="' + price + '" data-limit-income="' + income + '" data-limit-region="' + region + '" data-limit-house="' + house + '" data-limit-household="' + household + '" data-limit-other-loan="' + (otherLoanInterest || 0) + '" data-newborn-limit-card data-newborn-ltv-limit="' + ltvLimit + '" data-newborn-max-limit="' + maxLimit + '" data-newborn-price="' + price + '" data-newborn-income="' + income + '" data-newborn-region="' + region + '" data-newborn-house="' + house + '" data-newborn-household="' + household + '" data-newborn-other-loan="' + (otherLoanInterest || 0) + '">'
       + '<div class="limit-detail-label">예상 대출 한도</div>'
       + '<div class="limit-detail-amount" style="color:#ff6b9d" data-room-final-amount data-limit-amount data-newborn-limit-amount data-motion-value="0" data-motion-target="' + Math.round(displayLimit * 100000000) + '">' + formatLimit(displayLimit) + '</div>'
       + '<div class="limit-breakdown">'
@@ -3127,6 +3177,7 @@
       + '<div class="limit-reason">LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 개인별 신용 및 소득에 따라 달라질 수 있습니다. 보다 자세한 산정내역은 기금e든든에서 꼭 확인이 필요합니다.</div>'
       + roomDeductionHtml(uid, 'newborn', roomState, finalLimit, price, income, house, region, household)
       + loanRatioBarHtml(uid, displayLimit, price, '#ff6b9d')
+      + '</div>'
       + rateCalcHtml(uid, 'newborn', income, principalWon, household, house, region, 'nb')
       + '</div>';
   }
@@ -3448,7 +3499,7 @@
   }
 
   function updateBogeumLimitUi(rateSection, finalLimit, dtiLimit) {
-    const card = rateSection?.closest('.limit-detail-card');
+    const card = getRateLimitCard(rateSection);
     if (!card) return;
     const amountEl = card.querySelector('[data-bogeum-limit-amount]');
     const ltvEl = card.querySelector('[data-bogeum-limit-ltv]');
@@ -3457,7 +3508,7 @@
     const noteEl = card.querySelector('[data-bogeum-limit-note]');
     const pane = rateSection.closest('.tab-pane, .tab-pane3');
     const infoLimitEl = pane ? pane.querySelector('[data-bogeum-info-limit]') : null;
-    const barWrap = card.querySelector('.loan-ratio-bar-wrap');
+    const barWrap = getLimitLoanBar(card);
 
     const ltvLimit = parseFloat(card.dataset.bogeumLtvLimit || 0);
     const maxLimit = parseFloat(card.dataset.bogeumMaxLimit || 0);
@@ -3495,7 +3546,7 @@
   }
 
   function updateDidimdolLimitUi(rateSection, finalLimit, dtiLimit) {
-    const card = rateSection?.closest('.limit-detail-card');
+    const card = getRateLimitCard(rateSection);
     if (!card) return;
     const amountEl = card.querySelector('[data-didimdol-limit-amount]');
     const ltvEl = card.querySelector('[data-didimdol-limit-ltv]');
@@ -3503,7 +3554,7 @@
     const dtiEl = card.querySelector('[data-didimdol-limit-dti]');
     const noteEl = card.querySelector('[data-didimdol-limit-note]');
     const pane = rateSection.closest('.tab-pane, .tab-pane3');
-    const barWrap = card.querySelector('.loan-ratio-bar-wrap');
+    const barWrap = getLimitLoanBar(card);
     const roomBox = card.querySelector('[data-room-card="true"]');
 
     const ltvLimit = parseFloat(card.dataset.didimdolLtvLimit || 0);
@@ -3562,14 +3613,14 @@
   }
 
   function updateNewbornLimitUi(rateSection, finalLimit, dtiLimit) {
-    const card = rateSection?.closest('.limit-detail-card');
+    const card = getRateLimitCard(rateSection);
     if (!card) return;
     const amountEl = card.querySelector('[data-newborn-limit-amount]');
     const ltvEl = card.querySelector('[data-newborn-limit-ltv]');
     const maxEl = card.querySelector('[data-newborn-limit-max]');
     const dtiEl = card.querySelector('[data-newborn-limit-dti]');
     const noteEl = card.querySelector('[data-newborn-limit-note]');
-    const barWrap = card.querySelector('.loan-ratio-bar-wrap');
+    const barWrap = getLimitLoanBar(card);
     const roomBox = card.querySelector('[data-room-card="true"]');
 
     const ltvLimit = parseFloat(card.dataset.newbornLtvLimit || 0);
@@ -3592,11 +3643,11 @@
       el.textContent = formatLimit(displayLimit);
     });
     if (barWrap) animateLoanBar(barWrap.dataset.loanBarUid, displayLimit, parseFloat(barWrap.dataset.loanBarPrice || price));
-    if (ltvEl) ltvEl.className = 'breakdown-val' + (appliedValue === ltvLimit ? ' applied' : '');
-    if (maxEl) maxEl.className = 'breakdown-val' + (appliedValue === maxLimit ? ' applied' : '');
+    if (ltvEl) ltvEl.className = 'breakdown-val' + (appliedValue === ltvLimit ? ' applied nb' : '');
+    if (maxEl) maxEl.className = 'breakdown-val' + (appliedValue === maxLimit ? ' applied nb' : '');
     if (dtiEl) {
       dtiEl.textContent = Number.isFinite(dtiLimit) ? formatLimit(dtiLimit) : '미반영';
-      dtiEl.className = 'breakdown-val' + (Number.isFinite(dtiLimit) && appliedValue === dtiLimit ? ' applied' : '');
+      dtiEl.className = 'breakdown-val' + (Number.isFinite(dtiLimit) && appliedValue === dtiLimit ? ' applied nb' : '');
     }
     if (noteEl) {
       if (Number.isFinite(dtiLimit) && appliedValue === dtiLimit) {
@@ -3630,7 +3681,7 @@
   function syncBogeumDynamicLimit(sectionUid, annualRate, years, method) {
     const rateSection = document.querySelector('.rate-calc-section[data-uid="' + sectionUid + '"]');
     if (!rateSection || rateSection.dataset.color !== 'green') return null;
-    const card = rateSection.closest('.limit-detail-card');
+    const card = getRateLimitCard(rateSection);
     const amtEl = document.getElementById('mc-amt-' + sectionUid);
     if (!card || !amtEl) return null;
 
@@ -3655,7 +3706,7 @@
   function syncDidimdolDynamicLimit(sectionUid, annualRate, years, method) {
     const rateSection = document.querySelector('.rate-calc-section[data-uid="' + sectionUid + '"]');
     if (!rateSection || rateSection.dataset.color !== 'blue') return null;
-    const card = rateSection.closest('.limit-detail-card');
+    const card = getRateLimitCard(rateSection);
     const amtEl = document.getElementById('mc-amt-' + sectionUid);
     if (!card || !amtEl) return null;
 
@@ -3691,7 +3742,7 @@
   function syncNewbornDynamicLimit(sectionUid, annualRate, years, method) {
     const rateSection = document.querySelector('.rate-calc-section[data-uid="' + sectionUid + '"]');
     if (!rateSection || rateSection.dataset.color !== 'nb') return null;
-    const card = rateSection.closest('.limit-detail-card');
+    const card = getRateLimitCard(rateSection);
     const amtEl = document.getElementById('mc-amt-' + sectionUid);
     if (!card || !amtEl) return null;
 
