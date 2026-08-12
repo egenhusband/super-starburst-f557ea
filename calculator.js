@@ -2152,7 +2152,7 @@
   }
 
   function getBogeumRegulationSurcharge(region) {
-    return region === '규제지역' ? 0.1 : 0;
+    return region === '규제지역' ? 0.2 : 0;
   }
 
   function getBogeumRateLabel(now = new Date()) {
@@ -2229,7 +2229,7 @@
         + prefCardHtml(uid,'0.1','녹색건축물','-0.1%p',false,c,false,'')
         + prefCardHtml(uid,'1.0','전세사기피해자','-1.0%p',false,c,false,'')
         + '</div>'
-        + '<div class="rate-pref-group-label">표시 기본금리는 u/t 기준 · 전자약정/전자등기 선택 시 아낌e 수준 -0.1%p · 규제지역 선택 시 0.1%p 가산 · 일반 우대 최대 1.0%p · 전자약정/전자등기 0.1%p 별도 중복 가능 · 최종금리 연 1.2% 이상</div>';
+        + '<div class="rate-pref-group-label">표시 기본금리는 u/t 기준 · 전자약정/전자등기 선택 시 아낌e 수준 -0.1%p · 규제지역 선택 시 0.2%p 가산 · 일반 우대 최대 1.0%p · 전자약정/전자등기 0.1%p 별도 중복 가능 · 최종금리 연 1.2% 이상</div>';
     }
 
     if (product === 'didimdol') {
