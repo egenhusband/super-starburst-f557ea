@@ -3420,6 +3420,36 @@
     display: flex; align-items: center; justify-content: center; gap: 8px;
     margin-bottom: 10px; text-decoration: none; transition: opacity 0.18s;
   }
+  .pay-price-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    white-space: nowrap;
+  }
+  .pay-price-origin {
+    font-size: 12px;
+    font-weight: 650;
+    color: rgba(255,255,255,0.62);
+    text-decoration: line-through;
+    text-decoration-thickness: 1.5px;
+  }
+  .pay-price-badge {
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.18);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 760;
+    letter-spacing: -0.1px;
+  }
+  .pay-price-cta strong {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 820;
+    letter-spacing: -0.2px;
+  }
   .btn-pay-go:active { opacity: 0.85; }
   .btn-pay-later {
     width: 100%;
