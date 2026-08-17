@@ -378,6 +378,28 @@ function getLocationTier(entry) {
   return { tier: 'T5', label: LOCATION_TIER_SCORES.T5.label };
 }
 
+function refineLocationTierByAccess(entry, locationTier, stationDistance, businessDistrictResult) {
+  const sigungu = normalizePlaceToken(entry?.sigunguName || '');
+  const stationText = normalizePlaceToken(`${entry?.stationMetaName || ''} ${entry?.subwayStation || ''}`);
+  const businessMinutes = Number(businessDistrictResult?.totalMinutes);
+
+  if (sigungu.includes('하남') && stationText.includes('하남검단산')) {
+    return { tier: 'T4_PLUS', label: LOCATION_TIER_SCORES.T4_PLUS.label, adjustedFrom: locationTier.tier };
+  }
+
+  if (
+    sigungu.includes('구리')
+    && Number.isFinite(stationDistance)
+    && stationDistance <= 700
+    && Number.isFinite(businessMinutes)
+    && businessMinutes <= 35
+  ) {
+    return { tier: 'T4_PLUS', label: LOCATION_TIER_SCORES.T4_PLUS.label, upliftFrom: locationTier.tier };
+  }
+
+  return locationTier;
+}
+
 function computeBusinessDistrictScore(entry, insight, graph) {
   if (!graph) {
     return { available: false, score: 0, label: '서울 지하철 시간 데이터 준비 중', bestDistrict: null, totalMinutes: null };
@@ -473,7 +495,7 @@ function computeTransportAdjustment(entry, stationDistance, businessDistrictResu
     else if (stationDistance <= 700) items.push({ key: 'station', points: 1, label: '도보 역 접근성이 무난한 편' });
   }
   if (Number.isFinite(businessDistrictResult?.totalMinutes)) {
-    if (businessDistrictResult.totalMinutes <= 25) items.push({ key: 'business', points: 2, label: businessDistrictResult.label });
+    if (businessDistrictResult.totalMinutes <= 30) items.push({ key: 'business', points: 2, label: businessDistrictResult.label });
     else if (businessDistrictResult.totalMinutes <= 35) items.push({ key: 'business', points: 1, label: businessDistrictResult.label });
   }
   const lineText = `${entry?.subwayLine || ''} ${entry?.stationMetaName || ''} ${entry?.subwayStation || ''}`;
@@ -533,7 +555,7 @@ function computeAptGrade(entry, insight, graph) {
   const priceLevelSource = getPriceLevelSource(entry);
   const priceLevelResult = computePriceLevelScore(entry);
   const hasOfficialFallback = priceLevelSource === 'official-fallback';
-  let locationTier = getLocationTier(entry);
+  let locationTier = refineLocationTierByAccess(entry, getLocationTier(entry), stationDistance, businessDistrictResult);
   if (locationTier.tier === 'T4' && qualifiesSeoulAccessUplift(entry, stationDistance, businessDistrictResult, schoolDistance)) {
     locationTier = { tier: 'T4_PLUS', label: LOCATION_TIER_SCORES.T4_PLUS.label, upliftFrom: 'T4' };
   }
@@ -567,6 +589,8 @@ function computeAptGrade(entry, insight, graph) {
   const reasons = [
     locationTier.upliftFrom
       ? '서울 접근성과 생활 인프라가 좋아 등급 범위를 넓혔어요.'
+      : locationTier.adjustedFrom
+        ? '같은 시군구 안에서도 실제 역 위치와 업무지구 접근성을 기준으로 등급 범위를 다시 잡았어요.'
       : `${locationTier.label} 기준으로 기본 등급 범위를 먼저 잡았어요.`,
     ...(transportAdjustment.items.length ? [transportAdjustment.items.slice().sort((a, b) => b.points - a.points)[0].label] : []),
     ...(infraAdjustment.items.length ? [infraAdjustment.items.slice().sort((a, b) => b.points - a.points)[0].label] : []),
