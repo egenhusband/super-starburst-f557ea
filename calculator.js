@@ -5022,6 +5022,9 @@
         return;
       }
 
+      if (window.KakaoAuthBridge && typeof window.KakaoAuthBridge.rememberPasswordForLink === 'function') {
+        window.KakaoAuthBridge.rememberPasswordForLink(val);
+      }
       this.resumeAfterAuth();
     },
   };

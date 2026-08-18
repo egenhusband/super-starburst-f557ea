@@ -3575,6 +3575,18 @@
     color: var(--label2);
     letter-spacing: -0.02em;
   }
+  .kakao-link-message {
+    min-height: 18px;
+    margin: -8px 0 14px;
+    color: var(--label3);
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.35;
+    letter-spacing: -0.02em;
+  }
+  .kakao-link-message.is-error {
+    color: #ff6b7a;
+  }
   .btn-kakao-link {
     width: 100%;
     height: 50px;
