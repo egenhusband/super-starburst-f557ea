@@ -4981,18 +4981,7 @@
       this.open(context);
     },
 
-    submitPassword() {
-      const val = document.getElementById('pwInput')?.value || '';
-      if (val !== CORRECT_PW) {
-        const pwErr = document.getElementById('pwErr');
-        const pwInput = document.getElementById('pwInput');
-        const submit = document.getElementById('btnPwSubmit');
-        if (pwErr) pwErr.textContent = '비밀번호가 올바르지 않아요.';
-        if (pwInput) pwInput.value = '';
-        if (submit) submit.disabled = true;
-        return;
-      }
-
+    resumeAfterAuth(options = {}) {
       const shouldPreserveAptAnalysis = this.context === PAY_CONTEXT.APT_ANALYSIS
         && typeof hasDashboardAptSelection === 'function'
         && hasDashboardAptSelection();
@@ -5013,6 +5002,27 @@
         startCalculatorFlow();
       }
       if (typeof preloadMarketBundle === 'function') preloadMarketBundle().catch(() => {});
+      if (!options.skipKakaoLinkPrompt && window.KakaoAuthBridge && typeof window.KakaoAuthBridge.openKakaoLinkSheet === 'function') {
+        setTimeout(() => window.KakaoAuthBridge.openKakaoLinkSheet(), 520);
+      }
+    },
+
+    submitPassword() {
+      const val = document.getElementById('pwInput')?.value || '';
+      if (val !== CORRECT_PW) {
+        const pwErr = document.getElementById('pwErr');
+        const pwInput = document.getElementById('pwInput');
+        const submit = document.getElementById('btnPwSubmit');
+        if (pwErr) {
+          pwErr.textContent = '비밀번호가 올바르지 않아요.';
+          pwErr.classList.remove('is-info');
+        }
+        if (pwInput) pwInput.value = '';
+        if (submit) submit.disabled = true;
+        return;
+      }
+
+      this.resumeAfterAuth();
     },
   };
   window.PAY_CONTEXT = PAY_CONTEXT;

@@ -3335,7 +3335,33 @@
     opacity: 0;
     pointer-events: none;
   }
+  .btn-pay-skip-top {
+    position: absolute;
+    top: -42px;
+    right: 4px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: rgba(245,247,251,0.82);
+    font-family: 'Pretendard Variable', sans-serif;
+    font-size: 13px;
+    font-weight: 760;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 180ms ease, transform 180ms ease, color 180ms ease;
+  }
+  .pay-overlay.open .btn-pay-skip-top {
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0.12s;
+  }
+  .btn-pay-skip-top:active {
+    color: #fff;
+  }
   .pay-sheet {
+    position: relative;
     width: 100%; max-width: 430px; background: var(--bg2);
     border-radius: 20px 20px 0 0;
     padding: 32px 24px max(env(safe-area-inset-bottom), 28px);
@@ -3360,7 +3386,7 @@
   .pay-pw-input-wrap,
   .pay-pw-err,
   .btn-pay-go,
-  .btn-pay-later {
+  .btn-kakao-auto-enter {
     opacity: 0;
     transform: translateY(10px);
   }
@@ -3370,7 +3396,7 @@
   .pay-overlay.open .pay-pw-input-wrap,
   .pay-overlay.open .pay-pw-err,
   .pay-overlay.open .btn-pay-go,
-  .pay-overlay.open .btn-pay-later {
+  .pay-overlay.open .btn-kakao-auto-enter {
     animation: paySheetInnerFade 260ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   }
   .pay-overlay.open .pay-copy-stack { animation-delay: 0.03s; }
@@ -3380,7 +3406,7 @@
   .pay-overlay.open .pay-pw-input-wrap { animation-delay: 0.30s; }
   .pay-overlay.open .pay-pw-err { animation-delay: 0.34s; }
   .pay-overlay.open .btn-pay-go { animation-delay: 0.38s; }
-  .pay-overlay.open .btn-pay-later { animation-delay: 0.42s; }
+  .pay-overlay.open .btn-kakao-auto-enter { animation-delay: 0.42s; }
   @keyframes paySheetInnerFade {
     from {
       opacity: 0;
@@ -3409,7 +3435,7 @@
   .pay-sheet-section-label {
     font-size: 12px;
     font-weight: 700;
-    color: var(--label3);
+    color: rgba(255,255,255,0.92);
     letter-spacing: -0.18px;
     margin: 14px 0 8px;
   }
@@ -3451,7 +3477,7 @@
     letter-spacing: -0.2px;
   }
   .btn-pay-go:active { opacity: 0.85; }
-  .btn-pay-later {
+  .btn-kakao-auto-enter {
     width: 100%;
     height: 44px;
     background: transparent;
@@ -3459,12 +3485,16 @@
     color: var(--label3);
     font-family: 'Pretendard Variable', sans-serif;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 780;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
+  }
+  .btn-kakao-auto-enter:disabled {
+    opacity: 0.56;
+    cursor: wait;
   }
   .pay-pw-input-wrap {
     margin: 2px 0 8px;
@@ -3476,6 +3506,111 @@
   }
   .pay-pw-err {
     margin-bottom: 10px;
+  }
+  .pay-pw-err.is-info {
+    color: rgba(255, 224, 80, 0.92);
+  }
+  .kakao-link-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 430;
+    display: none;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(0,0,0,0.58);
+    opacity: 0;
+    transition: opacity 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .kakao-link-overlay.open,
+  .kakao-link-overlay.is-closing {
+    display: flex;
+  }
+  .kakao-link-overlay.open {
+    opacity: 1;
+  }
+  .kakao-link-overlay.is-closing {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .kakao-link-sheet {
+    width: 100%;
+    max-width: 430px;
+    padding: 28px 24px max(env(safe-area-inset-bottom), 24px);
+    border-radius: 22px 22px 0 0;
+    background: var(--bg2);
+    transform: translateY(100%);
+    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .kakao-link-overlay.open .kakao-link-sheet {
+    transform: translateY(0);
+  }
+  .kakao-link-overlay.is-closing .kakao-link-sheet {
+    transform: translateY(100%);
+  }
+  .kakao-link-mark {
+    width: 38px;
+    height: 38px;
+    margin-bottom: 16px;
+    border-radius: 14px;
+    background: #fee500;
+    color: rgba(0,0,0,0.9);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .kakao-link-copy strong {
+    display: block;
+    font-size: 22px;
+    line-height: 1.25;
+    color: var(--label1);
+    letter-spacing: -0.04em;
+  }
+  .kakao-link-copy p {
+    margin: 10px 0 20px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--label2);
+    letter-spacing: -0.02em;
+  }
+  .btn-kakao-link {
+    width: 100%;
+    height: 50px;
+    border: 0;
+    border-radius: 14px;
+    background: #fee500;
+    color: rgba(0,0,0,0.86);
+    font-family: 'Pretendard Variable', sans-serif;
+    font-size: 15px;
+    font-weight: 820;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    transition: transform 0.16s ease, opacity 0.16s ease;
+  }
+  .btn-kakao-link:disabled {
+    opacity: 0.62;
+    cursor: wait;
+  }
+  .btn-kakao-link:active {
+    transform: translateY(1px);
+    opacity: 0.9;
+  }
+  .btn-kakao-skip {
+    width: 100%;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    color: var(--label3);
+    font-family: 'Pretendard Variable', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
   }
 
   /* ── 1. 카드 순차 페이드인 ── */
