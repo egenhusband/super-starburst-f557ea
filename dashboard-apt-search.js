@@ -265,6 +265,59 @@ function formatPriceLevelSummary(entry) {
   return '가격 레벨 데이터 보강 중';
 }
 
+function getRepresentativeAreaPriceSignal(areaPrices) {
+  const byArea = areaPrices?.byArea || null;
+  if (!byArea) return null;
+  const entries = Object.entries(byArea)
+    .map(([bucket, data]) => ({
+      bucket,
+      size: parseInt(bucket, 10),
+      data,
+      recent: data?.recentPyeongPrice || null,
+    }))
+    .filter(item => Number.isFinite(item.size) && Number.isFinite(Number(item.recent?.median)));
+  if (!entries.length) return null;
+
+  const preferred = entries
+    .filter(item => item.size >= 59 && item.size <= 84)
+    .sort((a, b) => Math.abs(a.size - 72) - Math.abs(b.size - 72) || b.size - a.size)[0];
+  const selected = preferred || entries
+    .slice()
+    .sort((a, b) => Number(b.data?.tradeCount || 0) - Number(a.data?.tradeCount || 0) || b.size - a.size)[0];
+  const pyeong = Number(selected.recent.median);
+  const tradeCount = Number(selected.recent.tradeCount || 0);
+  const label = pyeong >= 4200
+    ? '가격 신호 매우 높음'
+    : pyeong >= 3300
+      ? '가격 신호 높음'
+      : pyeong >= 2400
+        ? '가격 신호 보통'
+        : '가격 신호 확인 중';
+  return {
+    label,
+    bucket: selected.bucket,
+    tradeCount,
+    month: selected.recent.month || '',
+    isLowConfidence: tradeCount > 0 && tradeCount < 2,
+  };
+}
+
+function renderAptMarketSignalPills(areaPrices) {
+  const signal = getRepresentativeAreaPriceSignal(areaPrices);
+  if (!signal) return '';
+  const confidenceLabel = signal.isLowConfidence
+    ? '최근 거래 1건 기준'
+    : `최근 거래 ${signal.tradeCount}건 기준`;
+  return `
+    <div class="db-apt-market-signal-pills">
+      <span class="db-apt-market-signal-pill is-strong">${escapeHtml(signal.label)}</span>
+      <span class="db-apt-market-signal-pill">${escapeHtml(signal.bucket)} 대표 면적대</span>
+      <span class="db-apt-market-signal-pill">${escapeHtml(confidenceLabel)}</span>
+      <span class="db-apt-market-signal-pill is-muted">전용면적 기준</span>
+    </div>
+  `;
+}
+
 function splitDistanceLabel(rawLabel) {
   const label = String(rawLabel || '').trim();
   if (!label) return { primary: '', secondary: '' };
@@ -955,9 +1008,11 @@ function renderDashboardSelectedApartment() {
           <div class="db-apt-grade-badge ${gradeClass}">
             <span>등급</span>
             <strong>${isGradeReady ? gradeData.grade : '보류'}</strong>
+            ${isGradeReady && gradeData.scoreLabel ? `<em>${escapeHtml(gradeData.scoreLabel)}</em>` : ''}
           </div>
         </div>
         <p class="db-apt-grade-status">${escapeHtml(statusText)}</p>
+        ${renderAptMarketSignalPills(insight?.areaPrices)}
         ${hasNineLineBenefit ? `
           <div class="db-apt-benefit-badges">
             <span class="db-apt-benefit-badge">9호선 연장 수혜 예상</span>

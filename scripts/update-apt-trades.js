@@ -9,11 +9,16 @@ loadEnvLocal(process.cwd());
 
 const KEY = process.env.MOLIT_API_KEY;
 const CODE_MAP_PATH = path.join('data', 'apt-code-map.json');
-const AREA_PRICES_DIR = path.join('data', 'apt-area-prices');
+const AREA_PRICES_DIR = process.env.MOLIT_AREA_PRICES_DIR || path.join('data', 'apt-area-prices');
 const BASE_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade';
 const PAGE_SIZE = 1000;
 const MONTH_WINDOW = Number(process.env.MOLIT_MONTH_WINDOW || 12);
 const CONCURRENCY = Number(process.env.MOLIT_CONCURRENCY || 8);
+const REQUEST_DELAY_MS = Number(process.env.MOLIT_REQUEST_DELAY_MS || 0);
+const SIGUNGU_CODE_FILTER = String(process.env.MOLIT_SIGUNGU_CODES || '')
+  .split(',')
+  .map(code => code.trim())
+  .filter(Boolean);
 const RECENT_DEAL_LIMIT = 12;
 const POPULAR_COMPLEX_LIMIT = 12;
 
@@ -106,6 +111,7 @@ function buildUrl({ lawdCd, month, pageNo }) {
 
 async function fetchTradeRows(lawdCd, month, attempt = 1) {
   try {
+    if (REQUEST_DELAY_MS > 0) await sleep(REQUEST_DELAY_MS);
     const first = await fetchJson(buildUrl({ lawdCd, month, pageNo: 1 }));
     const body = first?.response?.body || {};
     const totalCount = Number(body.totalCount || 0);
@@ -328,7 +334,13 @@ function aggregateAreaPrices(deals) {
     if (!bucket) continue;
     if (!byBucket.has(bucket)) byBucket.set(bucket, { deals: [], latestPrice: null, latestDate: "" });
     const entry = byBucket.get(bucket);
-    entry.deals.push({ price: deal.price, dealDate: deal.dealDate });
+    entry.deals.push({
+      price: deal.price,
+      pricePerPyeong: deal.pricePerPyeong,
+      area: deal.area,
+      dealDate: deal.dealDate,
+      dealMonth: deal.dealMonth,
+    });
     if (!entry.latestDate || deal.dealDate > entry.latestDate) {
       entry.latestDate = deal.dealDate;
       entry.latestPrice = deal.price;
@@ -360,9 +372,11 @@ function aggregateAreaPrices(deals) {
 
     byArea[`${bucket}㎡`] = {
       avgPrice: average(sortedDeals.map(deal => deal.price)),
+      medianPricePerPyeong: median(sortedDeals.map(deal => deal.pricePerPyeong)),
       tradeCount: sortedDeals.length,
       latestPrice: entry.latestPrice,
       latestDate: entry.latestDate,
+      recentPyeongPrice: aggregateRecentPyeongPrice(sortedDeals),
       ...(isNewWindowHigh ? {
         recentHigh: {
           within3M: true,
@@ -376,6 +390,28 @@ function aggregateAreaPrices(deals) {
   });
 
   return byArea;
+}
+
+function aggregateRecentPyeongPrice(deals) {
+  const pricedDeals = deals
+    .filter(deal => deal.dealMonth && Number.isFinite(deal.pricePerPyeong) && deal.pricePerPyeong > 0);
+  if (!pricedDeals.length) return null;
+
+  const latestMonth = pricedDeals
+    .map(deal => deal.dealMonth)
+    .sort()
+    .at(-1);
+  const latestMonthDeals = pricedDeals.filter(deal => deal.dealMonth === latestMonth);
+
+  return {
+    month: latestMonth,
+    avg: average(latestMonthDeals.map(deal => deal.pricePerPyeong)),
+    median: median(latestMonthDeals.map(deal => deal.pricePerPyeong)),
+    tradeCount: latestMonthDeals.length,
+    minArea: Math.min(...latestMonthDeals.map(deal => deal.area).filter(Number.isFinite)),
+    maxArea: Math.max(...latestMonthDeals.map(deal => deal.area).filter(Number.isFinite)),
+    basis: 'latest-trade-month',
+  };
 }
 
 async function writeAreaPriceFiles(root, allDeals, codeMapItems) {
@@ -421,6 +457,7 @@ async function writeAreaPriceFiles(root, allDeals, codeMapItems) {
       sigunguName: deal.sigunguName,
       umdName: deal.umdName,
       updatedAt: new Date().toISOString().slice(0, 10),
+      recentPyeongPrice: aggregateRecentPyeongPrice(deals),
       byArea,
     };
 
@@ -447,7 +484,11 @@ async function main() {
     fs.readFile(sigunguPath, 'utf8').then(JSON.parse),
     fs.readFile(codeMapPath, 'utf8').then(JSON.parse).catch(() => ({ items: [] })),
   ]);
-  const sigunguCodes = sigunguData.codes || [];
+  let sigunguCodes = sigunguData.codes || [];
+  if (SIGUNGU_CODE_FILTER.length) {
+    const allow = new Set(SIGUNGU_CODE_FILTER);
+    sigunguCodes = sigunguCodes.filter(sigungu => allow.has(String(sigungu.code)));
+  }
   const codeMapItems = Array.isArray(codeMapPayload?.items) ? codeMapPayload.items : [];
   const months = getRecentMonths(MONTH_WINDOW);
   const currentMonth = getCurrentMonthId();

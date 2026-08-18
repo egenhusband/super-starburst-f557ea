@@ -311,6 +311,43 @@ function gradeFromLocationScore(score) {
   return grade;
 }
 
+function computePublicLocationScore(grade, clampedScore) {
+  const gradeBands = {
+    C: [50, 58],
+    'C+': [59, 63],
+    B: [64, 69],
+    'B+': [70, 74],
+    A: [75, 82],
+    'A+': [83, 89],
+    S: [90, 95],
+    'S+': [96, 99],
+  };
+  const band = gradeBands[grade] || gradeBands.C;
+  const gradeFloor = (LOCATION_GRADE_SCALE.find(item => item.grade === grade)?.min) ?? 0;
+  const nextFloor = LOCATION_GRADE_SCALE.find(item => item.min > gradeFloor)?.min ?? 18;
+  const progress = nextFloor === gradeFloor
+    ? 1
+    : clampNumber((clampedScore - gradeFloor) / (nextFloor - gradeFloor), 0, 1);
+  return Math.round(band[0] + ((band[1] - band[0]) * progress));
+}
+
+function toPublicAptGradeResult(result) {
+  const displayScore = computePublicLocationScore(result.grade, result.clampedScore);
+  return {
+    ok: true,
+    ready: result.ready,
+    kaptCode: result.kaptCode,
+    grade: result.grade,
+    displayScore,
+    scoreLabel: `${displayScore}점`,
+    tierLabel: result.tierLabel,
+    businessDistrict: result.businessDistrict,
+    reasons: result.reasons,
+    withheld: result.withheld,
+    missingCount: result.missingCount,
+  };
+}
+
 function getLocationTier(entry) {
   const sigungu = normalizePlaceToken(entry?.sigunguName || '');
   const umd = normalizePlaceToken(entry?.umdName || '');
@@ -645,7 +682,7 @@ exports.handler = async function(event) {
     };
     if (!entry?.kaptCode && !entry?.aptName) return jsonResponse(400, { ok: false, error: 'Apartment entry is required.' });
     const graph = loadSubwayGraph();
-    return jsonResponse(200, { ok: true, ...computeAptGrade(entry, insight, graph) });
+    return jsonResponse(200, toPublicAptGradeResult(computeAptGrade(entry, insight, graph)));
   } catch (error) {
     return jsonResponse(500, { ok: false, error: error?.message || 'Apartment analysis failed.' });
   }
