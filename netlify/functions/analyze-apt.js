@@ -566,6 +566,43 @@ function computeInfraAdjustment(entry, schoolDistance) {
   return { score: clampNumber(raw, -2, 2), raw, cap: 2, floor: -2, items };
 }
 
+function computeMarketPriceAdjustment(entry) {
+  const recentPricePerPyeong = Number(entry?.recentPricePerPyeong);
+  const regionalMedianPricePerPyeong = Number(entry?.regionalMedianPricePerPyeong);
+  if (
+    Number.isFinite(recentPricePerPyeong)
+    && recentPricePerPyeong > 0
+    && Number.isFinite(regionalMedianPricePerPyeong)
+    && regionalMedianPricePerPyeong > 0
+  ) {
+    const ratio = recentPricePerPyeong / regionalMedianPricePerPyeong;
+    const score = ratio >= 1.35 ? 2 : ratio >= 1.1 ? 1 : ratio <= 0.7 ? -2 : ratio <= 0.9 ? -1 : 0;
+    return {
+      score,
+      source: 'recent-trade-pyeong',
+      ratio,
+      label: score > 0
+        ? '동일 시군구 대비 최근 실거래 평당가가 높은 편'
+        : score < 0
+          ? '동일 시군구 대비 최근 실거래 평당가는 낮은 편'
+          : '동일 시군구와 비슷한 실거래 평당가',
+    };
+  }
+
+  const percentile = Number(entry?.officialPricePerPyeongPercentile);
+  if (Number.isFinite(percentile) && percentile >= 0 && percentile <= 1) {
+    const score = percentile >= 0.9 ? 2 : percentile >= 0.7 ? 1 : percentile <= 0.1 ? -2 : percentile <= 0.3 ? -1 : 0;
+    return {
+      score,
+      source: 'official-pyeong-percentile',
+      percentile,
+      label: '실거래가 어려워 동일 시군구 공시가격 평당가로 보완',
+    };
+  }
+
+  return { score: 0, source: null, label: '평당가 비교 데이터 보강 중' };
+}
+
 function qualifiesSeoulAccessUplift(entry, stationDistance, businessDistrictResult, schoolDistance) {
   if (!Number.isFinite(stationDistance) || stationDistance > 700) return false;
   if (!businessDistrictResult?.available
@@ -599,6 +636,7 @@ function computeAptGrade(entry, insight, graph) {
   const tierScore = LOCATION_TIER_SCORES[locationTier.tier] || LOCATION_TIER_SCORES.T5;
   const transportAdjustment = computeTransportAdjustment(entry, stationDistance, businessDistrictResult, locationTier.tier);
   const infraAdjustment = computeInfraAdjustment(entry, schoolDistance);
+  const marketPriceAdjustment = computeMarketPriceAdjustment(entry);
   const dimensions = [
     { key: 'priceLevel', available: priceLevelSource !== null, result: priceLevelResult },
     { key: 'school', available: Number.isFinite(schoolDistance), result: computeSchoolScore(schoolDistance) },
@@ -620,8 +658,14 @@ function computeAptGrade(entry, insight, graph) {
             : item.key === 'newBuild'
               ? '준공 정보'
               : '업무지구 접근성');
-  const rawScore = tierScore.base + transportAdjustment.score + infraAdjustment.score;
-  const clampedScore = clampNumber(rawScore, tierScore.min, tierScore.max);
+  const locationScore = tierScore.base + transportAdjustment.score + infraAdjustment.score;
+  const locationClampedScore = clampNumber(locationScore, tierScore.min, tierScore.max);
+  const locationGrade = gradeFromLocationScore(locationClampedScore);
+  const locationGradeFloor = LOCATION_GRADE_SCALE.find(item => item.grade === locationGrade)?.min ?? 0;
+  const nextGradeFloor = LOCATION_GRADE_SCALE.find(item => item.min > locationGradeFloor)?.min ?? 19;
+  const rawScore = locationClampedScore + marketPriceAdjustment.score;
+  // 시장가격은 같은 입지 등급 내 순서만 보정하고, 입지 등급 자체를 바꾸지는 않는다.
+  const clampedScore = clampNumber(rawScore, locationGradeFloor, nextGradeFloor - 1);
   const grade = gradeFromLocationScore(clampedScore);
   const reasons = [
     locationTier.upliftFrom
@@ -631,6 +675,7 @@ function computeAptGrade(entry, insight, graph) {
       : `${locationTier.label} 기준으로 기본 등급 범위를 먼저 잡았어요.`,
     ...(transportAdjustment.items.length ? [transportAdjustment.items.slice().sort((a, b) => b.points - a.points)[0].label] : []),
     ...(infraAdjustment.items.length ? [infraAdjustment.items.slice().sort((a, b) => b.points - a.points)[0].label] : []),
+    ...(marketPriceAdjustment.score !== 0 ? [marketPriceAdjustment.label] : []),
     ...(hasOfficialFallback ? ['실거래 커버리지가 얇아 가격 레벨은 공시가격으로 우선 보완했어요.'] : []),
     ...(missingLabels.length ? [`아직 ${missingLabels.join(', ')} 데이터는 순차 보강 중이에요.`] : []),
   ];
@@ -646,6 +691,7 @@ function computeAptGrade(entry, insight, graph) {
     clampedScore,
     transportAdjustment,
     infraAdjustment,
+    marketPriceAdjustment,
     businessDistrict: businessDistrictResult,
     reasons: reasons.slice(0, 3),
     withheld: false,
@@ -658,6 +704,8 @@ function computeAptGrade(entry, insight, graph) {
       tierMax: tierScore.max,
       transport: transportAdjustment,
       infra: infraAdjustment,
+      marketPrice: marketPriceAdjustment,
+      locationScore: locationClampedScore,
       rawScore,
       clampedScore,
     },

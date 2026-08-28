@@ -3609,6 +3609,32 @@
     opacity: 0.62;
     cursor: wait;
   }
+  .btn-kakao-link-loader {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+  .btn-kakao-link-loader > span {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: currentColor;
+    animation: kakaoLinkDot 1s ease-in-out infinite;
+  }
+  .btn-kakao-link-loader > span:nth-child(2) { animation-delay: 0.14s; }
+  .btn-kakao-link-loader > span:nth-child(3) { animation-delay: 0.28s; }
+  .btn-kakao-link.is-loading .btn-kakao-link-label,
+  .btn-kakao-auto-enter.is-loading .btn-kakao-link-label { display: none; }
+  .btn-kakao-link.is-loading .btn-kakao-link-loader,
+  .btn-kakao-auto-enter.is-loading .btn-kakao-link-loader { display: inline-flex; }
+  @keyframes kakaoLinkDot {
+    0%, 60%, 100% { opacity: 0.34; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-3px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .btn-kakao-link-loader > span { animation: none; opacity: 0.72; }
+  }
   .btn-kakao-link:active {
     transform: translateY(1px);
     opacity: 0.9;
@@ -5911,9 +5937,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 92px;
-  height: 92px;
-  border-radius: 20px;
+  width: 84px;
+  height: 84px;
+  border-radius: 18px;
   border: 0;
   background: rgba(255,255,255,0.02);
   flex-shrink: 0;
@@ -5925,14 +5951,14 @@
   color: rgba(220,228,239,0.62);
 }
 .db-apt-grade-badge strong {
-  margin-top: 6px;
-  font-size: 42px;
+  margin-top: 2px;
+  font-size: 36px;
   line-height: 1;
   color: #f6f8fb;
 }
 .db-apt-grade-badge em {
   display: block;
-  margin-top: 7px;
+  margin-top: 4px;
   font-style: normal;
   font-size: 12px;
   font-weight: 760;
@@ -6785,16 +6811,20 @@
     line-height: 1.2;
   }
   .db-apt-grade-badge {
-    width: 82px;
-    height: 82px;
-    border-radius: 22px;
+    width: 76px;
+    height: 76px;
+    border-radius: 18px;
   }
   .db-apt-grade-badge span {
     font-size: 11px;
   }
   .db-apt-grade-badge strong {
-    font-size: 38px;
-    margin-top: 0px;
+    font-size: 32px;
+    margin-top: 1px;
+  }
+  .db-apt-grade-badge em {
+    margin-top: 3px;
+    font-size: 11px;
   }
   .db-apt-grade-badge.grade-pending strong {
     font-size: 24px;

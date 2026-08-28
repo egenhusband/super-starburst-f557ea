@@ -32,6 +32,7 @@ let dashboardAptSearchIndexPromise = null;
 const dashboardAptSearchInsightCache = new Map();
 const dashboardAptAreaPricesCache = new Map();
 const dashboardAptGradeCache = new Map();
+const dashboardAptGradeRefreshKeys = new Set();
 const dashboardAptTaxBasisSelection = new Map();
 
 function getAptGradeKey(entry) {
@@ -64,6 +65,7 @@ async function fetchAptAreaPrices(kaptCode) {
 }
 
 function buildAptAnalysisPayload(entry, insight) {
+  const areaPriceSignal = getRepresentativeAreaPriceSignal(insight?.areaPrices);
   return {
     entry: {
       id: entry.id || '',
@@ -78,6 +80,14 @@ function buildAptAnalysisPayload(entry, insight) {
       avgPrice: Number(entry.avgPrice || 0) || null,
       medianOfficialPrice: Number(entry.medianOfficialPrice || 0) || null,
       avgOfficialPrice: Number(entry.avgOfficialPrice || 0) || null,
+      medianOfficialPricePerPyeong: Number(entry.medianOfficialPricePerPyeong || 0) || null,
+      officialPricePerPyeongPercentile: Number.isFinite(entry.officialPricePerPyeongPercentile)
+        ? entry.officialPricePerPyeongPercentile
+        : null,
+      regionalMedianPricePerPyeong: Number(entry.regionalMedianPricePerPyeong || 0) || null,
+      recentPricePerPyeong: areaPriceSignal && !areaPriceSignal.isLowConfidence
+        ? Number(areaPriceSignal.median || 0) || null
+        : null,
       subwayLine: entry.subwayLine || '',
       subwayStation: entry.subwayStation || '',
       subwayDistance: entry.subwayDistance || '',
@@ -98,10 +108,10 @@ function buildAptAnalysisPayload(entry, insight) {
   };
 }
 
-async function fetchAptGrade(entry, insight) {
+async function fetchAptGrade(entry, insight, { force = false } = {}) {
   const key = getAptGradeKey(entry);
   if (!key) return null;
-  if (dashboardAptGradeCache.has(key)) return dashboardAptGradeCache.get(key);
+  if (!force && dashboardAptGradeCache.has(key)) return dashboardAptGradeCache.get(key);
 
   try {
     const response = await fetch(DASHBOARD_APT_ANALYZE_URL, {
@@ -296,6 +306,7 @@ function getRepresentativeAreaPriceSignal(areaPrices) {
   return {
     label,
     bucket: selected.bucket,
+    median: pyeong,
     tradeCount,
     month: selected.recent.month || '',
     isLowConfidence: tradeCount > 0 && tradeCount < 2,
@@ -474,11 +485,19 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
   });
   const officialByCode = new Map();
   const officialByKey = new Map();
+  const officialPyeongPricesBySigungu = new Map();
   (officialPrices?.entries || []).forEach(entry => {
     if (entry?.kaptCode) officialByCode.set(entry.kaptCode, entry);
     const key = buildSchoolMetaCompositeKey(entry.sigunguName, entry.umdName, entry.aptName);
     if (key) officialByKey.set(key, entry);
+    const pricePerPyeong = Number(entry?.medianOfficialPricePerPyeong);
+    if (entry?.sigunguName && Number.isFinite(pricePerPyeong) && pricePerPyeong > 0) {
+      const prices = officialPyeongPricesBySigungu.get(entry.sigunguName) || [];
+      prices.push(pricePerPyeong);
+      officialPyeongPricesBySigungu.set(entry.sigunguName, prices);
+    }
   });
+  officialPyeongPricesBySigungu.forEach(prices => prices.sort((a, b) => a - b));
   const convenienceByCode = new Map(
     Object.entries(
       typeof convenienceMetas === 'object' && convenienceMetas !== null && !Array.isArray(convenienceMetas)
@@ -539,6 +558,12 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
     const buildYear = extractBuildYear(household?.kaptUsedate) || Number(trade?.buildYear || 0) || null;
     const regionKey = sidoName === '서울특별시' ? 'seoul' : 'gyeonggi';
     const regionLabel = regionKey === 'seoul' ? '서울' : '경기';
+    const officialPricePerPyeong = Number(officialPrice?.medianOfficialPricePerPyeong || 0) || null;
+    const peerOfficialPrices = officialPyeongPricesBySigungu.get(sigunguName) || [];
+    const officialPricePerPyeongPercentile = officialPricePerPyeong && peerOfficialPrices.length >= 5
+      ? peerOfficialPrices.filter(price => price < officialPricePerPyeong).length / (peerOfficialPrices.length - 1)
+      : null;
+    const regionalTrade = trades?.sigungu?.[item.sigunguCode] || null;
     const searchTokens = [aptName, sigunguName, umdName, regionLabel, item.kaptCode].filter(Boolean).join(' ');
 
     entries.push({
@@ -560,6 +585,9 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
       maxOfficialPrice: Number(officialPrice?.maxOfficialPrice || 0) || null,
       avgOfficialPrice: Number(officialPrice?.avgOfficialPrice || 0) || null,
       medianOfficialPrice: Number(officialPrice?.medianOfficialPrice || 0) || null,
+      medianOfficialPricePerPyeong: officialPricePerPyeong,
+      officialPricePerPyeongPercentile,
+      regionalMedianPricePerPyeong: Number(regionalTrade?.medianPricePerPyeong || 0) || null,
       officialPriceSampleCount: Number(officialPrice?.sampleCount || 0) || null,
       subwayLine: household?.subwayLine || '',
       subwayStation: household?.subwayStation || '',
@@ -1370,12 +1398,15 @@ function requestDashboardAptGrade(entry, insight, { force = false } = {}) {
   const key = getAptGradeKey(entry);
   if (!key) return;
   if (!force && dashboardAptGradeCache.has(key)) return;
-  if (dashboardAptSearchState.gradeLoadingKey === key) return;
+  if (dashboardAptSearchState.gradeLoadingKey === key) {
+    if (force) dashboardAptGradeRefreshKeys.add(key);
+    return;
+  }
 
   dashboardAptSearchState.gradeLoadingKey = key;
   renderDashboardSelectedApartment();
 
-  fetchAptGrade(entry, insight)
+  fetchAptGrade(entry, insight, { force })
     .then(() => {
       const cacheKey = `dashboard_apt_insight_${entry.id}`;
       dashboardAptSearchInsightCache.set(cacheKey, insight);
@@ -1386,6 +1417,11 @@ function requestDashboardAptGrade(entry, insight, { force = false } = {}) {
     .finally(() => {
       if (dashboardAptSearchState.gradeLoadingKey === key) {
         dashboardAptSearchState.gradeLoadingKey = '';
+      }
+      if (dashboardAptGradeRefreshKeys.has(key)) {
+        dashboardAptGradeRefreshKeys.delete(key);
+        requestDashboardAptGrade(entry, insight, { force: true });
+        return;
       }
       if (dashboardAptSearchState.selectedId === entry.id) {
         renderDashboardSelectedApartment();
@@ -1556,6 +1592,7 @@ function hydrateDashboardApartmentInsight(entry) {
       .then(areaPrices => {
         if (!areaPrices) return;
         insight.areaPrices = areaPrices;
+        requestDashboardAptGrade(entry, insight, { force: true });
         dashboardAptSearchInsightCache.set(cacheKey, insight);
         if (dashboardAptSearchState.selectedId === entry.id) {
           dashboardAptSearchState.selectedInsight = insight;
