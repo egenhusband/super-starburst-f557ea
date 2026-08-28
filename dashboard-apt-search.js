@@ -6,7 +6,7 @@ const DASHBOARD_APT_STATION_META_URL = '/data/apt-station-meta.json?v=20260518a'
 const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260517a';
 const DASHBOARD_APT_CONVENIENCE_META_URL = '/data/apt-convenience-meta.json?v=20260518a';
 const DASHBOARD_APT_ANALYZE_URL = '/api/analyze-apt';
-const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v11';
+const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v12';
 const DASHBOARD_APT_SEARCH_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
 
 const NINE_LINE_944_BENEFIT_NAMES = [
@@ -81,10 +81,10 @@ function buildAptAnalysisPayload(entry, insight) {
       medianOfficialPrice: Number(entry.medianOfficialPrice || 0) || null,
       avgOfficialPrice: Number(entry.avgOfficialPrice || 0) || null,
       medianOfficialPricePerPyeong: Number(entry.medianOfficialPricePerPyeong || 0) || null,
-      officialPricePerPyeongPercentile: Number.isFinite(entry.officialPricePerPyeongPercentile)
-        ? entry.officialPricePerPyeongPercentile
+      capitalOfficialPricePerPyeongPercentile: Number.isFinite(entry.capitalOfficialPricePerPyeongPercentile)
+        ? entry.capitalOfficialPricePerPyeongPercentile
         : null,
-      regionalMedianPricePerPyeong: Number(entry.regionalMedianPricePerPyeong || 0) || null,
+      capitalMedianPricePerPyeong: Number(entry.capitalMedianPricePerPyeong || 0) || null,
       recentPricePerPyeong: areaPriceSignal && !areaPriceSignal.isLowConfidence
         ? Number(areaPriceSignal.median || 0) || null
         : null,
@@ -462,6 +462,16 @@ function renderAreaPricesSectionHtml(areaPrices) {
 }
 
 function buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas }) {
+  const capitalCodeItems = (codeMap?.items || []).filter(item => item?.as1 === '서울특별시' || item?.as1 === '경기도');
+  const capitalKaptCodes = new Set(capitalCodeItems.map(item => item.kaptCode).filter(Boolean));
+  const capitalSigunguCodes = new Set(capitalCodeItems.map(item => item.sigunguCode).filter(Boolean));
+  const capitalTradePyeongPrices = [...capitalSigunguCodes]
+    .map(code => Number(trades?.sigungu?.[code]?.medianPricePerPyeong))
+    .filter(price => Number.isFinite(price) && price > 0)
+    .sort((a, b) => a - b);
+  const capitalMedianPricePerPyeong = capitalTradePyeongPrices.length
+    ? capitalTradePyeongPrices[Math.floor(capitalTradePyeongPrices.length / 2)]
+    : null;
   const householdByCode = new Map();
   const householdByKey = new Map();
   (households?.entries || []).forEach(entry => {
@@ -485,19 +495,17 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
   });
   const officialByCode = new Map();
   const officialByKey = new Map();
-  const officialPyeongPricesBySigungu = new Map();
+  const capitalOfficialPyeongPrices = [];
   (officialPrices?.entries || []).forEach(entry => {
     if (entry?.kaptCode) officialByCode.set(entry.kaptCode, entry);
     const key = buildSchoolMetaCompositeKey(entry.sigunguName, entry.umdName, entry.aptName);
     if (key) officialByKey.set(key, entry);
     const pricePerPyeong = Number(entry?.medianOfficialPricePerPyeong);
-    if (entry?.sigunguName && Number.isFinite(pricePerPyeong) && pricePerPyeong > 0) {
-      const prices = officialPyeongPricesBySigungu.get(entry.sigunguName) || [];
-      prices.push(pricePerPyeong);
-      officialPyeongPricesBySigungu.set(entry.sigunguName, prices);
+    if (capitalKaptCodes.has(entry?.kaptCode) && Number.isFinite(pricePerPyeong) && pricePerPyeong > 0) {
+      capitalOfficialPyeongPrices.push(pricePerPyeong);
     }
   });
-  officialPyeongPricesBySigungu.forEach(prices => prices.sort((a, b) => a - b));
+  capitalOfficialPyeongPrices.sort((a, b) => a - b);
   const convenienceByCode = new Map(
     Object.entries(
       typeof convenienceMetas === 'object' && convenienceMetas !== null && !Array.isArray(convenienceMetas)
@@ -559,11 +567,9 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
     const regionKey = sidoName === '서울특별시' ? 'seoul' : 'gyeonggi';
     const regionLabel = regionKey === 'seoul' ? '서울' : '경기';
     const officialPricePerPyeong = Number(officialPrice?.medianOfficialPricePerPyeong || 0) || null;
-    const peerOfficialPrices = officialPyeongPricesBySigungu.get(sigunguName) || [];
-    const officialPricePerPyeongPercentile = officialPricePerPyeong && peerOfficialPrices.length >= 5
-      ? peerOfficialPrices.filter(price => price < officialPricePerPyeong).length / (peerOfficialPrices.length - 1)
+    const capitalOfficialPricePerPyeongPercentile = officialPricePerPyeong && capitalOfficialPyeongPrices.length >= 5
+      ? capitalOfficialPyeongPrices.filter(price => price < officialPricePerPyeong).length / (capitalOfficialPyeongPrices.length - 1)
       : null;
-    const regionalTrade = trades?.sigungu?.[item.sigunguCode] || null;
     const searchTokens = [aptName, sigunguName, umdName, regionLabel, item.kaptCode].filter(Boolean).join(' ');
 
     entries.push({
@@ -586,8 +592,8 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
       avgOfficialPrice: Number(officialPrice?.avgOfficialPrice || 0) || null,
       medianOfficialPrice: Number(officialPrice?.medianOfficialPrice || 0) || null,
       medianOfficialPricePerPyeong: officialPricePerPyeong,
-      officialPricePerPyeongPercentile,
-      regionalMedianPricePerPyeong: Number(regionalTrade?.medianPricePerPyeong || 0) || null,
+      capitalOfficialPricePerPyeongPercentile,
+      capitalMedianPricePerPyeong,
       officialPriceSampleCount: Number(officialPrice?.sampleCount || 0) || null,
       subwayLine: household?.subwayLine || '',
       subwayStation: household?.subwayStation || '',

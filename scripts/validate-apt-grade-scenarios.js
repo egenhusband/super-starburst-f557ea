@@ -115,6 +115,7 @@ const scenarios = [
   ['성남단대푸르지오', 'A46170401'],
   ['하남 창우 부영', 'A46571004'],
   ['구리 인창주공6', 'A47174523'],
+  ['산성역 포레스티아', 'A10024631'],
   ['구리 대림한숲', 'A47103203'],
   ['목동 구축 소형', 'A10020839'],
   ['목동 신시가지 대단지', 'A15875103'],
@@ -124,10 +125,14 @@ const summaries = scenarios.map(([label, kaptCode]) => summarizeScenario(label, 
 const mokdongSmall = summaries.find(item => item.label === '목동 구축 소형');
 const pangyo = summaries.find(item => item.label === '판교 푸르지오그랑블');
 const inchangJugong = summaries.find(item => item.label === '구리 인창주공6');
+const forestia = summaries.find(item => item.label === '산성역 포레스티아');
 const daelimHansup = summaries.find(item => item.label === '구리 대림한숲');
 
 if (!(Number(daelimHansup?.clampedScore) > Number(inchangJugong?.clampedScore))) {
   throw new Error('대림한숲의 평당가 보정 점수가 인창주공6단지보다 높아야 합니다.');
+}
+if (!(Number(forestia?.clampedScore) > Number(daelimHansup?.clampedScore))) {
+  throw new Error('포레스티아의 입지·시장가격 종합점수가 대림한숲보다 높아야 합니다.');
 }
 
 console.log(JSON.stringify({

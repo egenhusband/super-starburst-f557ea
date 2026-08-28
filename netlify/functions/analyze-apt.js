@@ -26,10 +26,10 @@ const LOCATION_GRADE_SCALE = [
 const LOCATION_TIER_SCORES = {
   T1: { base: 12, min: 9, max: 18, label: '서울 핵심 입지' },
   T2: { base: 9, min: 9, max: 12, label: '서울 준핵심 입지' },
-  T3: { base: 6, min: 3, max: 9, label: '서울 일반·경기 핵심 생활권' },
-  T4_PLUS: { base: 3, min: 3, max: 9, label: '서울접근 우수 생활권' },
-  T4: { base: 1, min: 0, max: 6, label: '서울 외곽·경기 일반 생활권' },
-  T5: { base: 0, min: 0, max: 3, label: '경기 외곽 생활권' },
+  T3: { base: 6, min: 3, max: 12, label: '서울 일반·경기 핵심 생활권' },
+  T4_PLUS: { base: 3, min: 3, max: 10, label: '서울접근 우수 생활권' },
+  T4: { base: 1, min: 0, max: 7, label: '서울 외곽·경기 일반 생활권' },
+  T5: { base: 0, min: 0, max: 4, label: '경기 외곽 생활권' },
 };
 
 const LOCATION_TIER_TRANSPORT_CAPS = {
@@ -568,35 +568,35 @@ function computeInfraAdjustment(entry, schoolDistance) {
 
 function computeMarketPriceAdjustment(entry) {
   const recentPricePerPyeong = Number(entry?.recentPricePerPyeong);
-  const regionalMedianPricePerPyeong = Number(entry?.regionalMedianPricePerPyeong);
+  const capitalMedianPricePerPyeong = Number(entry?.capitalMedianPricePerPyeong);
   if (
     Number.isFinite(recentPricePerPyeong)
     && recentPricePerPyeong > 0
-    && Number.isFinite(regionalMedianPricePerPyeong)
-    && regionalMedianPricePerPyeong > 0
+    && Number.isFinite(capitalMedianPricePerPyeong)
+    && capitalMedianPricePerPyeong > 0
   ) {
-    const ratio = recentPricePerPyeong / regionalMedianPricePerPyeong;
-    const score = ratio >= 1.35 ? 2 : ratio >= 1.1 ? 1 : ratio <= 0.7 ? -2 : ratio <= 0.9 ? -1 : 0;
+    const ratio = recentPricePerPyeong / capitalMedianPricePerPyeong;
+    const score = ratio >= 1.5 ? 2 : ratio >= 1.1 ? 1 : ratio <= 0.5 ? -2 : ratio <= 0.8 ? -1 : 0;
     return {
       score,
       source: 'recent-trade-pyeong',
       ratio,
       label: score > 0
-        ? '동일 시군구 대비 최근 실거래 평당가가 높은 편'
+        ? '수도권 대비 최근 실거래 평당가가 높은 편'
         : score < 0
-          ? '동일 시군구 대비 최근 실거래 평당가는 낮은 편'
-          : '동일 시군구와 비슷한 실거래 평당가',
+          ? '수도권 대비 최근 실거래 평당가는 낮은 편'
+          : '수도권과 비슷한 실거래 평당가',
     };
   }
 
-  const percentile = Number(entry?.officialPricePerPyeongPercentile);
+  const percentile = Number(entry?.capitalOfficialPricePerPyeongPercentile);
   if (Number.isFinite(percentile) && percentile >= 0 && percentile <= 1) {
-    const score = percentile >= 0.9 ? 2 : percentile >= 0.7 ? 1 : percentile <= 0.1 ? -2 : percentile <= 0.3 ? -1 : 0;
+    const score = percentile >= 0.85 ? 2 : percentile >= 0.65 ? 1 : percentile <= 0.15 ? -2 : percentile <= 0.35 ? -1 : 0;
     return {
       score,
       source: 'official-pyeong-percentile',
       percentile,
-      label: '실거래가 어려워 동일 시군구 공시가격 평당가로 보완',
+      label: '실거래가 어려워 수도권 공시가격 평당가로 보완',
     };
   }
 
