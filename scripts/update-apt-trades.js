@@ -12,7 +12,7 @@ const CODE_MAP_PATH = path.join('data', 'apt-code-map.json');
 const AREA_PRICES_DIR = process.env.MOLIT_AREA_PRICES_DIR || path.join('data', 'apt-area-prices');
 const BASE_URL = 'https://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade';
 const PAGE_SIZE = 1000;
-const MONTH_WINDOW = Number(process.env.MOLIT_MONTH_WINDOW || 12);
+const MONTH_WINDOW = Number(process.env.MOLIT_MONTH_WINDOW || 24);
 const CONCURRENCY = Number(process.env.MOLIT_CONCURRENCY || 8);
 const REQUEST_DELAY_MS = Number(process.env.MOLIT_REQUEST_DELAY_MS || 0);
 const SIGUNGU_CODE_FILTER = String(process.env.MOLIT_SIGUNGU_CODES || '')
@@ -21,6 +21,7 @@ const SIGUNGU_CODE_FILTER = String(process.env.MOLIT_SIGUNGU_CODES || '')
   .filter(Boolean);
 const RECENT_DEAL_LIMIT = 12;
 const POPULAR_COMPLEX_LIMIT = 12;
+const REBUILD_COMPLEX_INDEX_ONLY = process.env.MOLIT_REBUILD_COMPLEX_INDEX_ONLY === '1';
 
 function getRecentMonths(count) {
   const now = new Date();
@@ -321,6 +322,63 @@ function getPopularComplexes(deals, limit) {
     .slice(0, limit);
 }
 
+function buildComplexTradeIndex(deals, codeMapItems) {
+  const index = {};
+  for (const complex of getPopularComplexes(deals, Number.MAX_SAFE_INTEGER)) {
+    const match = findBestCodeMapMatch(complex, codeMapItems);
+    if (!match?.kaptCode) continue;
+    index[match.kaptCode] = { kaptCode: match.kaptCode, ...complex };
+  }
+  return index;
+}
+
+async function rebuildComplexTradeIndexFromAreaFiles(root) {
+  const [summary, codeMapPayload, files] = await Promise.all([
+    fs.readFile(path.join(root, 'data', 'apt-trades-summary.json'), 'utf8').then(JSON.parse),
+    fs.readFile(path.join(root, CODE_MAP_PATH), 'utf8').then(JSON.parse),
+    fs.readdir(path.join(root, AREA_PRICES_DIR)),
+  ]);
+  const codeMapByCode = new Map((codeMapPayload?.items || []).map(item => [String(item.kaptCode), item]));
+  const complexes = {};
+
+  for (const fileName of files.filter(name => name.endsWith('.json'))) {
+    const payload = JSON.parse(await fs.readFile(path.join(root, AREA_PRICES_DIR, fileName), 'utf8'));
+    const kaptCode = String(payload.kaptCode || fileName.replace(/\.json$/, ''));
+    const codeMap = codeMapByCode.get(kaptCode) || {};
+    const areas = Object.entries(payload.byArea || {}).map(([areaLabel, area]) => ({
+      area: Number.parseInt(areaLabel, 10) || null,
+      avgPrice: Number(area.avgPrice || 0) || null,
+      tradeCount: Number(area.tradeCount || 0) || 0,
+      latestTradePrice: Number(area.latestPrice || 0) || null,
+      latestDealDate: area.latestDate || '',
+    }));
+    const latest = areas
+      .filter(area => area.latestDealDate && area.latestTradePrice)
+      .sort((a, b) => b.latestDealDate.localeCompare(a.latestDealDate))[0];
+    if (!latest) continue;
+    const totalTrades = areas.reduce((sum, area) => sum + area.tradeCount, 0);
+    const weightedPrice = areas.reduce((sum, area) => sum + (area.avgPrice || 0) * area.tradeCount, 0);
+    complexes[kaptCode] = {
+      kaptCode,
+      aptName: payload.aptName || codeMap.kaptName || '',
+      sigunguCode: codeMap.sigunguCode || '',
+      sigunguName: payload.sigunguName || codeMap.as2 || '',
+      umdName: payload.umdName || codeMap.as3 || '',
+      tradeCount: totalTrades || null,
+      avgPrice: totalTrades ? Math.round(weightedPrice / totalTrades) : null,
+      avgArea: latest.area,
+      latestDealDate: latest.latestDealDate,
+      latestTradePrice: latest.latestTradePrice,
+      latestTradeArea: latest.area,
+    };
+  }
+
+  summary.complexes = complexes;
+  summary.meta = { ...(summary.meta || {}), complexIndexGeneratedAt: new Date().toISOString(), complexCount: Object.keys(complexes).length };
+  await fs.writeFile(path.join(root, 'data', 'apt-trades-summary.json'), `${JSON.stringify(summary)}\n`, 'utf8');
+  console.log(`[complex-index] rebuilt=${Object.keys(complexes).length}`);
+}
+
 function getAreaBucket(area) {
   if (!Number.isFinite(area) || area <= 0) return null;
   return Math.floor(area);
@@ -417,6 +475,7 @@ function aggregateRecentPyeongPrice(deals) {
 async function writeAreaPriceFiles(root, allDeals, codeMapItems) {
   const outputDir = path.join(root, AREA_PRICES_DIR);
   const tempOutputDir = `${outputDir}.tmp`;
+  const existingFiles = await fs.readdir(outputDir).catch(() => []);
   await fs.rm(tempOutputDir, { recursive: true, force: true });
   await fs.mkdir(tempOutputDir, { recursive: true });
 
@@ -466,18 +525,29 @@ async function writeAreaPriceFiles(root, allDeals, codeMapItems) {
     written += 1;
   }
 
+  let preserved = 0;
+  const generatedFiles = new Set(await fs.readdir(tempOutputDir));
+  for (const fileName of existingFiles.filter(name => name.endsWith('.json'))) {
+    if (generatedFiles.has(fileName)) continue;
+    await fs.copyFile(path.join(outputDir, fileName), path.join(tempOutputDir, fileName));
+    preserved += 1;
+  }
+
   await fs.rm(outputDir, { recursive: true, force: true });
   await fs.rename(tempOutputDir, outputDir);
 
-  console.log(`[area-prices] written=${written}, skipped(no-match)=${skippedNoMatch}, skipped(insufficient)=${skippedInsufficientData}`);
+  console.log(`[area-prices] written=${written}, preserved=${preserved}, skipped(no-match)=${skippedNoMatch}, skipped(insufficient)=${skippedInsufficientData}`);
   console.log(`[area-prices] 2건 이상 평형 보유 단지: ${written} / 전체 단지: ${dealsByComplex.size}`);
   return written;
 }
 
 async function main() {
-  if (!KEY) throw new Error('MOLIT_API_KEY is required.');
-
   const root = process.cwd();
+  if (REBUILD_COMPLEX_INDEX_ONLY) {
+    await rebuildComplexTradeIndexFromAreaFiles(root);
+    return;
+  }
+  if (!KEY) throw new Error('MOLIT_API_KEY is required.');
   const sigunguPath = path.join(root, 'data', 'sigungu-codes.json');
   const codeMapPath = path.join(root, CODE_MAP_PATH);
   const [sigunguData, codeMapPayload] = await Promise.all([
@@ -490,6 +560,9 @@ async function main() {
     sigunguCodes = sigunguCodes.filter(sigungu => allow.has(String(sigungu.code)));
   }
   const codeMapItems = Array.isArray(codeMapPayload?.items) ? codeMapPayload.items : [];
+  const previousSummary = await fs.readFile(path.join(root, 'data', 'apt-trades-summary.json'), 'utf8')
+    .then(JSON.parse)
+    .catch(() => ({ complexes: {} }));
   const months = getRecentMonths(MONTH_WINDOW);
   const currentMonth = getCurrentMonthId();
   const summaryMonth = months.filter(month => month !== currentMonth).slice(-1)[0] || months[months.length - 1];
@@ -553,6 +626,11 @@ async function main() {
     };
   }
 
+  const currentComplexes = buildComplexTradeIndex(allDeals, codeMapItems);
+  const complexes = {
+    ...(previousSummary?.complexes || {}),
+    ...currentComplexes,
+  };
   const payload = {
     meta: {
       source: 'MOLIT_RTMS_APT_TRADE',
@@ -563,9 +641,12 @@ async function main() {
       sigunguCount: sigunguCodes.length,
       dealCount: allDeals.length,
       callCount,
+      complexCount: Object.keys(complexes).length,
+      retainedComplexCount: Math.max(0, Object.keys(complexes).length - Object.keys(currentComplexes).length),
     },
     sido,
     sigungu,
+    complexes,
   };
 
   const outputPath = path.join(root, 'data', 'apt-trades-summary.json');

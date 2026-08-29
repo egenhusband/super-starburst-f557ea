@@ -265,10 +265,8 @@ function computeHouseholdScore(householdCount) {
 
 function computeStationScore(distance) {
   if (!Number.isFinite(distance)) return { score: 6, label: '역 접근성 계산 중' };
-  if (distance <= 400) return { score: 25, label: '역세권 체감이 강한 거리' };
-  if (distance <= 700) return { score: 20, label: '도보 접근성이 괜찮은 편' };
-  if (distance <= 1000) return { score: 12, label: '걸어서 접근 가능하지만 체감은 갈릴 수 있음' };
-  return { score: 5, label: '역 접근은 다소 거리가 있는 편' };
+  if (distance <= 300) return { score: 25, label: '역세권 기준에 들어오는 거리' };
+  return { score: 0, label: '역세권 가점 기준 밖의 거리' };
 }
 
 function computeSchoolScore(distance) {
@@ -420,14 +418,19 @@ function refineLocationTierByAccess(entry, locationTier, stationDistance, busine
   const stationText = normalizePlaceToken(`${entry?.stationMetaName || ''} ${entry?.subwayStation || ''}`);
   const businessMinutes = Number(businessDistrictResult?.totalMinutes);
 
-  if (sigungu.includes('하남') && stationText.includes('하남검단산')) {
+  if (
+    sigungu.includes('하남')
+    && stationText.includes('하남검단산')
+    && Number.isFinite(stationDistance)
+    && stationDistance <= 300
+  ) {
     return { tier: 'T4_PLUS', label: LOCATION_TIER_SCORES.T4_PLUS.label, adjustedFrom: locationTier.tier };
   }
 
   if (
     sigungu.includes('구리')
     && Number.isFinite(stationDistance)
-    && stationDistance <= 700
+    && stationDistance <= 300
     && Number.isFinite(businessMinutes)
     && businessMinutes <= 35
   ) {
@@ -527,16 +530,14 @@ function computeBusinessDistrictScore(entry, insight, graph) {
 
 function computeTransportAdjustment(entry, stationDistance, businessDistrictResult, tier) {
   const items = [];
-  if (Number.isFinite(stationDistance)) {
-    if (stationDistance <= 400) items.push({ key: 'station', points: 2, label: '역세권 체감이 강한 거리' });
-    else if (stationDistance <= 700) items.push({ key: 'station', points: 1, label: '도보 역 접근성이 무난한 편' });
-  }
+  const isStationArea = Number.isFinite(stationDistance) && stationDistance <= 300;
+  if (isStationArea) items.push({ key: 'station', points: 2, label: '역세권 기준에 들어오는 거리' });
   if (Number.isFinite(businessDistrictResult?.totalMinutes)) {
     if (businessDistrictResult.totalMinutes <= 30) items.push({ key: 'business', points: 2, label: businessDistrictResult.label });
     else if (businessDistrictResult.totalMinutes <= 35) items.push({ key: 'business', points: 1, label: businessDistrictResult.label });
   }
   const lineText = `${entry?.subwayLine || ''} ${entry?.stationMetaName || ''} ${entry?.subwayStation || ''}`;
-  if (/신분당|GTX|8호선|9호선/u.test(lineText) || hasNineLineBenefitCandidate(entry)) {
+  if (isStationArea && (/신분당|GTX|8호선|9호선/u.test(lineText) || hasNineLineBenefitCandidate(entry))) {
     items.push({ key: 'line', points: 1, label: '핵심 노선 접근성 보정' });
   }
   const raw = items.reduce((sum, item) => sum + item.points, 0);
@@ -604,7 +605,7 @@ function computeMarketPriceAdjustment(entry) {
 }
 
 function qualifiesSeoulAccessUplift(entry, stationDistance, businessDistrictResult, schoolDistance) {
-  if (!Number.isFinite(stationDistance) || stationDistance > 700) return false;
+  if (!Number.isFinite(stationDistance) || stationDistance > 300) return false;
   if (!businessDistrictResult?.available
     || !Number.isFinite(businessDistrictResult.totalMinutes)
     || businessDistrictResult.totalMinutes > 35) return false;
@@ -739,4 +740,5 @@ exports.handler = async function(event) {
 exports._private = {
   buildDashboardSubwayGraph,
   computeAptGrade,
+  computePublicLocationScore,
 };

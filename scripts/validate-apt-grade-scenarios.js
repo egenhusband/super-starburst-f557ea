@@ -84,6 +84,7 @@ function summarizeScenario(label, kaptCode) {
     kaptCode,
     aptName: entry.aptName,
     location: [entry.sigunguName, entry.umdName].filter(Boolean).join(' '),
+    stationDistance: Number(entry.stationMetaDistance || 0) || null,
     tier: result.scoring.tier,
     tierLabel: result.scoring.tierLabel,
     baseScore: result.scoring.baseScore,
@@ -128,8 +129,13 @@ const inchangJugong = summaries.find(item => item.label === '구리 인창주공
 const forestia = summaries.find(item => item.label === '산성역 포레스티아');
 const daelimHansup = summaries.find(item => item.label === '구리 대림한숲');
 
-if (!(Number(daelimHansup?.clampedScore) > Number(inchangJugong?.clampedScore))) {
-  throw new Error('대림한숲의 평당가 보정 점수가 인창주공6단지보다 높아야 합니다.');
+const daelimStationBonus = daelimHansup?.adjustments?.transport?.items?.some(item => item.key === 'station');
+if (Number(daelimHansup?.stationDistance) > 300 && daelimStationBonus) {
+  throw new Error('300m를 초과한 대림한숲에 역세권 가점이 적용되면 안 됩니다.');
+}
+const inchangStationBonus = inchangJugong?.adjustments?.transport?.items?.some(item => item.key === 'station');
+if (Number(inchangJugong?.stationDistance) <= 300 && !inchangStationBonus) {
+  throw new Error('300m 이하인 인창주공6단지에는 역세권 가점이 적용되어야 합니다.');
 }
 if (!(Number(forestia?.clampedScore) > Number(daelimHansup?.clampedScore))) {
   throw new Error('포레스티아의 입지·시장가격 종합점수가 대림한숲보다 높아야 합니다.');

@@ -88,11 +88,11 @@ const INDEX_REGION_ID_MAP = {
 
 const MARKET_DATA_URL = '/data/market-dashboard.json';
 const APT_TRADES_DATA_URL = '/data/apt-trades-summary.json';
-const APT_TRADES_DATA_VERSION = '20260424c';
-const TOP_COMPLEX_HOUSEHOLDS_URL = '/data/apt-households.json?v=20260506b';
+const APT_TRADES_DATA_VERSION = '20260829map1';
+const TOP_COMPLEX_HOUSEHOLDS_URL = '/data/apt-households.json?v=20260829loc1';
 const TOP_COMPLEX_SCHOOL_META_URL = '/data/apt-school-meta.json?v=20260507a';
 const MARKET_CACHE_ENDPOINT = '/.netlify/functions/market-cache';
-const KAKAO_MAP_APP_KEY = 'd8d6691b19d2ac9e50014fd9ebc79367';
+const KAKAO_MAP_APP_KEY = 'be24f622f5c280adcbc8d7c2164b47dd';
 const GEO_CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
 
 let chart = null;
@@ -110,6 +110,9 @@ let marketBundlePromise = null;
 let aptTradesPromise = null;
 let selectedDealCityByRegion = {};
 let kakaoMapsSdkPromise = null;
+let dashboardApartmentMapPromise = null;
+let dashboardApartmentMapState = { map: null, clusterer: null, markers: [], overlays: [], infoWindow: null, items: [], scopeItems: null, scopeLevel: null };
+let dashboardMapRegionFilter = 'capital';
 let topComplexInsightSeq = 0;
 let regionSwapSeq = 0;
 let pendingRegionStageEnter = false;
@@ -120,7 +123,7 @@ let dealCitySwapSeq = 0;
 // ── 캐시 ─────────────────────────────────────────────
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 const APT_TRADE_CACHE_TTL = 24 * 60 * 60 * 1000;
-const APT_TRADE_CACHE_KEY = 'apt_trades_summary_v4';
+const APT_TRADE_CACHE_KEY = 'apt_trades_summary_v5';
 
 function getCache(key, ttl = CACHE_TTL) {
   try {
@@ -282,7 +285,7 @@ function loadKakaoMapsSdk() {
     }
 
     const script = document.createElement('script');
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey=${KAKAO_MAP_APP_KEY}&libraries=services`;
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey=${KAKAO_MAP_APP_KEY}&libraries=services,clusterer`;
     script.async = true;
     script.dataset.kakaoMapsSdk = '1';
     script.onload = finishLoad;
@@ -294,6 +297,292 @@ function loadKakaoMapsSdk() {
   });
 
   return kakaoMapsSdkPromise;
+}
+
+function loadDashboardApartmentMapData() {
+  if (dashboardApartmentMapPromise) return dashboardApartmentMapPromise;
+  dashboardApartmentMapPromise = (typeof loadDashboardAptSearchIndex === 'function'
+    ? loadDashboardAptSearchIndex()
+    : Promise.reject(new Error('기존 단지 검색 인덱스를 사용할 수 없어요.'))
+  ).then(searchEntries => (searchEntries || []).map(entry => ({
+    ...entry,
+    kaptCode: entry.kaptCode || entry.id,
+    areas: Array.isArray(entry.areas) && entry.areas.length
+      ? entry.areas
+      : entry.latestTradePrice ? [{
+        area: entry.avgTradeArea ? `${Math.round(entry.avgTradeArea)}㎡` : '',
+        latestPrice: entry.latestTradePrice,
+        latestDate: entry.latestDealDate || '',
+      }] : [],
+    location: Number.isFinite(Number(entry.lat)) && Number.isFinite(Number(entry.lng))
+      ? { lat: Number(entry.lat), lng: Number(entry.lng) }
+      : null,
+  })).filter(item => item.location)).catch(error => {
+    dashboardApartmentMapPromise = null;
+    throw error;
+  });
+  return dashboardApartmentMapPromise;
+}
+
+function getDashboardMapRegionKey() {
+  return dashboardMapRegionFilter;
+}
+
+function clearDashboardMapOverlays() {
+  dashboardApartmentMapState.overlays.forEach(overlay => overlay.setMap(null));
+  dashboardApartmentMapState.overlays = [];
+}
+
+function getDashboardMapScopedItems() {
+  return dashboardApartmentMapState.scopeItems || dashboardApartmentMapState.items;
+}
+
+function formatDashboardMapPrice(price) {
+  const value = Number(price);
+  if (!Number.isFinite(value) || value <= 0) return '최근 거래 없음';
+  return `${(value / 10000).toFixed(1).replace('.0', '')}억`;
+}
+
+function getDashboardMapRepresentativeArea(item) {
+  const areas = Array.isArray(item?.areas) ? item.areas : [];
+  return areas
+    .slice()
+    .sort((a, b) => String(b.latestDate || '').localeCompare(String(a.latestDate || '')))[0] || null;
+}
+
+function getDashboardMapMode(level) {
+  if (level >= 11) return 'region';
+  if (level >= 10) return 'city';
+  if (level >= 8) return 'district';
+  if (level >= 7) return 'neighborhood';
+  return 'apartment';
+}
+
+function selectDashboardMapApartmentOverlays(items, bounds, level) {
+  const visibleItems = items
+    .filter(item => bounds.contain(new window.kakao.maps.LatLng(Number(item.location.lat), Number(item.location.lng))))
+    .sort((a, b) => String(b.latestDealDate || '').localeCompare(String(a.latestDealDate || '')));
+  if (level <= 3) return visibleItems.slice(0, 140);
+
+  const southWest = bounds.getSouthWest();
+  const northEast = bounds.getNorthEast();
+  const latSpan = Math.max(0.000001, northEast.getLat() - southWest.getLat());
+  const lngSpan = Math.max(0.000001, northEast.getLng() - southWest.getLng());
+  const columns = level === 4 ? 10 : 7;
+  const rows = level === 4 ? 14 : 10;
+  const occupied = new Set();
+
+  return visibleItems
+    .filter(item => {
+      const column = Math.min(columns - 1, Math.floor(((Number(item.location.lng) - southWest.getLng()) / lngSpan) * columns));
+      const row = Math.min(rows - 1, Math.floor(((Number(item.location.lat) - southWest.getLat()) / latSpan) * rows));
+      const key = `${column}:${row}`;
+      if (occupied.has(key)) return false;
+      occupied.add(key);
+      return true;
+    });
+}
+
+function getDashboardMapAreaNames(item) {
+  const raw = String(item.sigunguName || '');
+  if (item.regionKey === 'seoul') return { city: '서울', district: raw };
+  const normalized = raw.replace(/\s+/g, '');
+  const cityBases = ['남양주', '수원', '성남', '안양', '안산', '용인', '고양', '부천', '의정부', '화성', '평택', '시흥', '김포', '광명', '군포', '하남', '오산', '이천', '파주', '구리', '과천', '의왕', '양주', '여주', '포천', '광주'];
+  const base = cityBases.find(name => normalized.startsWith(`${name}시`) || normalized.startsWith(name));
+  if (base) {
+    const consumed = normalized.startsWith(`${base}시`) ? base.length + 1 : base.length;
+    return { city: `${base}시`, district: normalized.slice(consumed) || raw };
+  }
+  return { city: raw || '경기', district: raw || '위치 확인 중' };
+}
+
+function createDashboardMapOverlay(kakao, item, mode) {
+  const position = new kakao.maps.LatLng(Number(item.lat ?? item.location?.lat), Number(item.lng ?? item.location?.lng));
+  const overlay = document.createElement('button');
+  overlay.type = 'button';
+  overlay.className = mode === 'apartment' ? 'db-map-apartment-overlay' : 'db-map-area-overlay';
+  if (mode === 'apartment') {
+    const area = getDashboardMapRepresentativeArea(item) || {};
+    overlay.innerHTML = `
+      <span class="db-map-area-overlay-top">${escapeHtml(area.area || (item.avgTradeArea ? `${Math.round(item.avgTradeArea)}㎡` : '면적 정보 없음'))}</span>
+      <strong>${escapeHtml(item.aptName || '단지명 확인 중')}</strong>
+      <span class="db-map-apartment-metrics">
+        <span class="db-map-apartment-price">${formatDashboardMapPrice(area.latestPrice)}</span>
+        ${item.grade ? `<span class="db-map-apartment-grade">${escapeHtml(item.grade)}${Number(item.displayScore) ? ` ${Number(item.displayScore)}` : ''}</span>` : ''}
+      </span>`;
+    overlay.addEventListener('click', event => {
+      event.stopPropagation();
+      dashboardApartmentMapState.map.setCenter(position);
+      dashboardApartmentMapState.map.setLevel(4);
+      openDashboardMapApartment(item);
+    });
+  } else {
+    overlay.innerHTML = `<strong>${escapeHtml(item.label)}</strong><span>단지 ${Number(item.count || 0).toLocaleString()}개</span>`;
+    overlay.addEventListener('click', event => {
+      event.stopPropagation();
+      const nextLevel = mode === 'region' ? 10 : mode === 'city' ? 8 : mode === 'district' ? 7 : 3;
+      dashboardApartmentMapState.scopeItems = item.members || null;
+      dashboardApartmentMapState.scopeLevel = nextLevel;
+      dashboardApartmentMapState.map.setCenter(new kakao.maps.LatLng(item.lat, item.lng));
+      dashboardApartmentMapState.map.setLevel(nextLevel);
+    });
+  }
+  return new kakao.maps.CustomOverlay({ position, content: overlay, yAnchor: 0.5, zIndex: mode === 'apartment' ? 2 : 1 });
+}
+
+function renderDashboardMapOverlays(items) {
+  const map = dashboardApartmentMapState.map;
+  const kakao = window.kakao;
+  if (!map || !kakao?.maps) return;
+  clearDashboardMapOverlays();
+  const mode = getDashboardMapMode(map.getLevel());
+  let overlayItems = [];
+  if (mode === 'apartment') {
+    const bounds = map.getBounds();
+    overlayItems = selectDashboardMapApartmentOverlays(items, bounds, map.getLevel())
+      .map(item => ({ ...item, lat: item.location.lat, lng: item.location.lng }));
+  } else {
+    const groupKey = mode === 'region' ? 'regionKey' : mode === 'city' ? 'mapCity' : mode === 'district' ? 'mapDistrictKey' : 'umdName';
+    const groups = new Map();
+    const mapBounds = map.getBounds();
+    const scopedItems = items.filter(item => mapBounds.contain(
+      new kakao.maps.LatLng(Number(item.location.lat), Number(item.location.lng)),
+    ));
+    scopedItems.forEach(item => {
+      const names = getDashboardMapAreaNames(item);
+      const enriched = { ...item, mapCity: names.city, mapDistrictKey: `${names.city}|${names.district}` };
+      const key = enriched[groupKey] || '위치 확인 중';
+      const group = groups.get(key) || { label: mode === 'region' ? (key === 'seoul' ? '서울' : '경기') : mode === 'city' ? names.city : mode === 'district' ? names.district : enriched.umdName || '위치 확인 중', count: 0, lat: 0, lng: 0, members: [] };
+      group.count += 1;
+      group.lat += Number(enriched.location.lat);
+      group.lng += Number(enriched.location.lng);
+      group.members.push(enriched);
+      groups.set(key, group);
+    });
+    overlayItems = [...groups.values()]
+      .sort((a, b) => b.count - a.count)
+      .slice(0, mode === 'neighborhood' ? 160 : 80)
+      .map(group => ({ ...group, lat: group.lat / group.count, lng: group.lng / group.count }));
+  }
+  dashboardApartmentMapState.overlays = overlayItems.map(item => {
+    const overlay = createDashboardMapOverlay(kakao, item, mode);
+    overlay.setMap(map);
+    return overlay;
+  });
+}
+
+function renderDashboardApartmentMap(items) {
+  const container = document.getElementById('dbApartmentMap');
+  const status = document.getElementById('dbApartmentMapStatus');
+  if (!container || !window.kakao?.maps) return;
+  const visible = items.filter(item => {
+    const regionKey = getDashboardMapRegionKey();
+    return regionKey === 'capital'
+      ? item.regionKey === 'seoul' || item.regionKey === 'gyeonggi'
+      : item.regionKey === regionKey;
+  });
+  const kakao = window.kakao;
+  const center = new kakao.maps.LatLng(37.5665, 126.9780);
+
+  if (!dashboardApartmentMapState.map) {
+    dashboardApartmentMapState.map = new kakao.maps.Map(container, { center, level: 9 });
+    kakao.maps.event.addListener(dashboardApartmentMapState.map, 'zoom_changed', () => {
+      if (dashboardApartmentMapState.scopeItems
+        && dashboardApartmentMapState.scopeLevel !== null
+        && dashboardApartmentMapState.map.getLevel() > dashboardApartmentMapState.scopeLevel) {
+        dashboardApartmentMapState.scopeItems = null;
+        dashboardApartmentMapState.scopeLevel = null;
+      }
+      renderDashboardMapOverlays(getDashboardMapScopedItems().filter(item => {
+        const regionKey = getDashboardMapRegionKey();
+        return regionKey === 'capital' ? item.regionKey === 'seoul' || item.regionKey === 'gyeonggi' : item.regionKey === regionKey;
+      }));
+    });
+    kakao.maps.event.addListener(dashboardApartmentMapState.map, 'dragend', () => {
+      dashboardApartmentMapState.scopeItems = null;
+      dashboardApartmentMapState.scopeLevel = null;
+      renderDashboardMapOverlays(getDashboardMapScopedItems().filter(item => {
+        const regionKey = getDashboardMapRegionKey();
+        return regionKey === 'capital' ? item.regionKey === 'seoul' || item.regionKey === 'gyeonggi' : item.regionKey === regionKey;
+      }));
+    });
+  }
+
+  dashboardApartmentMapState.clusterer?.clear();
+  clearDashboardMapOverlays();
+  dashboardApartmentMapState.markers.forEach(marker => marker.setMap(null));
+  dashboardApartmentMapState.markers = [];
+  const markers = visible.map(item => {
+    const position = new kakao.maps.LatLng(Number(item.location.lat), Number(item.location.lng));
+    const marker = new kakao.maps.Marker({ position, title: item.aptName });
+    kakao.maps.event.addListener(marker, 'click', () => {
+      openDashboardMapApartment(item);
+    });
+    return marker;
+  });
+  dashboardApartmentMapState.markers = markers;
+  markers.forEach(marker => marker.setMap(null));
+  if (visible.length) {
+    dashboardApartmentMapState.map.setCenter(center);
+    dashboardApartmentMapState.map.setLevel(11);
+  }
+  dashboardApartmentMapState.items = visible;
+  dashboardApartmentMapState.scopeItems = null;
+  dashboardApartmentMapState.scopeLevel = null;
+  renderDashboardMapOverlays(visible);
+  if (status) status.textContent = `${visible.length.toLocaleString()}개 단지 표시 · 마커를 눌러 정보를 확인하세요`;
+}
+
+function openDashboardMapApartment(item) {
+  const sheet = document.getElementById('dbMapSelectionSheet');
+  if (!sheet) return;
+  const area = getDashboardMapRepresentativeArea(item);
+  const price = area?.latestPrice ? `${(Number(area.latestPrice) / 10000).toFixed(1)}억` : '최근 실거래 없음';
+  const latestDate = area?.latestDate || '거래일 확인 중';
+  sheet.innerHTML = `
+    <div class="db-map-sheet-grabber" aria-hidden="true"></div>
+    <button class="db-map-sheet-close" type="button" onclick="closeDashboardMapApartment()" aria-label="단지 정보 닫기">×</button>
+    <div class="db-map-sheet-heading">
+      <div><span class="db-map-sheet-eyebrow">단지 정보</span><strong>${escapeHtml(item.aptName || '단지명 확인 중')}</strong></div>
+      <b>${escapeHtml(item.grade || '등급 미산정')}${Number(item.displayScore) ? ` <em>${Number(item.displayScore)}점</em>` : ''}</b>
+    </div>
+    <div class="db-map-sheet-meta">
+      <span>${escapeHtml([item.sigunguName, item.umdName].filter(Boolean).join(' '))}</span>
+      <span>${Number(item.householdCount || 0).toLocaleString()}세대</span>
+      <span>최근 ${price} · ${escapeHtml(latestDate)}</span>
+    </div>
+    <button class="db-map-sheet-action" type="button" onclick="openDashboardMapApartmentDetail('${escapeHtml(item.kaptCode || '')}')">입지 분석 보기 <span>→</span></button>
+  `;
+  sheet.classList.add('is-visible');
+}
+
+function closeDashboardMapApartment() {
+  document.getElementById('dbMapSelectionSheet')?.classList.remove('is-visible');
+}
+
+function openDashboardMapApartmentDetail(kaptCode) {
+  closeDashboardMapApartment();
+  if (typeof showAptSearchScreen === 'function') showAptSearchScreen({ skipFocus: true });
+  if (typeof pickDashboardApartment !== 'function') return;
+  if (typeof loadDashboardAptSearchIndex === 'function') {
+    loadDashboardAptSearchIndex().then(() => pickDashboardApartment(kaptCode)).catch(() => {});
+  } else {
+    pickDashboardApartment(kaptCode);
+  }
+}
+
+function initDashboardApartmentMap() {
+  const container = document.getElementById('dbApartmentMap');
+  if (!container) return;
+  const status = document.getElementById('dbApartmentMapStatus');
+  if (status) status.textContent = '단지 지도를 불러오는 중이에요';
+  loadKakaoMapsSdk()
+    .then(() => loadDashboardApartmentMapData())
+    .then(items => {
+      dashboardApartmentMapState.items = items;
+      renderDashboardApartmentMap(items);
+    })
+    .catch(() => { if (status) status.textContent = '지도를 불러오지 못했어요. 잠시 후 다시 시도해주세요'; });
 }
 
 function searchComplexLocation(complex) {
@@ -829,13 +1118,6 @@ function initDashboard() {
     selectedName = defaultRegion.name;
   }
 
-  const regionBtns = visibleRegions.map(r => `
-    <button class="db-region-btn${r.id === selectedClsId ? ' active' : ''}"
-      data-id="${r.id}" data-name="${r.name}"
-      onclick="selectRegion(${r.id}, '${r.name}')">
-      ${r.name}
-    </button>`).join('');
-
   screen.innerHTML = `
     <div class="db-wrap">
       <div class="db-sticky-shell">
@@ -847,7 +1129,11 @@ function initDashboard() {
           </div>
         </div>
         <div id="dbAptSearchBarMount"></div>
-        <div class="db-region-grid">${regionBtns}</div>
+      </div>
+      <div class="db-apartment-map-wrap">
+        <div id="dbApartmentMap" class="db-apartment-map" aria-label="수도권 아파트 단지 지도"></div>
+        <div id="dbApartmentMapStatus" class="db-apartment-map-status">단지 지도를 준비하고 있어요</div>
+        <div id="dbMapSelectionSheet" class="db-map-selection-sheet" aria-live="polite"></div>
       </div>
       <div class="db-placeholder" id="dbPlaceholder">
         시장 데이터를 준비하고 있어요
@@ -870,6 +1156,7 @@ function initDashboard() {
   `;
   bindDashboardStickyShell();
   if (typeof renderDashboardAptSearchSection === 'function') renderDashboardAptSearchSection();
+  initDashboardApartmentMap();
 
   if (!window.Chart) {
     const s = document.createElement('script');
@@ -896,6 +1183,7 @@ function initDashboard() {
 function selectRegion(clsId, name) {
   selectedClsId = clsId;
   selectedName  = name;
+  dashboardMapRegionFilter = name === '서울' ? 'seoul' : name === '경기' ? 'gyeonggi' : 'capital';
 
   document.querySelectorAll('.db-region-btn').forEach(btn => {
     const isActive = parseInt(btn.dataset.id) === clsId;
@@ -903,6 +1191,7 @@ function selectRegion(clsId, name) {
   });
 
   if (typeof renderDashboardAptSearchSection === 'function') renderDashboardAptSearchSection();
+  if (dashboardApartmentMapState.items.length) renderDashboardApartmentMap(dashboardApartmentMapState.items);
 
   if (hasDashboardData()) {
     const swapId = ++regionSwapSeq;
@@ -1413,17 +1702,6 @@ function renderAptTradeCards({
   return `
     <div class="db-actual-grid">
       <div class="db-actual-card db-actual-card--market db-market-state--${escapeHtml(marketState)}">
-        <div class="db-therm-head">
-          <div class="db-fact-label">지금 시장 분위기</div>
-        </div>
-        <div class="db-therm-summary">
-          <strong>${marketTone}</strong>
-          <span>${selectedName} · 부동산원 월간주택가격동향${marketMonth ? ` · ${marketMonth}` : ''}</span>
-        </div>
-        <div class="db-summary-report db-summary-report--hero">
-          <div class="db-fact-label">쉽게 보는 해석</div>
-          <p class="db-summary-report-conclusion db-summary-report-conclusion--hero">${renderStreamingWords(summaryReport, 'db-summary-report-stream', 40)}</p>
-        </div>
         <div class="db-actual-data-head">최근 실제 거래 흐름 · ${formatTradeMonth(latestTradeMonth) || latestTradeMonth}</div>
         <div class="db-actual-main">
           <div class="db-actual-chip">

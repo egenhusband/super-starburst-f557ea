@@ -1,13 +1,14 @@
 const DASHBOARD_APT_AREA_PRICES_BASE_URL = '/data/apt-area-prices';
 const DASHBOARD_APT_CODE_MAP_URL = '/data/apt-code-map.json?v=20260506b';
-const DASHBOARD_APT_HOUSEHOLDS_URL = '/data/apt-households.json?v=20260506b';
+const DASHBOARD_APT_HOUSEHOLDS_URL = '/data/apt-households.json?v=20260829loc1';
 const DASHBOARD_APT_SCHOOL_META_URL = '/data/apt-school-meta.json?v=20260507a';
 const DASHBOARD_APT_STATION_META_URL = '/data/apt-station-meta.json?v=20260518a';
 const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260517a';
 const DASHBOARD_APT_CONVENIENCE_META_URL = '/data/apt-convenience-meta.json?v=20260518a';
+const DASHBOARD_APT_RECOMMEND_INDEX_URL = '/data/apt-recommend-index.json?v=20260829b';
 const DASHBOARD_APT_ANALYZE_URL = '/api/analyze-apt';
-const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v12';
-const DASHBOARD_APT_SEARCH_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
+const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v20';
+const DASHBOARD_APT_SEARCH_CACHE_TTL = 6 * 60 * 60 * 1000;
 
 const NINE_LINE_944_BENEFIT_NAMES = [
   '미사강변리슈빌nhf',
@@ -359,6 +360,31 @@ function formatGradeClassName(grade) {
   return normalized || 'pending';
 }
 
+function getDashboardAptPublicScore(grade, clampedScore, displayScore) {
+  const readyScore = Number(displayScore);
+  if (Number.isFinite(readyScore) && readyScore > 0) return Math.round(readyScore);
+
+  const gradeBands = {
+    C: [50, 58],
+    'C+': [59, 63],
+    B: [64, 69],
+    'B+': [70, 74],
+    A: [75, 82],
+    'A+': [83, 89],
+    S: [90, 95],
+    'S+': [96, 99],
+  };
+  const gradeFloors = { C: 0, 'C+': 1, B: 3, 'B+': 6, A: 9, 'A+': 12, S: 15, 'S+': 18 };
+  const nextFloors = { C: 1, 'C+': 3, B: 6, 'B+': 9, A: 12, 'A+': 15, S: 18, 'S+': 18 };
+  const band = gradeBands[grade];
+  const score = Number(clampedScore);
+  if (!band || !Number.isFinite(score)) return null;
+  const floor = gradeFloors[grade];
+  const nextFloor = nextFloors[grade];
+  const progress = nextFloor === floor ? 1 : Math.max(0, Math.min(1, (score - floor) / (nextFloor - floor)));
+  return Math.round(band[0] + ((band[1] - band[0]) * progress));
+}
+
 function renderBusinessDistrictSummaryHtml(result) {
   return formatBusinessDistrictSummary(result)
     .map(line => `<strong>${escapeHtml(line)}</strong>`)
@@ -461,7 +487,7 @@ function renderAreaPricesSectionHtml(areaPrices) {
   `;
 }
 
-function buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas }) {
+function buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas, recommendations }) {
   const capitalCodeItems = (codeMap?.items || []).filter(item => item?.as1 === '서울특별시' || item?.as1 === '경기도');
   const capitalKaptCodes = new Set(capitalCodeItems.map(item => item.kaptCode).filter(Boolean));
   const capitalSigunguCodes = new Set(capitalCodeItems.map(item => item.sigunguCode).filter(Boolean));
@@ -513,8 +539,14 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
         : {},
     ),
   );
+  const recommendationByCode = new Map(
+    (recommendations?.items || [])
+      .filter(entry => entry?.kaptCode)
+      .map(entry => [String(entry.kaptCode), entry]),
+  );
 
   const tradeByKey = new Map();
+  const tradeByCode = new Map();
   const applyTrade = (payload) => {
     if (!payload?.aptName || !payload?.sigunguName) return;
     const key = buildDashboardAptCompositeKey(payload.sigunguName, payload.umdName, payload.aptName);
@@ -524,7 +556,7 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
     const priceCandidate = Number(payload.latestTradePrice || payload.price || 0) || prev.latestTradePrice || null;
     const dealDateCandidate = payload.latestDealDate || payload.dealDate || prev.latestDealDate || '';
 
-    tradeByKey.set(key, {
+    const normalizedTrade = {
       latestTradePrice: priceCandidate,
       latestDealDate: dealDateCandidate,
       medianPrice: Number(payload.medianPrice || 0) || prev.medianPrice || null,
@@ -532,7 +564,9 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
       avgArea: Number(payload.avgArea || payload.area || 0) || prev.avgArea || null,
       tradeCount: Number(payload.tradeCount || 0) || prev.tradeCount || null,
       buildYear: Number(payload.buildYear || 0) || prev.buildYear || null,
-    });
+    };
+    tradeByKey.set(key, normalizedTrade);
+    if (payload.kaptCode) tradeByCode.set(String(payload.kaptCode), normalizedTrade);
   };
 
   Object.values(trades?.sigungu || {}).forEach(region => {
@@ -540,6 +574,7 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
     (region?.recentDeals || []).forEach(applyTrade);
     (region?.cityScopes || []).forEach(scope => (scope?.popularComplexes || []).forEach(applyTrade));
   });
+  Object.values(trades?.complexes || {}).forEach(applyTrade);
 
   const entries = [];
   const seenIds = new Set();
@@ -558,7 +593,12 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
     const stationMeta = stationByCode.get(item.kaptCode) || stationByKey.get(compositeKey) || null;
     const officialPrice = officialByCode.get(item.kaptCode) || officialByKey.get(compositeKey) || null;
     const convenience = convenienceByCode.get(item.kaptCode) || null;
-    const trade = tradeByKey.get(compositeKey) || null;
+    const recommendation = recommendationByCode.get(String(item.kaptCode)) || null;
+    const trade = tradeByCode.get(String(item.kaptCode)) || tradeByKey.get(compositeKey) || null;
+    const recommendationAreas = Array.isArray(recommendation?.areas) ? recommendation.areas : [];
+    const recommendationLatestArea = recommendationAreas
+      .slice()
+      .sort((a, b) => String(b.latestDate || '').localeCompare(String(a.latestDate || '')))[0] || null;
     const id = item.kaptCode || compositeKey;
     if (!id || seenIds.has(id)) return;
     seenIds.add(id);
@@ -582,11 +622,12 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
       regionLabel,
       householdCount: Number(household?.householdCount || 0) || null,
       buildYear,
-      latestTradePrice: Number(trade?.latestTradePrice || 0) || null,
-      avgPrice: Number(trade?.avgPrice || 0) || null,
-      latestDealDate: trade?.latestDealDate || '',
+      latestTradePrice: Number(trade?.latestTradePrice || recommendationLatestArea?.latestPrice || 0) || null,
+      avgPrice: Number(trade?.avgPrice || recommendationLatestArea?.avgPrice || 0) || null,
+      latestDealDate: trade?.latestDealDate || recommendationLatestArea?.latestDate || '',
       tradeCount: Number(trade?.tradeCount || 0) || null,
-      avgTradeArea: Number(trade?.avgArea || 0) || null,
+      avgTradeArea: Number(trade?.avgArea || parseFloat(recommendationLatestArea?.area) || 0) || null,
+      areas: recommendationAreas,
       minOfficialPrice: Number(officialPrice?.minOfficialPrice || 0) || null,
       maxOfficialPrice: Number(officialPrice?.maxOfficialPrice || 0) || null,
       avgOfficialPrice: Number(officialPrice?.avgOfficialPrice || 0) || null,
@@ -602,6 +643,14 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
       stationMetaDistance: Number(stationMeta?.stationDistance || 0) || null,
       busDistance: household?.busDistance || '',
       doroJuso: household?.doroJuso || '',
+      lat: Number(household?.lat || 0) || null,
+      lng: Number(household?.lng || 0) || null,
+      grade: recommendation?.grade || '',
+      displayScore: getDashboardAptPublicScore(
+        recommendation?.grade,
+        recommendation?.clampedScore,
+        recommendation?.displayScore,
+      ),
       schoolName: school?.schoolName || '',
       schoolDistance: Number(school?.schoolDistance || 0) || null,
       convenienceHospital: convenience?.hospital || null,
@@ -621,11 +670,12 @@ async function fetchDashboardAptSearchIndex() {
   const cached = getCache(DASHBOARD_APT_SEARCH_CACHE_KEY, DASHBOARD_APT_SEARCH_CACHE_TTL);
   if (cached?.entries?.length) return cached.entries;
 
-  const [schoolMetaRes, stationMetaRes, officialPriceRes, convenienceMetaRes, codeMapRes, householdsRes, trades] = await Promise.all([
+  const [schoolMetaRes, stationMetaRes, officialPriceRes, convenienceMetaRes, recommendationRes, codeMapRes, householdsRes, trades] = await Promise.all([
     fetch(DASHBOARD_APT_SCHOOL_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_STATION_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_OFFICIAL_PRICE_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_CONVENIENCE_META_URL, { cache: 'no-store' }).catch(() => null),
+    fetch(DASHBOARD_APT_RECOMMEND_INDEX_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_CODE_MAP_URL, { cache: 'no-store' }),
     fetch(DASHBOARD_APT_HOUSEHOLDS_URL, { cache: 'no-store' }),
     preloadAptTrades(),
@@ -634,15 +684,16 @@ async function fetchDashboardAptSearchIndex() {
   if (!codeMapRes.ok) throw new Error('단지 목록을 불러오지 못했어요.');
   if (!householdsRes.ok) throw new Error('단지 기본정보를 불러오지 못했어요.');
 
-  const [codeMap, households, schools, stationMetas, officialPrices, convenienceMetas] = await Promise.all([
+  const [codeMap, households, schools, stationMetas, officialPrices, convenienceMetas, recommendations] = await Promise.all([
     codeMapRes.json(),
     householdsRes.json(),
     schoolMetaRes?.ok ? schoolMetaRes.json() : Promise.resolve({ entries: [] }),
     stationMetaRes?.ok ? stationMetaRes.json() : Promise.resolve({ entries: [] }),
     officialPriceRes?.ok ? officialPriceRes.json() : Promise.resolve({ entries: [] }),
     convenienceMetaRes?.ok ? convenienceMetaRes.json().catch(() => ({})) : Promise.resolve({}),
+    recommendationRes?.ok ? recommendationRes.json().catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
   ]);
-  const entries = buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas });
+  const entries = buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas, recommendations });
   setCache(DASHBOARD_APT_SEARCH_CACHE_KEY, { entries });
   return entries;
 }
@@ -1651,7 +1702,17 @@ function pickDashboardApartment(id) {
 
 function returnToDashboardAptResults() {
   const query = dashboardAptSearchState.lastSearchQuery.trim();
-  if (!query) return;
+  if (!query) {
+    dashboardAptSearchState.selectedId = '';
+    dashboardAptSearchState.selectedInsight = null;
+    dashboardAptSearchState.query = '';
+    dashboardAptSearchState.results = [];
+    dashboardAptSearchState.isEditing = false;
+    dashboardAptSearchState.aptAnalysisPaywallPromptedKey = '';
+    syncDashboardAptSearchUi();
+    if (typeof showDashboard === 'function') showDashboard();
+    return;
+  }
 
   dashboardAptSearchState.query = query;
   dashboardAptSearchState.isEditing = true;

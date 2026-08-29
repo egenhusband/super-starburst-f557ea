@@ -27,6 +27,7 @@ jobs:
         run: node scripts/update-apt-trades.js
         env:
           MOLIT_API_KEY: ${{ secrets.MOLIT_API_KEY }}
+          MOLIT_MONTH_WINDOW: '24'
 
       - name: Generate apartment recommendation index JSON
         run: node scripts/update-apt-recommend-index.js

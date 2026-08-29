@@ -15,6 +15,7 @@ const SIGUNGU_FILTER = String(process.env.APT_STATION_SIGUNGU || '').trim();
 const START_INDEX = Math.max(0, Number(process.env.APT_STATION_START_INDEX || 0));
 const LIMIT = Math.max(0, Number(process.env.APT_STATION_LIMIT || 0));
 const REQUEST_DELAY_MS = Math.max(0, Number(process.env.APT_STATION_DELAY_MS || 160));
+const CONCURRENCY = Math.max(1, Number(process.env.APT_STATION_CONCURRENCY || 4));
 const LOG_EVERY = Math.max(1, Number(process.env.APT_STATION_LOG_EVERY || 100));
 const REFRESH_EXISTING = process.env.APT_STATION_REFRESH_EXISTING === '1';
 const PLACE_SEARCH_URL = 'https://dapi.kakao.com/v2/local/search/keyword.json';
@@ -209,6 +210,8 @@ async function main() {
       sigunguName: item.as2,
       umdName: item.umdName || [item.as3, item.as4].filter(Boolean).join(' ').trim(),
       doroJuso: String(householdByKaptCode.get(String(item.kaptCode))?.doroJuso || '').trim(),
+      lat: Number(householdByKaptCode.get(String(item.kaptCode))?.lat),
+      lng: Number(householdByKaptCode.get(String(item.kaptCode))?.lng),
     }))
     .filter(target => !SIGUNGU_FILTER || target.sigunguName === SIGUNGU_FILTER);
 
@@ -223,56 +226,73 @@ async function main() {
   let processed = 0;
   let saved = 0;
   let skipped = 0;
+  let cursor = 0;
 
-  for (const target of scopedTargets) {
-    processed += 1;
+  async function processNextTarget() {
+    const targetIndex = cursor;
+    cursor += 1;
+    if (targetIndex >= scopedTargets.length) return false;
+    const target = scopedTargets[targetIndex];
     const existing = existingByKaptCode.get(String(target.kaptCode));
     if (!REFRESH_EXISTING && hasStationFields(existing)) {
       skipped += 1;
-      continue;
+    } else {
+      try {
+        let place = Number.isFinite(target.lat) && Number.isFinite(target.lng)
+          ? { x: target.lng, y: target.lat }
+          : null;
+
+        if (!place) {
+          const placeQuery = [target.sigunguName, target.umdName, target.aptName].filter(Boolean).join(' ');
+          const placePayload = await fetchKakaoJson(buildPlaceSearchUrl(placeQuery));
+          place = pickBestPlace(target, Array.isArray(placePayload?.documents) ? placePayload.documents : []);
+        }
+
+        if (!place && target.doroJuso) {
+          const addressPayload = await fetchKakaoJson(buildAddressSearchUrl(target.doroJuso));
+          place = normalizeAddressResult(addressPayload?.documents?.[0]);
+        }
+
+        if (!place) {
+          skipped += 1;
+        } else {
+          const stationPayload = await fetchKakaoJson(buildStationSearchUrl(place.x, place.y));
+          const station = Array.isArray(stationPayload?.documents) ? stationPayload.documents[0] : null;
+          if (!station) {
+            skipped += 1;
+          } else {
+            const normalized = normalizeStationEntry(target, place, station);
+            const existingIndex = indexByKaptCode.get(String(target.kaptCode));
+            if (Number.isInteger(existingIndex)) entries[existingIndex] = normalized;
+            else {
+              indexByKaptCode.set(String(target.kaptCode), entries.length);
+              entries.push(normalized);
+            }
+            existingByKaptCode.set(String(target.kaptCode), normalized);
+            saved += 1;
+          }
+        }
+      } catch (error) {
+        skipped += 1;
+        console.warn(`[apt-station-meta] skip ${target.sigunguName} ${target.umdName} ${target.aptName}: ${error.message}`);
+      }
     }
 
-    try {
-      const placeQuery = [target.sigunguName, target.umdName, target.aptName].filter(Boolean).join(' ');
-      const placePayload = await fetchKakaoJson(buildPlaceSearchUrl(placeQuery));
-      let place = pickBestPlace(target, Array.isArray(placePayload?.documents) ? placePayload.documents : []);
-
-      if (!place && target.doroJuso) {
-        const addressPayload = await fetchKakaoJson(buildAddressSearchUrl(target.doroJuso));
-        place = normalizeAddressResult(addressPayload?.documents?.[0]);
-      }
-
-      if (!place) {
-        skipped += 1;
-        continue;
-      }
-
-      const stationPayload = await fetchKakaoJson(buildStationSearchUrl(place.x, place.y));
-      const station = Array.isArray(stationPayload?.documents) ? stationPayload.documents[0] : null;
-      if (!station) {
-        skipped += 1;
-        continue;
-      }
-
-      const normalized = normalizeStationEntry(target, place, station);
-      const existingIndex = indexByKaptCode.get(String(target.kaptCode));
-      if (Number.isInteger(existingIndex)) entries[existingIndex] = normalized;
-      else {
-        indexByKaptCode.set(String(target.kaptCode), entries.length);
-        entries.push(normalized);
-      }
-      existingByKaptCode.set(String(target.kaptCode), normalized);
-      saved += 1;
-    } catch (error) {
-      skipped += 1;
-      console.warn(`[apt-station-meta] skip ${target.sigunguName} ${target.umdName} ${target.aptName}: ${error.message}`);
-    }
-
+    processed += 1;
     if (processed % LOG_EVERY === 0) {
       console.log(`[apt-station-meta] processed=${processed}/${scopedTargets.length} saved=${saved} skipped=${skipped} scope=${SCOPE}${SIGUNGU_FILTER ? ` sigungu=${SIGUNGU_FILTER}` : ''}`);
     }
     await sleep(REQUEST_DELAY_MS);
+    return true;
   }
+
+  async function worker() {
+    while (await processNextTarget()) {
+      // Continue until the shared cursor reaches the end.
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, scopedTargets.length) }, () => worker()));
 
   entries.sort((a, b) => String(a.kaptCode || '').localeCompare(String(b.kaptCode || ''), 'ko'));
   await writePayload({
