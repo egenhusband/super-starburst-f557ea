@@ -54,6 +54,9 @@ const payload = {
   stationMetas: readJson('data/apt-station-meta.json'),
   officialPrices: readJson('data/apt-official-price-meta.json'),
   convenienceMetas: readJson('data/apt-convenience-meta.json'),
+  gradeIndex: fs.existsSync(path.join(root, 'data/apt-grade-index.json'))
+    ? readJson('data/apt-grade-index.json')
+    : { items: [] },
   trades: readJson('data/apt-trades-summary.json'),
   subway: readJson('data/subway-seoul-times.json'),
 };
@@ -62,6 +65,7 @@ const dashboardSubwayGraph = buildDashboardSubwayGraph(payload.subway);
 
 const entries = sandbox.buildDashboardSearchIndex(payload);
 const entriesByCode = new Map(entries.map(entry => [String(entry.kaptCode), entry]));
+const gradesByCode = new Map((payload.gradeIndex.items || []).map(item => [String(item.kaptCode), item]));
 
 function buildInsight(entry) {
   return {
@@ -79,6 +83,12 @@ function summarizeScenario(label, kaptCode) {
   const entry = entriesByCode.get(String(kaptCode));
   if (!entry) return { label, kaptCode, error: 'entry not found' };
   const result = computeAptGrade(entry, buildInsight(entry), dashboardSubwayGraph);
+  const staticGrade = gradesByCode.get(String(kaptCode));
+  const hasMapLocation = Number.isFinite(Number(entry.lat)) && Number.isFinite(Number(entry.lng));
+  if (hasMapLocation && !staticGrade) throw new Error(`${label}: 지도/상세 공통 등급 레코드가 없습니다.`);
+  if (staticGrade && (entry.grade !== staticGrade.grade || Number(entry.displayScore) !== Number(staticGrade.displayScore))) {
+    throw new Error(`${label}: 지도 입력값이 공통 등급 레코드와 다릅니다.`);
+  }
   return {
     label,
     kaptCode,
@@ -107,6 +117,10 @@ function summarizeScenario(label, kaptCode) {
     rawScore: result.scoring.rawScore,
     clampedScore: result.scoring.clampedScore,
     finalGrade: result.grade,
+    canonicalMapAndDetailGrade: staticGrade ? {
+      grade: staticGrade.grade,
+      displayScore: staticGrade.displayScore,
+    } : null,
   };
 }
 
@@ -130,15 +144,24 @@ const forestia = summaries.find(item => item.label === '산성역 포레스티�
 const daelimHansup = summaries.find(item => item.label === '구리 대림한숲');
 
 const daelimStationBonus = daelimHansup?.adjustments?.transport?.items?.some(item => item.key === 'station');
-if (Number(daelimHansup?.stationDistance) > 300 && daelimStationBonus) {
-  throw new Error('300m를 초과한 대림한숲에 역세권 가점이 적용되면 안 됩니다.');
+if (Number(daelimHansup?.stationDistance) > 350 || !daelimStationBonus) {
+  throw new Error('350m 이하인 대림한숲에는 역세권 가점이 적용되어야 합니다.');
 }
 const inchangStationBonus = inchangJugong?.adjustments?.transport?.items?.some(item => item.key === 'station');
-if (Number(inchangJugong?.stationDistance) <= 300 && !inchangStationBonus) {
-  throw new Error('300m 이하인 인창주공6단지에는 역세권 가점이 적용되어야 합니다.');
+if (Number(inchangJugong?.stationDistance) <= 350 && !inchangStationBonus) {
+  throw new Error('350m 이하인 인창주공6단지에는 역세권 가점이 적용되어야 합니다.');
 }
 if (!(Number(forestia?.clampedScore) > Number(daelimHansup?.clampedScore))) {
   throw new Error('포레스티아의 입지·시장가격 종합점수가 대림한숲보다 높아야 합니다.');
+}
+if (pangyo?.tier !== 'T2') {
+  throw new Error('판교 핵심 생활권 보정이 T2로 적용되어야 합니다.');
+}
+if (daelimHansup?.tier !== 'T4') {
+  throw new Error('구리 수택 생활권 기본 티어가 T4로 유지되어야 합니다.');
+}
+if (daelimHansup?.finalGrade !== 'B+' || inchangJugong?.finalGrade !== 'B') {
+  throw new Error('구리 잠실 접근성 보정 결과가 대림한숲 B+, 인창주공6 B여야 합니다.');
 }
 
 console.log(JSON.stringify({

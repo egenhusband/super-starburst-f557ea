@@ -11,6 +11,8 @@ const CORE_BUSINESS_DISTRICTS = [
   { key: 'seongsu', label: '성수', shortLabel: '성수', stationNames: ['성수역', '뚝섬역'] },
   { key: 'pangyo', label: '판교테크노밸리', shortLabel: '판교', stationNames: ['판교역'] },
 ];
+const JAMSIL_LIVING_DISTRICT = { key: 'jamsil', label: '잠실', stationNames: ['잠실역'] };
+const STATION_AREA_MAX_DISTANCE = 350;
 
 const LOCATION_GRADE_SCALE = [
   { grade: 'C', min: 0 },
@@ -60,6 +62,7 @@ const NINE_LINE_944_BENEFIT_NAMES = [
 const NINE_LINE_944_BENEFIT_CODES = new Set(['A10026523', 'A10028065']);
 
 let subwayGraphCache = null;
+let locationTierOverridesCache = null;
 
 function resolveDataFile(relativePath) {
   const candidates = [
@@ -93,6 +96,41 @@ function normalizePlaceToken(value) {
     .toLowerCase()
     .replace(/\s+/g, '')
     .replace(/[()[\]{}.,·\-_/]/g, '');
+}
+
+function loadLocationTierOverrides() {
+  if (locationTierOverridesCache) return locationTierOverridesCache;
+  try {
+    const payload = JSON.parse(fs.readFileSync(resolveDataFile('data/location-tier-overrides.json'), 'utf8'));
+    locationTierOverridesCache = Array.isArray(payload?.overrides) ? payload.overrides : [];
+  } catch (_) {
+    locationTierOverridesCache = [];
+  }
+  return locationTierOverridesCache;
+}
+
+function matchesPlaceToken(value, candidates) {
+  const normalizeAdministrativeName = input => normalizePlaceToken(input)
+    // 원본에는 '성남분당구'처럼 시가 생략된 행정명이 있어, 구 앞의 '시'만 선택적으로 무시한다.
+    .replace(/시(?=[가-힣]*구$|$)/gu, '');
+  const normalized = normalizeAdministrativeName(value);
+  return (candidates || []).some(candidate => normalized.includes(normalizeAdministrativeName(candidate)));
+}
+
+function applyLivingZoneTierOverride(entry, baseTier) {
+  const sigungu = entry?.sigunguName || '';
+  const umd = entry?.umdName || '';
+  const override = loadLocationTierOverrides().find(item => (
+    matchesPlaceToken(sigungu, item.sigungu)
+    && (!Array.isArray(item.umd) || item.umd.length === 0 || matchesPlaceToken(umd, item.umd))
+  ));
+  if (!override || !LOCATION_TIER_SCORES[override.targetTier]) return baseTier;
+  return {
+    tier: override.targetTier,
+    label: override.label || LOCATION_TIER_SCORES[override.targetTier].label,
+    overriddenFrom: baseTier.tier,
+    overrideId: override.id,
+  };
 }
 
 function normalizeStationToken(value) {
@@ -265,7 +303,7 @@ function computeHouseholdScore(householdCount) {
 
 function computeStationScore(distance) {
   if (!Number.isFinite(distance)) return { score: 6, label: '역 접근성 계산 중' };
-  if (distance <= 300) return { score: 25, label: '역세권 기준에 들어오는 거리' };
+  if (distance <= STATION_AREA_MAX_DISTANCE) return { score: 25, label: '역세권 기준에 들어오는 거리' };
   return { score: 0, label: '역세권 가점 기준 밖의 거리' };
 }
 
@@ -413,28 +451,17 @@ function getLocationTier(entry) {
   return { tier: 'T5', label: LOCATION_TIER_SCORES.T5.label };
 }
 
-function refineLocationTierByAccess(entry, locationTier, stationDistance, businessDistrictResult) {
+function refineLocationTierByAccess(entry, locationTier, stationDistance) {
   const sigungu = normalizePlaceToken(entry?.sigunguName || '');
   const stationText = normalizePlaceToken(`${entry?.stationMetaName || ''} ${entry?.subwayStation || ''}`);
-  const businessMinutes = Number(businessDistrictResult?.totalMinutes);
 
   if (
     sigungu.includes('하남')
     && stationText.includes('하남검단산')
     && Number.isFinite(stationDistance)
-    && stationDistance <= 300
+    && stationDistance <= STATION_AREA_MAX_DISTANCE
   ) {
     return { tier: 'T4_PLUS', label: LOCATION_TIER_SCORES.T4_PLUS.label, adjustedFrom: locationTier.tier };
-  }
-
-  if (
-    sigungu.includes('구리')
-    && Number.isFinite(stationDistance)
-    && stationDistance <= 300
-    && Number.isFinite(businessMinutes)
-    && businessMinutes <= 35
-  ) {
-    return { tier: 'T4_PLUS', label: LOCATION_TIER_SCORES.T4_PLUS.label, upliftFrom: locationTier.tier };
   }
 
   return locationTier;
@@ -528,16 +555,49 @@ function computeBusinessDistrictScore(entry, insight, graph) {
   };
 }
 
-function computeTransportAdjustment(entry, stationDistance, businessDistrictResult, tier) {
+// 잠실은 전 단지의 업무지구 점수에는 포함하지 않고, 구리 생활권 비교에만 사용한다.
+function computeJamsilLivingAccess(entry, insight, graph) {
+  if (!graph) return { available: false, label: '잠실 접근 시간 데이터 준비 중', totalMinutes: null };
+  const stationTokens = [
+    ...parseStationNameCandidates(insight?.station?.placeName),
+    ...parseStationNameCandidates(entry?.subwayStation),
+  ].map(normalizeStationToken).filter(Boolean);
+  if (!stationTokens.length) return { available: false, label: '가까운 역 정보를 먼저 확인하고 있어요.', totalMinutes: null };
+
+  const walkMinutes = estimateWalkMinutesToStation(entry, insight);
+  const lineTokens = new Set(parseLineNameCandidates(entry?.subwayLine).map(normalizeLineToken).filter(Boolean));
+  const shouldRestrictLineMatch = lineTokens.size > 0 && hasSubwayGraphStationMatch(graph, entry?.subwayStation);
+  const originIds = [];
+  stationTokens.forEach(token => {
+    (graph.nameToStationIds.get(token) || []).forEach(stationId => {
+      const station = graph.stationMap.get(stationId);
+      if (!shouldRestrictLineMatch || lineTokens.has(normalizeLineToken(station?.lineName))) originIds.push(stationId);
+    });
+  });
+  const targetIds = JAMSIL_LIVING_DISTRICT.stationNames.flatMap(name => (
+    graph.nameToStationIds.get(normalizeStationToken(name)) || []
+  ));
+  const pathResult = findShortestGraphMinutes(graph, [...new Set(originIds)], targetIds);
+  if (!pathResult) return { available: false, label: '잠실 접근 시간 데이터 준비 중', totalMinutes: null };
+  const totalMinutes = Math.max(1, Math.round(pathResult.minutes + (Number.isFinite(walkMinutes) ? walkMinutes : 0)));
+  return { available: true, label: `잠실 대표역까지 예상 ${totalMinutes}분`, totalMinutes };
+}
+
+function computeTransportAdjustment(entry, stationDistance, businessDistrictResult, tier, jamsilLivingAccess = null) {
   const items = [];
-  const isStationArea = Number.isFinite(stationDistance) && stationDistance <= 300;
+  const isStationArea = Number.isFinite(stationDistance) && stationDistance <= STATION_AREA_MAX_DISTANCE;
   if (isStationArea) items.push({ key: 'station', points: 2, label: '역세권 기준에 들어오는 거리' });
-  if (Number.isFinite(businessDistrictResult?.totalMinutes)) {
-    if (businessDistrictResult.totalMinutes <= 30) items.push({ key: 'business', points: 2, label: businessDistrictResult.label });
-    else if (businessDistrictResult.totalMinutes <= 35) items.push({ key: 'business', points: 1, label: businessDistrictResult.label });
+  const isGuri = normalizePlaceToken(entry?.sigunguName || '').includes('구리');
+  const access = isGuri ? jamsilLivingAccess : businessDistrictResult;
+  if (Number.isFinite(access?.totalMinutes)) {
+    const key = isGuri ? 'jamsil' : 'business';
+    if (access.totalMinutes <= 30) items.push({ key, points: 2, label: access.label });
+    else if (!isGuri && access.totalMinutes <= 35) items.push({ key, points: 1, label: access.label });
   }
   const lineText = `${entry?.subwayLine || ''} ${entry?.stationMetaName || ''} ${entry?.subwayStation || ''}`;
-  if (isStationArea && (/신분당|GTX|8호선|9호선/u.test(lineText) || hasNineLineBenefitCandidate(entry))) {
+  // 350m까지는 역세권 기본 가점만 적용하고, 핵심 노선 추가 보정은 300m 이내에서만 준다.
+  const isCoreStationArea = Number.isFinite(stationDistance) && stationDistance <= 300;
+  if (isCoreStationArea && (/신분당|GTX|8호선|9호선/u.test(lineText) || hasNineLineBenefitCandidate(entry))) {
     items.push({ key: 'line', points: 1, label: '핵심 노선 접근성 보정' });
   }
   const raw = items.reduce((sum, item) => sum + item.points, 0);
@@ -605,7 +665,8 @@ function computeMarketPriceAdjustment(entry) {
 }
 
 function qualifiesSeoulAccessUplift(entry, stationDistance, businessDistrictResult, schoolDistance) {
-  if (!Number.isFinite(stationDistance) || stationDistance > 300) return false;
+  if (normalizePlaceToken(entry?.sigunguName || '').includes('구리')) return false;
+  if (!Number.isFinite(stationDistance) || stationDistance > STATION_AREA_MAX_DISTANCE) return false;
   if (!businessDistrictResult?.available
     || !Number.isFinite(businessDistrictResult.totalMinutes)
     || businessDistrictResult.totalMinutes > 35) return false;
@@ -621,6 +682,9 @@ function qualifiesSeoulAccessUplift(entry, stationDistance, businessDistrictResu
 
 function computeAptGrade(entry, insight, graph) {
   const businessDistrictResult = computeBusinessDistrictScore(entry, insight, graph);
+  const jamsilLivingAccess = normalizePlaceToken(entry?.sigunguName || '').includes('구리')
+    ? computeJamsilLivingAccess(entry, insight, graph)
+    : null;
   const stationDistance = Number.isFinite(insight?.station?.distance)
     ? Number(insight.station.distance)
     : parseTransitWalkDistance(entry?.subwayDistance);
@@ -630,12 +694,23 @@ function computeAptGrade(entry, insight, graph) {
   const priceLevelSource = getPriceLevelSource(entry);
   const priceLevelResult = computePriceLevelScore(entry);
   const hasOfficialFallback = priceLevelSource === 'official-fallback';
-  let locationTier = refineLocationTierByAccess(entry, getLocationTier(entry), stationDistance, businessDistrictResult);
+  const baseLocationTier = getLocationTier(entry);
+  let locationTier = refineLocationTierByAccess(
+    entry,
+    applyLivingZoneTierOverride(entry, baseLocationTier),
+    stationDistance,
+  );
   if (locationTier.tier === 'T4' && qualifiesSeoulAccessUplift(entry, stationDistance, businessDistrictResult, schoolDistance)) {
     locationTier = { tier: 'T4_PLUS', label: LOCATION_TIER_SCORES.T4_PLUS.label, upliftFrom: 'T4' };
   }
   const tierScore = LOCATION_TIER_SCORES[locationTier.tier] || LOCATION_TIER_SCORES.T5;
-  const transportAdjustment = computeTransportAdjustment(entry, stationDistance, businessDistrictResult, locationTier.tier);
+  const transportAdjustment = computeTransportAdjustment(
+    entry,
+    stationDistance,
+    businessDistrictResult,
+    locationTier.tier,
+    jamsilLivingAccess,
+  );
   const infraAdjustment = computeInfraAdjustment(entry, schoolDistance);
   const marketPriceAdjustment = computeMarketPriceAdjustment(entry);
   const dimensions = [
@@ -668,13 +743,17 @@ function computeAptGrade(entry, insight, graph) {
   // 시장가격은 같은 입지 등급 내 순서만 보정하고, 입지 등급 자체를 바꾸지는 않는다.
   const clampedScore = clampNumber(rawScore, locationGradeFloor, nextGradeFloor - 1);
   const grade = gradeFromLocationScore(clampedScore);
+  const primaryTransportReason = transportAdjustment.items.find(item => item.key === 'jamsil')
+    || transportAdjustment.items.slice().sort((a, b) => b.points - a.points)[0];
   const reasons = [
-    locationTier.upliftFrom
+    locationTier.overriddenFrom
+      ? `${locationTier.label} 기준으로 시군구 기본 생활권을 세분화했어요.`
+      : locationTier.upliftFrom
       ? '서울 접근성과 생활 인프라가 좋아 등급 범위를 넓혔어요.'
       : locationTier.adjustedFrom
         ? '같은 시군구 안에서도 실제 역 위치와 업무지구 접근성을 기준으로 등급 범위를 다시 잡았어요.'
       : `${locationTier.label} 기준으로 기본 등급 범위를 먼저 잡았어요.`,
-    ...(transportAdjustment.items.length ? [transportAdjustment.items.slice().sort((a, b) => b.points - a.points)[0].label] : []),
+    ...(primaryTransportReason ? [primaryTransportReason.label] : []),
     ...(infraAdjustment.items.length ? [infraAdjustment.items.slice().sort((a, b) => b.points - a.points)[0].label] : []),
     ...(marketPriceAdjustment.score !== 0 ? [marketPriceAdjustment.label] : []),
     ...(hasOfficialFallback ? ['실거래 커버리지가 얇아 가격 레벨은 공시가격으로 우선 보완했어요.'] : []),
@@ -706,6 +785,7 @@ function computeAptGrade(entry, insight, graph) {
       transport: transportAdjustment,
       infra: infraAdjustment,
       marketPrice: marketPriceAdjustment,
+      jamsilLivingAccess,
       locationScore: locationClampedScore,
       rawScore,
       clampedScore,
@@ -741,4 +821,5 @@ exports._private = {
   buildDashboardSubwayGraph,
   computeAptGrade,
   computePublicLocationScore,
+  applyLivingZoneTierOverride,
 };

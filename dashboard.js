@@ -111,7 +111,18 @@ let aptTradesPromise = null;
 let selectedDealCityByRegion = {};
 let kakaoMapsSdkPromise = null;
 let dashboardApartmentMapPromise = null;
-let dashboardApartmentMapState = { map: null, clusterer: null, markers: [], overlays: [], infoWindow: null, items: [], scopeItems: null, scopeLevel: null };
+const DASHBOARD_MAP_GRADE_ORDER = ['S', 'A+', 'A', 'B+', 'B', 'C+', 'C'];
+let dashboardApartmentMapState = {
+  map: null,
+  clusterer: null,
+  markers: [],
+  overlays: [],
+  infoWindow: null,
+  items: [],
+  scopeItems: null,
+  scopeLevel: null,
+  filters: { grades: new Set(DASHBOARD_MAP_GRADE_ORDER), minScore: null },
+};
 let dashboardMapRegionFilter = 'capital';
 let topComplexInsightSeq = 0;
 let regionSwapSeq = 0;
@@ -337,6 +348,93 @@ function getDashboardMapScopedItems() {
   return dashboardApartmentMapState.scopeItems || dashboardApartmentMapState.items;
 }
 
+function getDashboardMapFilteredItems(items = []) {
+  const filters = dashboardApartmentMapState.filters;
+  const selectedGrades = filters.grades;
+  const minScore = Number(filters.minScore);
+  return items.filter(item => {
+    const gradeMatches = selectedGrades.has(item.grade);
+    const score = Number(item.displayScore);
+    const scoreMatches = !Number.isFinite(minScore) || minScore <= 0 || (Number.isFinite(score) && score >= minScore);
+    return gradeMatches && scoreMatches;
+  });
+}
+
+function getDashboardMapVisibleItems(items = dashboardApartmentMapState.items) {
+  const regionKey = getDashboardMapRegionKey();
+  return getDashboardMapFilteredItems(items).filter(item => (
+    regionKey === 'capital'
+      ? item.regionKey === 'seoul' || item.regionKey === 'gyeonggi'
+      : item.regionKey === regionKey
+  ));
+}
+
+function getDashboardMapFilterSummary() {
+  const { grades, minScore } = dashboardApartmentMapState.filters;
+  const allGrades = grades.size === DASHBOARD_MAP_GRADE_ORDER.length;
+  const gradeText = allGrades ? '전체 등급' : `${grades.size}개 등급`;
+  return Number(minScore) > 0 ? `${gradeText} · ${minScore}점+` : gradeText;
+}
+
+function updateDashboardMapFilterUi() {
+  const trigger = document.getElementById('dbMapFilterButton');
+  const summary = document.getElementById('dbMapFilterSummary');
+  const panel = document.getElementById('dbMapFilterPanel');
+  const { grades, minScore } = dashboardApartmentMapState.filters;
+  if (trigger) trigger.classList.toggle('is-filtered', grades.size !== DASHBOARD_MAP_GRADE_ORDER.length || Number(minScore) > 0);
+  if (summary) summary.textContent = getDashboardMapFilterSummary();
+  if (!panel) return;
+
+  panel.querySelectorAll('[data-map-grade]').forEach(button => {
+    const grade = button.dataset.mapGrade;
+    button.classList.toggle('is-selected', grades.has(grade));
+    button.setAttribute('aria-pressed', grades.has(grade) ? 'true' : 'false');
+  });
+  panel.querySelectorAll('[data-map-min-score]').forEach(button => {
+    const score = Number(button.dataset.mapMinScore) || 0;
+    const selected = (Number(minScore) || 0) === score;
+    button.classList.toggle('is-selected', selected);
+    button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
+}
+
+function applyDashboardMapFilters() {
+  closeDashboardMapApartment();
+  const visible = getDashboardMapVisibleItems(getDashboardMapScopedItems());
+  renderDashboardMapOverlays(visible);
+  updateDashboardMapFilterUi();
+}
+
+function toggleDashboardMapFilterPanel() {
+  const panel = document.getElementById('dbMapFilterPanel');
+  if (!panel) return;
+  const isOpen = panel.classList.toggle('is-visible');
+  document.getElementById('dbMapFilterButton')?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  updateDashboardMapFilterUi();
+}
+
+function closeDashboardMapFilterPanel() {
+  document.getElementById('dbMapFilterPanel')?.classList.remove('is-visible');
+  document.getElementById('dbMapFilterButton')?.setAttribute('aria-expanded', 'false');
+}
+
+function toggleDashboardMapGradeFilter(grade) {
+  const grades = dashboardApartmentMapState.filters.grades;
+  if (grades.has(grade) && grades.size > 1) grades.delete(grade);
+  else grades.add(grade);
+  applyDashboardMapFilters();
+}
+
+function selectAllDashboardMapGrades() {
+  dashboardApartmentMapState.filters.grades = new Set(DASHBOARD_MAP_GRADE_ORDER);
+  applyDashboardMapFilters();
+}
+
+function setDashboardMapMinimumScore(score) {
+  dashboardApartmentMapState.filters.minScore = Number(score) || null;
+  applyDashboardMapFilters();
+}
+
 function formatDashboardMapPrice(price) {
   const value = Number(price);
   if (!Number.isFinite(value) || value <= 0) return '최근 거래 없음';
@@ -412,6 +510,7 @@ function createDashboardMapOverlay(kakao, item, mode) {
       </span>`;
     overlay.addEventListener('click', event => {
       event.stopPropagation();
+      closeDashboardMapFilterPanel();
       dashboardApartmentMapState.map.setCenter(position);
       dashboardApartmentMapState.map.setLevel(4);
       openDashboardMapApartment(item);
@@ -473,14 +572,8 @@ function renderDashboardMapOverlays(items) {
 
 function renderDashboardApartmentMap(items) {
   const container = document.getElementById('dbApartmentMap');
-  const status = document.getElementById('dbApartmentMapStatus');
   if (!container || !window.kakao?.maps) return;
-  const visible = items.filter(item => {
-    const regionKey = getDashboardMapRegionKey();
-    return regionKey === 'capital'
-      ? item.regionKey === 'seoul' || item.regionKey === 'gyeonggi'
-      : item.regionKey === regionKey;
-  });
+  const visible = getDashboardMapVisibleItems(items);
   const kakao = window.kakao;
   const center = new kakao.maps.LatLng(37.5665, 126.9780);
 
@@ -493,18 +586,12 @@ function renderDashboardApartmentMap(items) {
         dashboardApartmentMapState.scopeItems = null;
         dashboardApartmentMapState.scopeLevel = null;
       }
-      renderDashboardMapOverlays(getDashboardMapScopedItems().filter(item => {
-        const regionKey = getDashboardMapRegionKey();
-        return regionKey === 'capital' ? item.regionKey === 'seoul' || item.regionKey === 'gyeonggi' : item.regionKey === regionKey;
-      }));
+      renderDashboardMapOverlays(getDashboardMapVisibleItems(getDashboardMapScopedItems()));
     });
     kakao.maps.event.addListener(dashboardApartmentMapState.map, 'dragend', () => {
       dashboardApartmentMapState.scopeItems = null;
       dashboardApartmentMapState.scopeLevel = null;
-      renderDashboardMapOverlays(getDashboardMapScopedItems().filter(item => {
-        const regionKey = getDashboardMapRegionKey();
-        return regionKey === 'capital' ? item.regionKey === 'seoul' || item.regionKey === 'gyeonggi' : item.regionKey === regionKey;
-      }));
+      renderDashboardMapOverlays(getDashboardMapVisibleItems(getDashboardMapScopedItems()));
     });
   }
 
@@ -530,7 +617,6 @@ function renderDashboardApartmentMap(items) {
   dashboardApartmentMapState.scopeItems = null;
   dashboardApartmentMapState.scopeLevel = null;
   renderDashboardMapOverlays(visible);
-  if (status) status.textContent = `${visible.length.toLocaleString()}개 단지 표시 · 마커를 눌러 정보를 확인하세요`;
 }
 
 function openDashboardMapApartment(item) {
@@ -574,15 +660,13 @@ function openDashboardMapApartmentDetail(kaptCode) {
 function initDashboardApartmentMap() {
   const container = document.getElementById('dbApartmentMap');
   if (!container) return;
-  const status = document.getElementById('dbApartmentMapStatus');
-  if (status) status.textContent = '단지 지도를 불러오는 중이에요';
   loadKakaoMapsSdk()
     .then(() => loadDashboardApartmentMapData())
     .then(items => {
       dashboardApartmentMapState.items = items;
       renderDashboardApartmentMap(items);
     })
-    .catch(() => { if (status) status.textContent = '지도를 불러오지 못했어요. 잠시 후 다시 시도해주세요'; });
+    .catch(() => {});
 }
 
 function searchComplexLocation(complex) {
@@ -1132,7 +1216,27 @@ function initDashboard() {
       </div>
       <div class="db-apartment-map-wrap">
         <div id="dbApartmentMap" class="db-apartment-map" aria-label="수도권 아파트 단지 지도"></div>
-        <div id="dbApartmentMapStatus" class="db-apartment-map-status">단지 지도를 준비하고 있어요</div>
+        <div id="dbMapFilterPanel" class="db-map-filter-panel" aria-label="지도 필터">
+          <div class="db-map-filter-header">
+            <div><strong>단지 필터</strong><span id="dbMapFilterSummary">전체 등급</span></div>
+            <button type="button" class="db-map-filter-reset" onclick="selectAllDashboardMapGrades(); setDashboardMapMinimumScore(0)">초기화</button>
+          </div>
+          <div class="db-map-filter-group">
+            <span>등급</span>
+            <div class="db-map-filter-chips">
+              ${DASHBOARD_MAP_GRADE_ORDER.map(grade => `<button type="button" data-map-grade="${grade}" class="db-map-filter-chip is-selected" onclick="toggleDashboardMapGradeFilter('${grade}')">${grade}</button>`).join('')}
+            </div>
+          </div>
+          <div class="db-map-filter-group">
+            <span>최소 점수</span>
+            <div class="db-map-filter-chips">
+              <button type="button" data-map-min-score="0" class="db-map-filter-chip is-selected" onclick="setDashboardMapMinimumScore(0)">전체</button>
+              <button type="button" data-map-min-score="60" class="db-map-filter-chip" onclick="setDashboardMapMinimumScore(60)">60점+</button>
+              <button type="button" data-map-min-score="70" class="db-map-filter-chip" onclick="setDashboardMapMinimumScore(70)">70점+</button>
+              <button type="button" data-map-min-score="80" class="db-map-filter-chip" onclick="setDashboardMapMinimumScore(80)">80점+</button>
+            </div>
+          </div>
+        </div>
         <div id="dbMapSelectionSheet" class="db-map-selection-sheet" aria-live="polite"></div>
       </div>
       <div class="db-placeholder" id="dbPlaceholder">

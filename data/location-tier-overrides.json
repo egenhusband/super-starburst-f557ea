@@ -1,0 +1,50 @@
+{
+  "version": "2026-08-30",
+  "description": "시군구 기본 티어 위에 적용하는 생활권 단위 보정표. 단지별 예외가 아니라 동·역세권 묶음만 관리한다.",
+  "overrides": [
+    { "id": "seongnam-pangyo", "sigungu": ["성남시 분당구"], "umd": ["백현동", "삼평동", "판교동"], "targetTier": "T2", "label": "판교 핵심 생활권" },
+    { "id": "seongnam-bundang-core", "sigungu": ["성남시 분당구"], "umd": ["정자동", "수내동", "서현동", "이매동"], "targetTier": "T2", "label": "분당 핵심 생활권" },
+    { "id": "seongnam-bundang-general", "sigungu": ["성남시 분당구"], "umd": ["야탑동", "구미동", "금곡동", "분당동"], "targetTier": "T3", "label": "분당 일반 생활권" },
+    { "id": "seongnam-wirye-bokjeong", "sigungu": ["성남시 수정구"], "umd": ["창곡동", "복정동"], "targetTier": "T3", "label": "위례·복정 생활권" },
+    { "id": "seongnam-sujeong-core", "sigungu": ["성남시 수정구"], "umd": ["신흥동", "태평동", "단대동"], "targetTier": "T3", "label": "성남 수정 핵심 생활권" },
+    { "id": "seongnam-jungwon", "sigungu": ["성남시 중원구"], "umd": ["금광동", "은행동", "하대원동", "상대원동"], "targetTier": "T4", "label": "성남 중원 일반 생활권" },
+
+    { "id": "hanam-misa", "sigungu": ["하남시"], "umd": ["망월동", "선동", "풍산동"], "targetTier": "T3", "label": "미사 생활권" },
+    { "id": "hanam-gamil", "sigungu": ["하남시"], "umd": ["감이동", "학암동"], "targetTier": "T3", "label": "감일 생활권" },
+    { "id": "hanam-city-core", "sigungu": ["하남시"], "umd": ["신장동", "덕풍동"], "targetTier": "T3", "label": "하남 도심 생활권" },
+    { "id": "hanam-geomdansan", "sigungu": ["하남시"], "umd": ["창우동"], "targetTier": "T4", "label": "하남 검단산 생활권" },
+
+    { "id": "guri-inchang", "sigungu": ["구리시"], "umd": ["인창동"], "targetTier": "T4", "label": "구리 인창 생활권" },
+    { "id": "guri-sutaek", "sigungu": ["구리시"], "umd": ["수택동"], "targetTier": "T4", "label": "구리 수택 생활권" },
+    { "id": "guri-gyomun", "sigungu": ["구리시"], "umd": ["교문동"], "targetTier": "T4", "label": "구리 교문 생활권" },
+    { "id": "guri-galmae", "sigungu": ["구리시"], "umd": ["갈매동"], "targetTier": "T4", "label": "구리 갈매 생활권" },
+    { "id": "guri-topyeong", "sigungu": ["구리시"], "umd": ["토평동"], "targetTier": "T4", "label": "구리 토평 생활권" },
+
+    { "id": "suwon-gwanggyo", "sigungu": ["수원시 영통구"], "umd": ["이의동", "하동"], "targetTier": "T2", "label": "광교 생활권" },
+    { "id": "suwon-yeongtong-mangpo", "sigungu": ["수원시 영통구"], "umd": ["영통동", "망포동", "매탄동"], "targetTier": "T3", "label": "영통·망포 생활권" },
+    { "id": "suwon-maegyo-ingye", "sigungu": ["수원시 팔달구"], "umd": ["매교동", "인계동", "매산로"], "targetTier": "T3", "label": "수원 매교·인계 생활권" },
+    { "id": "suwon-hwaseo-jeongja", "sigungu": ["수원시 장안구"], "umd": ["화서동", "정자동"], "targetTier": "T3", "label": "수원 화서·정자 생활권" },
+    { "id": "suwon-homaesil", "sigungu": ["수원시 권선구"], "umd": ["금곡동", "호매실동"], "targetTier": "T3", "label": "수원 호매실 생활권" },
+    { "id": "suwon-gwonseon-seryu", "sigungu": ["수원시 권선구"], "umd": ["권선동", "세류동", "곡반정동"], "targetTier": "T4", "label": "수원 권선·세류 생활권" },
+
+    { "id": "yongin-suji", "sigungu": ["용인시 수지구"], "umd": ["상현동", "성복동", "풍덕천동", "죽전동"], "targetTier": "T2", "label": "용인 수지 핵심 생활권" },
+    { "id": "yongin-giheung", "sigungu": ["용인시 기흥구"], "umd": ["구갈동", "보정동", "동백동", "마북동", "상갈동"], "targetTier": "T3", "label": "용인 기흥 생활권" },
+    { "id": "yongin-cheoin", "sigungu": ["용인시 처인구"], "umd": ["역북동", "김량장동", "삼가동"], "targetTier": "T4", "label": "용인 처인 도심 생활권" },
+
+    { "id": "goyang-ilsan", "sigungu": ["고양시 일산동구", "고양시 일산서구"], "umd": ["백석동", "마두동", "정발산동", "주엽동", "장항동"], "targetTier": "T2", "label": "일산 핵심 생활권" },
+    { "id": "goyang-samsong", "sigungu": ["고양시 덕양구"], "umd": ["삼송동", "원흥동", "지축동", "덕은동", "향동동"], "targetTier": "T3", "label": "고양 신도시 생활권" },
+    { "id": "goyang-hwajeong-haengsin", "sigungu": ["고양시 덕양구"], "umd": ["화정동", "행신동"], "targetTier": "T3", "label": "고양 화정·행신 생활권" },
+
+    { "id": "anyang-pyeongchon", "sigungu": ["안양시 동안구"], "umd": ["평촌동", "관양동", "비산동", "호계동"], "targetTier": "T2", "label": "평촌·인덕원 생활권" },
+    { "id": "anyang-manan", "sigungu": ["안양시 만안구"], "umd": ["석수동", "안양동", "박달동"], "targetTier": "T3", "label": "안양 만안 생활권" },
+    { "id": "gwacheon", "sigungu": ["과천시"], "umd": [], "targetTier": "T2", "label": "과천 생활권" },
+
+    { "id": "hwaseong-dongtan", "sigungu": ["화성시"], "umd": ["오산동", "청계동", "영천동", "목동", "산척동", "반송동", "능동"], "targetTier": "T3", "label": "동탄 생활권" },
+    { "id": "hwaseong-byeongjeom", "sigungu": ["화성시"], "umd": ["병점동", "진안동", "반월동"], "targetTier": "T4", "label": "화성 병점·반월 생활권" },
+    { "id": "gimpo-gocheon-pungmu", "sigungu": ["김포시"], "umd": ["고촌읍", "풍무동"], "targetTier": "T3", "label": "김포 고촌·풍무 생활권" },
+    { "id": "gimpo-janggi-unyang", "sigungu": ["김포시"], "umd": ["장기동", "운양동"], "targetTier": "T3", "label": "김포 한강신도시 중심 생활권" },
+    { "id": "gimpo-gurae-masan", "sigungu": ["김포시"], "umd": ["구래동", "마산동"], "targetTier": "T4", "label": "김포 한강신도시 일반 생활권" },
+    { "id": "gwangmyeong-cheolsan-haan", "sigungu": ["광명시"], "umd": ["철산동", "하안동", "일직동"], "targetTier": "T2", "label": "광명 핵심 생활권" },
+    { "id": "gwangmyeong-soha", "sigungu": ["광명시"], "umd": ["소하동"], "targetTier": "T3", "label": "광명 소하 생활권" }
+  ]
+}

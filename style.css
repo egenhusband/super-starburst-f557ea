@@ -4501,6 +4501,30 @@
   width: 100%;
   box-sizing: border-box;
 }
+.db-apt-search-controls {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.db-apt-search-controls .db-apt-search-trigger { flex: 1 1 auto; min-width: 0; }
+.db-map-filter-trigger {
+  flex: 0 0 auto;
+  min-width: 58px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+  color: var(--label1);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0,0,0,.18);
+}
+.db-map-filter-trigger.is-filtered {
+  border-color: color-mix(in srgb, var(--focus-accent) 70%, white 10%);
+  background: color-mix(in srgb, var(--focus-accent) 22%, var(--surface-2));
+  color: #dbeaff;
+}
 
 /* 지역 그리드 */
 .db-region-grid {
@@ -5733,19 +5757,37 @@
   min-height: 0;
   background: var(--surface-3);
 }
-.db-apartment-map-status {
+.db-map-filter-panel {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 2;
-  padding: 8px 12px 10px;
-  background: color-mix(in srgb, var(--surface-2) 90%, transparent);
-  color: var(--label3);
-  font-size: 11px;
-  line-height: 1.4;
-  text-align: center;
+  right: 12px;
+  left: 12px;
+  bottom: 44px;
+  z-index: 4;
+  display: grid;
+  gap: 14px;
+  padding: 15px 16px 16px;
+  border: 1px solid color-mix(in srgb, var(--separator) 82%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-2) 96%, transparent);
+  box-shadow: 0 14px 34px rgba(0,0,0,.3);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  transform: translateY(calc(100% + 28px));
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 220ms cubic-bezier(.22,1,.36,1), opacity 160ms ease;
 }
+.db-map-filter-panel.is-visible { transform: translateY(0); opacity: 1; pointer-events: auto; }
+.db-map-filter-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.db-map-filter-header > div { display: flex; flex-direction: column; gap: 3px; }
+.db-map-filter-header strong { color: var(--label1); font-size: 14px; }
+.db-map-filter-header span { color: var(--label3); font-size: 10px; }
+.db-map-filter-reset { border: 0; background: transparent; color: var(--focus-accent); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.db-map-filter-group { display: grid; gap: 7px; }
+.db-map-filter-group > span { color: var(--label3); font-size: 10px; font-weight: 700; }
+.db-map-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.db-map-filter-chip { min-width: 43px; min-height: 30px; padding: 0 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(255,255,255,.025); color: var(--label3); font: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
+.db-map-filter-chip.is-selected { border-color: color-mix(in srgb, var(--focus-accent) 70%, white 10%); background: color-mix(in srgb, var(--focus-accent) 20%, var(--surface-2)); color: #dceaff; }
 #dashboardScreen .db-placeholder,
 #dashboardScreen #dbLoading,
 #dashboardScreen #dbContent,
@@ -5836,9 +5878,9 @@
 .db-map-info span { color: #555; }
 .db-map-selection-sheet {
   position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 12px;
+  left: 36px;
+  right: 36px;
+  bottom: 24px;
   z-index: 3;
   padding: 14px 16px 16px;
   border: 1px solid color-mix(in srgb, var(--separator) 80%, transparent);

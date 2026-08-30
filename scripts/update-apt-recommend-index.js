@@ -4,12 +4,12 @@
  * - 수도권(서울/경기)만 선별 → regionKey 생성
  * - 면적별 실거래가(byArea)를 압축 적재 (필터/정렬=avgPrice, 표시=latestPrice+latestDate)
  * - school/station/households 메타를 kaptCode 기준 조인
- * - analyze-apt의 computeAptGrade를 빌드 타임에 1회 실행해 grade/clampedScore 사전계산
+ * - 추천용 인덱스와 지도/상세 공통 등급 인덱스를 같은 computeAptGrade로 사전계산
  *
  * 입력:  data/apt-code-map.json, data/apt-area-prices/{kaptCode}.json,
  *        data/apt-households.json, data/apt-school-meta.json,
  *        data/apt-station-meta.json, data/subway-seoul-times.json
- * 출력:  data/apt-recommend-index.json
+ * 출력:  data/apt-recommend-index.json, data/apt-grade-index.json
  *
  * 실행:  node scripts/update-apt-recommend-index.js
  */
@@ -23,6 +23,7 @@ const { _private: { buildDashboardSubwayGraph, computeAptGrade, computePublicLoc
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const AREA_DIR = path.join(DATA_DIR, 'apt-area-prices');
 const OUTPUT_PATH = path.join(DATA_DIR, 'apt-recommend-index.json');
+const GRADE_OUTPUT_PATH = path.join(DATA_DIR, 'apt-grade-index.json');
 
 const CAPITAL_SIDO = new Set(['서울특별시', '경기도']);
 const REGION_KEY_BY_SIDO = { 서울특별시: 'seoul', 경기도: 'gyeonggi' };
@@ -32,7 +33,7 @@ const REGION_KEY_BY_SIDO = { 서울특별시: 'seoul', 경기도: 'gyeonggi' };
 // 보수적으로 20%로 잡아 명백한 오류만 거른다 (경기 외곽 저가·소형 정상 거래는 보존).
 const ANOMALY_RATIO = 0.20;
 const MIN_SGG_SAMPLES = 8; // 시군구 표본이 적으면 중위가 불안정 → 필터 미적용
-const MIN_HOUSEHOLD = 500; // 이 세대수 이하 단지는 추천에서 제외 (0이면 미적용)
+const MIN_HOUSEHOLD = 500; // 이 세대수 이하 단지는 추천에서 제외 (지도 등급에는 적용하지 않음)
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -177,6 +178,73 @@ function main() {
     .sort((a, b) => a - b);
   const capitalMedianPricePerPyeong = median(capitalTradePyeongPrices);
 
+  // 지도와 단지 상세가 같은 결과를 사용하도록, 지도 좌표가 있는 모든 아파트의
+  // 공개 등급 결과를 여기서 한 번만 만든다. 추천 목록의 세대수 필터와는 분리한다.
+  const buildPublicGrade = (cand, priced) => {
+    const { c, kaptCode, regionKey, byArea } = cand;
+    const house = houseByKapt.get(kaptCode) || {};
+    const school = schoolByKapt.get(kaptCode) || {};
+    const station = stationByKapt.get(kaptCode) || {};
+    const official = officialByKapt.get(kaptCode) || {};
+    const convenience = convenienceMeta[kaptCode] || {};
+    const sigunguName = house.sigunguName || c.as2 || '';
+    const umdName = house.umdName || c.as3 || c.umdName || '';
+    const officialPricePerPyeong = toFiniteNumber(official.medianOfficialPricePerPyeong);
+    const capitalOfficialPricePerPyeongPercentile = officialPricePerPyeong !== null
+      && capitalOfficialPyeongPrices.length >= 5
+      ? capitalOfficialPyeongPrices.filter(price => price < officialPricePerPyeong).length
+        / (capitalOfficialPyeongPrices.length - 1)
+      : null;
+    const entry = {
+      kaptCode,
+      aptName: c.kaptName || house.aptName || '',
+      sigunguName,
+      umdName,
+      regionKey,
+      householdCount: toFiniteNumber(house.householdCount),
+      buildYear: parseBuildYear(house.kaptUsedate),
+      avgPrice: priced.maxAvgPrice || null,
+      subwayLine: house.subwayLine || '',
+      subwayStation: house.subwayStation || '',
+      subwayDistance: house.subwayDistance || '',
+      stationMetaName: station.stationMetaName || house.subwayStation || '',
+      stationMetaDistance: station.stationMetaDistance ?? parseTransitWalkDistance(house.subwayDistance),
+      schoolName: school.schoolName || '',
+      schoolDistance: school.schoolDistance ?? null,
+      recentPricePerPyeong: getRepresentativeRecentPyeongPrice(byArea),
+      capitalMedianPricePerPyeong,
+      capitalOfficialPricePerPyeongPercentile,
+      convenienceHospital: convenience.hospital || null,
+      convenienceMart: convenience.mart || null,
+      convenienceDept: convenience.dept || null,
+      conveniencePark: convenience.park || null,
+    };
+    const insight = {
+      ready: true,
+      station: entry.stationMetaName && Number.isFinite(entry.stationMetaDistance)
+        ? { placeName: entry.stationMetaName, distance: entry.stationMetaDistance }
+        : null,
+      school: entry.schoolName && Number.isFinite(entry.schoolDistance)
+        ? { placeName: entry.schoolName, distance: entry.schoolDistance }
+        : null,
+    };
+    const gradeResult = computeAptGrade(entry, insight, graph);
+    const displayScore = computePublicLocationScore(gradeResult.grade, gradeResult.clampedScore);
+    return {
+      kaptCode,
+      ready: true,
+      grade: gradeResult.grade,
+      clampedScore: gradeResult.clampedScore,
+      displayScore,
+      scoreLabel: `${displayScore}점`,
+      tierLabel: gradeResult.tierLabel,
+      businessDistrict: gradeResult.businessDistrict,
+      reasons: gradeResult.reasons,
+      withheld: gradeResult.withheld,
+      missingCount: gradeResult.missingCount,
+    };
+  };
+
   // ── 건물 유형 맵 (codeAptNm) — '아파트'만 추천에 포함 ──
   const typePath = path.join(DATA_DIR, 'apt-building-type.json');
   const typeMap = fs.existsSync(typePath) ? (readJson(typePath).types || {}) : null;
@@ -198,11 +266,8 @@ function main() {
 
   for (const c of capital) {
     const kaptCode = c.kaptCode;
-    // 아파트만 (주상복합·연립·도시형생활주택·다세대·미상 제외)
-    if (typeMap && typeMap[kaptCode] !== '아파트') { skippedNonApt += 1; continue; }
     const areaFile = path.join(AREA_DIR, `${kaptCode}.json`);
-    if (!fs.existsSync(areaFile)) { skippedNoPrice += 1; continue; }
-    const byArea = readJson(areaFile).byArea || {};
+    const byArea = fs.existsSync(areaFile) ? readJson(areaFile).byArea || {} : {};
     const house = houseByKapt.get(kaptCode) || {};
     const sigunguName = house.sigunguName || c.as2 || '';
 
@@ -217,7 +282,7 @@ function main() {
         perM2BySgg.get(sigunguName).push(pm);
       }
     });
-    if (!hasPrice) { skippedNoPrice += 1; continue; }
+    if (!hasPrice) skippedNoPrice += 1;
     candidates.push({ c, kaptCode, regionKey: REGION_KEY_BY_SIDO[c.as1], sigunguName, byArea });
   }
 
@@ -237,9 +302,20 @@ function main() {
   let skippedNonAptStructural = 0; // 오피스텔/도시형(1동+소형, 또는 명칭)
   let skippedOfficetel = 0; // 건축물대장 주용도=업무시설
   let skippedSmall = 0; // 소규모 단지(세대수 기준)
+  const gradeItems = [];
+
+  for (const cand of candidates) {
+    const house = houseByKapt.get(cand.kaptCode) || {};
+    const hasMapLocation = Number.isFinite(Number(house.lat)) && Number.isFinite(Number(house.lng));
+    if (!hasMapLocation) continue;
+    const priced = compactAreas(cand.byArea, minPerM2BySgg.get(cand.sigunguName) || 0);
+    gradeItems.push(buildPublicGrade(cand, priced));
+  }
 
   for (const cand of candidates) {
     const { kaptCode, regionKey, sigunguName: sgg } = cand;
+    // 추천 목록은 기존처럼 아파트만 유지한다. 지도/상세 공통 등급은 지도 좌표 단지 전체를 다룬다.
+    if (typeMap && typeMap[kaptCode] !== '아파트') { skippedNonApt += 1; continue; }
     const minPerM2 = minPerM2BySgg.get(sgg) || 0;
     const priced = compactAreas(cand.byArea, minPerM2);
     anomalyAreasRemoved += priced.removed || 0;
@@ -267,84 +343,33 @@ function main() {
     const hhCnt = toFiniteNumber(house.householdCount);
     if (MIN_HOUSEHOLD > 0 && hhCnt != null && hhCnt <= MIN_HOUSEHOLD) { skippedSmall += 1; continue; }
 
-    const school = schoolByKapt.get(kaptCode) || {};
-    const station = stationByKapt.get(kaptCode) || {};
-    const official = officialByKapt.get(kaptCode) || {};
-    const convenience = convenienceMeta[kaptCode] || {};
-
-    const sigunguName = house.sigunguName || c.as2 || '';
-    const umdName = house.umdName || c.as3 || c.umdName || '';
-    const householdCount = toFiniteNumber(house.householdCount);
-    const buildYear = parseBuildYear(house.kaptUsedate);
-    const schoolDistance = school.schoolDistance ?? null;
-    const stationDistance = station.stationMetaDistance ?? parseTransitWalkDistance(house.subwayDistance);
-    const officialPricePerPyeong = toFiniteNumber(official.medianOfficialPricePerPyeong);
-    const capitalOfficialPricePerPyeongPercentile = officialPricePerPyeong !== null
-      && capitalOfficialPyeongPrices.length >= 5
-      ? capitalOfficialPyeongPrices.filter(price => price < officialPricePerPyeong).length
-        / (capitalOfficialPyeongPrices.length - 1)
-      : null;
-
-    // computeAptGrade 입력 (가격 레벨은 최고가 평형 avgPrice로 대표)
+    const grade = buildPublicGrade(cand, priced);
     const entry = {
-      kaptCode,
       aptName: c.kaptName || house.aptName || '',
-      sigunguName,
-      umdName,
-      regionKey,
-      householdCount,
-      buildYear,
-      avgPrice: priced.maxAvgPrice,
-      subwayLine: house.subwayLine || '',
-      subwayStation: house.subwayStation || '',
-      subwayDistance: house.subwayDistance || '',
-      stationMetaName: station.stationMetaName || house.subwayStation || '',
-      stationMetaDistance: stationDistance,
-      schoolName: school.schoolName || '',
-      schoolDistance,
-      recentPricePerPyeong: getRepresentativeRecentPyeongPrice(cand.byArea),
-      capitalMedianPricePerPyeong,
-      capitalOfficialPricePerPyeongPercentile,
-      convenienceHospital: convenience.hospital || null,
-      convenienceMart: convenience.mart || null,
-      convenienceDept: convenience.dept || null,
-      conveniencePark: convenience.park || null,
+      sigunguName: house.sigunguName || c.as2 || '',
+      umdName: house.umdName || c.as3 || c.umdName || '',
+      householdCount: toFiniteNumber(house.householdCount),
+      buildYear: parseBuildYear(house.kaptUsedate),
     };
-    const insight = {
-      ready: true,
-      station: entry.stationMetaName && Number.isFinite(entry.stationMetaDistance)
-        ? { placeName: entry.stationMetaName, distance: entry.stationMetaDistance }
-        : null,
-      school: entry.schoolName && Number.isFinite(entry.schoolDistance)
-        ? { placeName: entry.schoolName, distance: entry.schoolDistance }
-        : null,
-    };
-
-    const gradeResult = computeAptGrade(entry, insight, graph);
 
     index.push({
       kaptCode,
       aptName: entry.aptName,
-      sigunguName,
-      umdName,
+      sigunguName: entry.sigunguName,
+      umdName: entry.umdName,
       regionKey,
       areas: priced.areas,
       minAvgPrice: priced.minAvgPrice,
       maxAvgPrice: priced.maxAvgPrice,
-      grade: gradeResult.grade,
-      clampedScore: gradeResult.clampedScore,
-      displayScore: computePublicLocationScore(gradeResult.grade, gradeResult.clampedScore),
-      schoolDistance,
-      stationDistance,
-      stationName: station.stationMetaName || house.subwayStation || null,
-      businessDistrict: gradeResult.businessDistrict ? {
-        available: Boolean(gradeResult.businessDistrict.available),
-        label: gradeResult.businessDistrict.label || '',
-        totalMinutes: toFiniteNumber(gradeResult.businessDistrict.totalMinutes),
-        bestDistrict: gradeResult.businessDistrict.bestDistrict || null,
-      } : null,
-      householdCount,
-      buildYear,
+      grade: grade.grade,
+      clampedScore: grade.clampedScore,
+      displayScore: grade.displayScore,
+      schoolDistance: (schoolByKapt.get(kaptCode) || {}).schoolDistance ?? null,
+      stationDistance: (stationByKapt.get(kaptCode) || {}).stationMetaDistance ?? parseTransitWalkDistance(house.subwayDistance),
+      stationName: (stationByKapt.get(kaptCode) || {}).stationMetaName || house.subwayStation || null,
+      businessDistrict: grade.businessDistrict || null,
+      householdCount: entry.householdCount,
+      buildYear: entry.buildYear,
     });
   }
 
@@ -367,9 +392,21 @@ function main() {
     },
     items: index,
   };
+  const gradeOutput = {
+    meta: {
+      generatedAt: output.meta.generatedAt,
+      source: output.meta.source,
+      scope: output.meta.scope,
+      count: gradeItems.length,
+      version: 'location-grade-v2',
+    },
+    items: gradeItems,
+  };
 
   fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output));
+  fs.writeFileSync(GRADE_OUTPUT_PATH, JSON.stringify(gradeOutput));
   const sizeMb = (fs.statSync(OUTPUT_PATH).size / 1024 / 1024).toFixed(2);
+  const gradeSizeMb = (fs.statSync(GRADE_OUTPUT_PATH).size / 1024 / 1024).toFixed(2);
   console.log(`  · 아파트 아님(codeAptNm: 주상복합·연립·도시형 등) 제외: ${skippedNonApt}`);
   console.log(`  · 오피스텔/도시형 구조적 제외(1동+소형·명칭): ${skippedNonAptStructural}`);
   console.log(`  · 건축물대장 업무시설(오피스텔) 제외: ${skippedOfficetel}`);
@@ -377,6 +414,7 @@ function main() {
   console.log(`  · 가격 없어 제외: ${skippedNoPrice}`);
   console.log(`  · 이상치 평형 제거: ${anomalyAreasRemoved}개 · 전 평형 이상치로 단지 제외: ${skippedAllAnomalous}개`);
   console.log(`✔ 인덱스 ${index.length}개 → ${path.relative(process.cwd(), OUTPUT_PATH)} (${sizeMb} MB)`);
+  console.log(`✔ 지도/상세 공통 등급 ${gradeItems.length}개 → ${path.relative(process.cwd(), GRADE_OUTPUT_PATH)} (${gradeSizeMb} MB)`);
 }
 
 main();

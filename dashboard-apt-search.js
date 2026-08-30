@@ -5,9 +5,10 @@ const DASHBOARD_APT_SCHOOL_META_URL = '/data/apt-school-meta.json?v=20260507a';
 const DASHBOARD_APT_STATION_META_URL = '/data/apt-station-meta.json?v=20260518a';
 const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260517a';
 const DASHBOARD_APT_CONVENIENCE_META_URL = '/data/apt-convenience-meta.json?v=20260518a';
-const DASHBOARD_APT_RECOMMEND_INDEX_URL = '/data/apt-recommend-index.json?v=20260829b';
+const DASHBOARD_APT_RECOMMEND_INDEX_URL = '/data/apt-recommend-index.json?v=20260830recommend1';
+const DASHBOARD_APT_GRADE_INDEX_URL = '/data/apt-grade-index.json?v=20260830grade2';
 const DASHBOARD_APT_ANALYZE_URL = '/api/analyze-apt';
-const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v20';
+const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v22';
 const DASHBOARD_APT_SEARCH_CACHE_TTL = 6 * 60 * 60 * 1000;
 
 const NINE_LINE_944_BENEFIT_NAMES = [
@@ -113,6 +114,13 @@ async function fetchAptGrade(entry, insight, { force = false } = {}) {
   const key = getAptGradeKey(entry);
   if (!key) return null;
   if (!force && dashboardAptGradeCache.has(key)) return dashboardAptGradeCache.get(key);
+
+  // 지도와 상세는 빌드 시 같은 kaptCode로 계산한 공통 등급을 우선 사용한다.
+  // 이 레코드가 없는 단지만 기존 API 계산으로 보완한다.
+  if (entry?.canonicalGradeData?.ready) {
+    dashboardAptGradeCache.set(key, entry.canonicalGradeData);
+    return entry.canonicalGradeData;
+  }
 
   try {
     const response = await fetch(DASHBOARD_APT_ANALYZE_URL, {
@@ -487,7 +495,7 @@ function renderAreaPricesSectionHtml(areaPrices) {
   `;
 }
 
-function buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas, recommendations }) {
+function buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas, recommendations, gradeIndex }) {
   const capitalCodeItems = (codeMap?.items || []).filter(item => item?.as1 === '서울특별시' || item?.as1 === '경기도');
   const capitalKaptCodes = new Set(capitalCodeItems.map(item => item.kaptCode).filter(Boolean));
   const capitalSigunguCodes = new Set(capitalCodeItems.map(item => item.sigunguCode).filter(Boolean));
@@ -544,6 +552,11 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
       .filter(entry => entry?.kaptCode)
       .map(entry => [String(entry.kaptCode), entry]),
   );
+  const gradeByCode = new Map(
+    (gradeIndex?.items || [])
+      .filter(entry => entry?.kaptCode)
+      .map(entry => [String(entry.kaptCode), entry]),
+  );
 
   const tradeByKey = new Map();
   const tradeByCode = new Map();
@@ -594,6 +607,7 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
     const officialPrice = officialByCode.get(item.kaptCode) || officialByKey.get(compositeKey) || null;
     const convenience = convenienceByCode.get(item.kaptCode) || null;
     const recommendation = recommendationByCode.get(String(item.kaptCode)) || null;
+    const canonicalGrade = gradeByCode.get(String(item.kaptCode)) || recommendation;
     const trade = tradeByCode.get(String(item.kaptCode)) || tradeByKey.get(compositeKey) || null;
     const recommendationAreas = Array.isArray(recommendation?.areas) ? recommendation.areas : [];
     const recommendationLatestArea = recommendationAreas
@@ -645,11 +659,12 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
       doroJuso: household?.doroJuso || '',
       lat: Number(household?.lat || 0) || null,
       lng: Number(household?.lng || 0) || null,
-      grade: recommendation?.grade || '',
+      canonicalGradeData: canonicalGrade || null,
+      grade: canonicalGrade?.grade || '',
       displayScore: getDashboardAptPublicScore(
-        recommendation?.grade,
-        recommendation?.clampedScore,
-        recommendation?.displayScore,
+        canonicalGrade?.grade,
+        canonicalGrade?.clampedScore,
+        canonicalGrade?.displayScore,
       ),
       schoolName: school?.schoolName || '',
       schoolDistance: Number(school?.schoolDistance || 0) || null,
@@ -670,12 +685,13 @@ async function fetchDashboardAptSearchIndex() {
   const cached = getCache(DASHBOARD_APT_SEARCH_CACHE_KEY, DASHBOARD_APT_SEARCH_CACHE_TTL);
   if (cached?.entries?.length) return cached.entries;
 
-  const [schoolMetaRes, stationMetaRes, officialPriceRes, convenienceMetaRes, recommendationRes, codeMapRes, householdsRes, trades] = await Promise.all([
+  const [schoolMetaRes, stationMetaRes, officialPriceRes, convenienceMetaRes, recommendationRes, gradeIndexRes, codeMapRes, householdsRes, trades] = await Promise.all([
     fetch(DASHBOARD_APT_SCHOOL_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_STATION_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_OFFICIAL_PRICE_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_CONVENIENCE_META_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_RECOMMEND_INDEX_URL, { cache: 'no-store' }).catch(() => null),
+    fetch(DASHBOARD_APT_GRADE_INDEX_URL, { cache: 'no-store' }).catch(() => null),
     fetch(DASHBOARD_APT_CODE_MAP_URL, { cache: 'no-store' }),
     fetch(DASHBOARD_APT_HOUSEHOLDS_URL, { cache: 'no-store' }),
     preloadAptTrades(),
@@ -684,7 +700,7 @@ async function fetchDashboardAptSearchIndex() {
   if (!codeMapRes.ok) throw new Error('단지 목록을 불러오지 못했어요.');
   if (!householdsRes.ok) throw new Error('단지 기본정보를 불러오지 못했어요.');
 
-  const [codeMap, households, schools, stationMetas, officialPrices, convenienceMetas, recommendations] = await Promise.all([
+  const [codeMap, households, schools, stationMetas, officialPrices, convenienceMetas, recommendations, gradeIndex] = await Promise.all([
     codeMapRes.json(),
     householdsRes.json(),
     schoolMetaRes?.ok ? schoolMetaRes.json() : Promise.resolve({ entries: [] }),
@@ -692,8 +708,9 @@ async function fetchDashboardAptSearchIndex() {
     officialPriceRes?.ok ? officialPriceRes.json() : Promise.resolve({ entries: [] }),
     convenienceMetaRes?.ok ? convenienceMetaRes.json().catch(() => ({})) : Promise.resolve({}),
     recommendationRes?.ok ? recommendationRes.json().catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
+    gradeIndexRes?.ok ? gradeIndexRes.json().catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
   ]);
-  const entries = buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas, recommendations });
+  const entries = buildDashboardSearchIndex({ codeMap, households, trades, schools, stationMetas, officialPrices, convenienceMetas, recommendations, gradeIndex });
   setCache(DASHBOARD_APT_SEARCH_CACHE_KEY, { entries });
   return entries;
 }
@@ -780,10 +797,14 @@ function renderDashboardAptSearchBar() {
   if (!mount) return;
 
   mount.innerHTML = `
-    <button class="db-apt-search-trigger" type="button" onclick="showAptSearchScreen()">
-      <span class="db-apt-search-trigger-placeholder">${escapeHtml(getDashboardAptRegionLabel())} 단지명 또는 지역명으로 검색</span>
-    </button>
+    <div class="db-apt-search-controls">
+      <button class="db-apt-search-trigger" type="button" onclick="showAptSearchScreen()">
+        <span class="db-apt-search-trigger-placeholder">${escapeHtml(getDashboardAptRegionLabel())} 단지명 또는 지역명으로 검색</span>
+      </button>
+      <button id="dbMapFilterButton" class="db-map-filter-trigger" type="button" onclick="toggleDashboardMapFilterPanel()" aria-expanded="false" aria-controls="dbMapFilterPanel">필터</button>
+    </div>
   `;
+  if (typeof updateDashboardMapFilterUi === 'function') updateDashboardMapFilterUi();
 }
 
 // 단지 상세의 "뒤로" 동작 분기 — 추천 등 다른 진입점에서 재사용할 때 백 목적지를 바꾼다.
