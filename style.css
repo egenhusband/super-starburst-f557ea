@@ -5759,9 +5759,9 @@
 }
 .db-map-filter-panel {
   position: absolute;
-  right: 12px;
-  left: 12px;
-  bottom: 44px;
+  right: 36px;
+  left: 36px;
+  bottom: 24px;
   z-index: 4;
   display: grid;
   gap: 14px;
@@ -5782,12 +5782,34 @@
 .db-map-filter-header > div { display: flex; flex-direction: column; gap: 3px; }
 .db-map-filter-header strong { color: var(--label1); font-size: 14px; }
 .db-map-filter-header span { color: var(--label3); font-size: 10px; }
-.db-map-filter-reset { border: 0; background: transparent; color: var(--focus-accent); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.db-map-filter-reset { min-height: 42px; padding: 0 13px; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; background: rgba(255,255,255,.025); color: var(--label3); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.db-map-filter-close { display: grid; width: 26px; height: 26px; padding: 0; place-items: center; border: 0; border-radius: 50%; background: rgba(255,255,255,.07); color: var(--label2); font: inherit; font-size: 22px; font-weight: 300; line-height: 1; cursor: pointer; }
 .db-map-filter-group { display: grid; gap: 7px; }
 .db-map-filter-group > span { color: var(--label3); font-size: 10px; font-weight: 700; }
 .db-map-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .db-map-filter-chip { min-width: 43px; min-height: 30px; padding: 0 10px; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(255,255,255,.025); color: var(--label3); font: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
 .db-map-filter-chip.is-selected { border-color: color-mix(in srgb, var(--focus-accent) 70%, white 10%); background: color-mix(in srgb, var(--focus-accent) 20%, var(--surface-2)); color: #dceaff; }
+.db-map-price-filter { padding-top: 2px; }
+.db-map-price-filter-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.db-map-price-filter-heading > span { color: var(--label3); font-size: 10px; font-weight: 700; }
+.db-map-price-filter-heading strong { color: var(--label1); font-size: 13px; }
+.db-map-price-range { width: 100%; margin: 2px 0 0; accent-color: var(--focus-accent); cursor: pointer; }
+.db-map-price-filter-scale { display: flex; justify-content: space-between; color: var(--label3); font-size: 9px; }
+.db-map-price-filter p { margin: -1px 0 0; color: var(--label3); font-size: 9px; line-height: 1.35; }
+.db-map-filter-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.db-map-filter-apply { min-height: 42px; border: 0; border-radius: 12px; background: var(--focus-accent); color: #fff; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.db-map-filter-apply:active { transform: scale(.98); }
+.map-result-cta { position: relative; display: flex; align-items: center; width: 100%; gap: 11px; margin: 12px 0 0; padding: 13px 44px 13px 14px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--separator) 72%, transparent); border-radius: 14px; background: var(--surface-3); color: var(--label1); cursor: pointer; font: inherit; isolation: isolate; transition: transform 120ms var(--ease-snappy), border-color 150ms var(--ease-snappy); }
+.map-result-cta::before { position: absolute; inset: -55%; z-index: 0; background: conic-gradient(from 0deg, transparent 0deg, transparent 250deg, color-mix(in srgb, var(--focus-accent) 76%, transparent) 292deg, transparent 330deg, transparent 360deg); content: ''; animation: mapResultCtaBorderSweep 4.2s linear infinite; }
+.map-result-cta::after { position: absolute; inset: 1.5px; z-index: 0; border-radius: 12.5px; background: var(--surface-3); content: ''; }
+.map-result-cta > * { position: relative; z-index: 1; }
+.map-result-cta:active { transform: scale(.97); }
+.map-result-cta-ico { flex: 0 0 auto; font-size: 22px; line-height: 1; }
+.map-result-cta-copy { display: flex; min-width: 0; flex-direction: column; text-align: left; }
+.map-result-cta-copy strong { overflow: hidden; font-size: 14px; letter-spacing: 0; text-overflow: ellipsis; white-space: nowrap; }
+.map-result-cta-copy small { overflow: hidden; margin-top: 3px; color: var(--label3); font-size: 11.5px; font-weight: 300; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.map-result-cta-go { position: absolute; top: 50%; right: 15px; transform: translateY(-50%); color: var(--label3); font-size: 18px; }
+@keyframes mapResultCtaBorderSweep { to { transform: rotate(360deg); } }
 #dashboardScreen .db-placeholder,
 #dashboardScreen #dbLoading,
 #dashboardScreen #dbContent,

@@ -1796,7 +1796,6 @@
     const card = getRateLimitCard(rateSection);
     const priceEok = Number(card?.dataset.limitPrice || card?.dataset.bogeumPrice || card?.dataset.didimdolPrice || card?.dataset.newbornPrice || 0);
     animateLoanBar(uid, selectedPrincipal / 100000000, priceEok);
-    updateRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
   }
 
   function handleLoanAmountInput(uid) {
@@ -1808,15 +1807,6 @@
     const amtEl = document.getElementById('mc-amt-' + uid);
     if (amtEl) amtEl.dataset.principal = String(selectedWon);
     refreshSelectedLoanMonthly(uid);
-  }
-
-  function updateRecommendCtaLoanPayload(card, selectedLoanEok) {
-    if (!card) return;
-    const pane = card.closest('.tab-pane, .tab-pane3') || document.getElementById('resultContent');
-    const ctas = pane ? pane.querySelectorAll('.reco-cta[data-reco-cta]') : document.querySelectorAll('.reco-cta[data-reco-cta]');
-    ctas.forEach(cta => {
-      cta.dataset.recoMaxLoan = String(Math.max(0, selectedLoanEok || 0));
-    });
   }
 
   window.handleLoanAmountInput = handleLoanAmountInput;
@@ -4514,17 +4504,10 @@
       if (bogeumjariOk) eligible.push({ eok: bFinalLimit, rate: bDefaultRate });
       const best = eligible.reduce((acc, e) => (e.eok > (acc ? acc.eok : -1) ? e : acc), null);
       const maxEok = best ? Math.max(0, best.eok) : 0;
-      if (maxEok > 0 && typeof buildRecommendCtaHtml === 'function') {
-        const assetEok = Math.max(0, Number(asset) || 0);
+      if (maxEok > 0 && typeof buildDashboardMapCtaHtml === 'function') {
         const targetPrice = Math.max(0, Number(price) || 0);
-        const ctaHtml = buildRecommendCtaHtml({
-          safeBudget: targetPrice,
-          maxBudget: targetPrice,
-          eligiblePriceCap: targetPrice,
+        const ctaHtml = buildDashboardMapCtaHtml({
           targetPrice,
-          asset: assetEok,
-          maxLoan: maxEok,
-          region: 'all',
         });
         if (ctaHtml) {
           const tmp = document.createElement('div');

@@ -121,10 +121,12 @@ let dashboardApartmentMapState = {
   items: [],
   scopeItems: null,
   scopeLevel: null,
-  filters: { grades: new Set(DASHBOARD_MAP_GRADE_ORDER), minScore: null },
+  filters: { grades: new Set(DASHBOARD_MAP_GRADE_ORDER), minScore: null, maxAveragePrice: null },
+  filterDraft: null,
 };
 let dashboardMapRegionFilter = 'capital';
 let topComplexInsightSeq = 0;
+const DASHBOARD_MAP_PRICE_MAX_EOK = 150;
 let regionSwapSeq = 0;
 let pendingRegionStageEnter = false;
 const topComplexInsightCache = new Map();
@@ -352,11 +354,15 @@ function getDashboardMapFilteredItems(items = []) {
   const filters = dashboardApartmentMapState.filters;
   const selectedGrades = filters.grades;
   const minScore = Number(filters.minScore);
+  const maxAveragePrice = Number(filters.maxAveragePrice);
   return items.filter(item => {
     const gradeMatches = selectedGrades.has(item.grade);
     const score = Number(item.displayScore);
     const scoreMatches = !Number.isFinite(minScore) || minScore <= 0 || (Number.isFinite(score) && score >= minScore);
-    return gradeMatches && scoreMatches;
+    const averagePrice = Number(item.avgPrice);
+    const priceMatches = !Number.isFinite(maxAveragePrice) || maxAveragePrice <= 0
+      || (Number.isFinite(averagePrice) && averagePrice > 0 && averagePrice <= maxAveragePrice);
+    return gradeMatches && scoreMatches && priceMatches;
   });
 }
 
@@ -369,20 +375,53 @@ function getDashboardMapVisibleItems(items = dashboardApartmentMapState.items) {
   ));
 }
 
-function getDashboardMapFilterSummary() {
-  const { grades, minScore } = dashboardApartmentMapState.filters;
+function cloneDashboardMapFilters(filters) {
+  return {
+    grades: new Set(filters.grades),
+    minScore: Number(filters.minScore) || null,
+    maxAveragePrice: Number(filters.maxAveragePrice) || null,
+  };
+}
+
+function getDashboardMapFilterSummary(filters = dashboardApartmentMapState.filters) {
+  const { grades, minScore, maxAveragePrice } = filters;
   const allGrades = grades.size === DASHBOARD_MAP_GRADE_ORDER.length;
   const gradeText = allGrades ? '전체 등급' : `${grades.size}개 등급`;
-  return Number(minScore) > 0 ? `${gradeText} · ${minScore}점+` : gradeText;
+  const parts = [gradeText];
+  if (Number(minScore) > 0) parts.push(`${minScore}점+`);
+  if (Number(maxAveragePrice) > 0) parts.push(`${formatDashboardMapPrice(maxAveragePrice)} 이하`);
+  return parts.join(' · ');
+}
+
+function getDashboardMapAveragePriceCeiling() {
+  const prices = dashboardApartmentMapState.items
+    .map(item => Number(item.avgPrice))
+    .filter(price => Number.isFinite(price) && price > 0);
+  if (!prices.length) return DASHBOARD_MAP_PRICE_MAX_EOK * 10000;
+  return Math.min(DASHBOARD_MAP_PRICE_MAX_EOK * 10000, Math.ceil(Math.max(...prices) / 100000) * 100000);
+}
+
+function normalizeDashboardMapPriceEok(rawPrice) {
+  const price = Math.max(1, Math.min(DASHBOARD_MAP_PRICE_MAX_EOK, Number(rawPrice) || 1));
+  if (price <= 10) return Math.round(price);
+  if (price <= 30) return Math.round(price / 2) * 2;
+  if (price <= 50) return Math.round(price / 5) * 5;
+  return Math.round(price / 10) * 10;
 }
 
 function updateDashboardMapFilterUi() {
   const trigger = document.getElementById('dbMapFilterButton');
   const summary = document.getElementById('dbMapFilterSummary');
   const panel = document.getElementById('dbMapFilterPanel');
-  const { grades, minScore } = dashboardApartmentMapState.filters;
-  if (trigger) trigger.classList.toggle('is-filtered', grades.size !== DASHBOARD_MAP_GRADE_ORDER.length || Number(minScore) > 0);
-  if (summary) summary.textContent = getDashboardMapFilterSummary();
+  const appliedFilters = dashboardApartmentMapState.filters;
+  const editingFilters = dashboardApartmentMapState.filterDraft || appliedFilters;
+  const { grades, minScore, maxAveragePrice } = editingFilters;
+  const hasAppliedPriceFilter = Number(appliedFilters.maxAveragePrice) > 0;
+  if (trigger) {
+    trigger.classList.toggle('is-filtered', appliedFilters.grades.size !== DASHBOARD_MAP_GRADE_ORDER.length || Number(appliedFilters.minScore) > 0 || hasAppliedPriceFilter);
+    trigger.textContent = '필터';
+  }
+  if (summary) summary.textContent = getDashboardMapFilterSummary(editingFilters);
   if (!panel) return;
 
   panel.querySelectorAll('[data-map-grade]').forEach(button => {
@@ -396,6 +435,16 @@ function updateDashboardMapFilterUi() {
     button.classList.toggle('is-selected', selected);
     button.setAttribute('aria-pressed', selected ? 'true' : 'false');
   });
+  const priceRange = document.getElementById('dbMapMaxAveragePrice');
+  const priceValue = document.getElementById('dbMapMaxAveragePriceValue');
+  const priceLimit = document.getElementById('dbMapMaxAveragePriceLimit');
+  const ceiling = getDashboardMapAveragePriceCeiling();
+  if (priceRange) {
+    priceRange.max = String(DASHBOARD_MAP_PRICE_MAX_EOK);
+    priceRange.value = String(normalizeDashboardMapPriceEok((Number(maxAveragePrice) || ceiling) / 10000));
+  }
+  if (priceValue) priceValue.textContent = Number(maxAveragePrice) > 0 ? `${formatDashboardMapPrice(maxAveragePrice)} 이하` : '전체';
+  if (priceLimit) priceLimit.textContent = `${formatDashboardMapPrice(ceiling)}`;
 }
 
 function applyDashboardMapFilters() {
@@ -405,34 +454,101 @@ function applyDashboardMapFilters() {
   updateDashboardMapFilterUi();
 }
 
+function openDashboardMapFilterPanel() {
+  const panel = document.getElementById('dbMapFilterPanel');
+  if (!panel) return;
+  closeDashboardMapApartment();
+  dashboardApartmentMapState.filterDraft = cloneDashboardMapFilters(dashboardApartmentMapState.filters);
+  panel.classList.add('is-visible');
+  document.getElementById('dbMapFilterButton')?.setAttribute('aria-expanded', 'true');
+  updateDashboardMapFilterUi();
+}
+
 function toggleDashboardMapFilterPanel() {
   const panel = document.getElementById('dbMapFilterPanel');
   if (!panel) return;
-  const isOpen = panel.classList.toggle('is-visible');
-  document.getElementById('dbMapFilterButton')?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-  updateDashboardMapFilterUi();
+  if (panel.classList.contains('is-visible')) {
+    closeDashboardMapFilterPanel();
+    return;
+  }
+  openDashboardMapFilterPanel();
 }
 
 function closeDashboardMapFilterPanel() {
   document.getElementById('dbMapFilterPanel')?.classList.remove('is-visible');
   document.getElementById('dbMapFilterButton')?.setAttribute('aria-expanded', 'false');
+  dashboardApartmentMapState.filterDraft = null;
 }
 
 function toggleDashboardMapGradeFilter(grade) {
-  const grades = dashboardApartmentMapState.filters.grades;
+  const draft = dashboardApartmentMapState.filterDraft || cloneDashboardMapFilters(dashboardApartmentMapState.filters);
+  dashboardApartmentMapState.filterDraft = draft;
+  const grades = draft.grades;
   if (grades.has(grade) && grades.size > 1) grades.delete(grade);
   else grades.add(grade);
-  applyDashboardMapFilters();
+  updateDashboardMapFilterUi();
 }
 
 function selectAllDashboardMapGrades() {
-  dashboardApartmentMapState.filters.grades = new Set(DASHBOARD_MAP_GRADE_ORDER);
-  applyDashboardMapFilters();
+  const draft = dashboardApartmentMapState.filterDraft || cloneDashboardMapFilters(dashboardApartmentMapState.filters);
+  draft.grades = new Set(DASHBOARD_MAP_GRADE_ORDER);
+  dashboardApartmentMapState.filterDraft = draft;
+  updateDashboardMapFilterUi();
 }
 
 function setDashboardMapMinimumScore(score) {
-  dashboardApartmentMapState.filters.minScore = Number(score) || null;
+  const draft = dashboardApartmentMapState.filterDraft || cloneDashboardMapFilters(dashboardApartmentMapState.filters);
+  draft.minScore = Number(score) || null;
+  dashboardApartmentMapState.filterDraft = draft;
+  updateDashboardMapFilterUi();
+}
+
+function resetDashboardMapFilters() {
+  dashboardApartmentMapState.filterDraft = {
+    grades: new Set(DASHBOARD_MAP_GRADE_ORDER),
+    minScore: null,
+    maxAveragePrice: null,
+  };
+  updateDashboardMapFilterUi();
+}
+
+function setDashboardMapMaximumAveragePrice(priceEok) {
+  const draft = dashboardApartmentMapState.filterDraft || cloneDashboardMapFilters(dashboardApartmentMapState.filters);
+  const price = normalizeDashboardMapPriceEok(priceEok);
+  draft.maxAveragePrice = Number.isFinite(price) && price > 0 ? Math.round(price * 10000) : null;
+  dashboardApartmentMapState.filterDraft = draft;
+  updateDashboardMapFilterUi();
+}
+
+function applyDashboardMapFilterDraft() {
+  if (dashboardApartmentMapState.filterDraft) {
+    dashboardApartmentMapState.filters = cloneDashboardMapFilters(dashboardApartmentMapState.filterDraft);
+  }
+  closeDashboardMapFilterPanel();
   applyDashboardMapFilters();
+}
+
+function buildDashboardMapCtaHtml(ctx) {
+  const target = Number(ctx?.targetPrice) || 0;
+  if (target <= 0) return '';
+  return `<button class="map-result-cta" data-map-result-cta="true" data-map-target-price="${target}" type="button" onclick="openDashboardMapFromResultCta(this)">
+    <span class="map-result-cta-ico" aria-hidden="true">⌖</span>
+    <span class="map-result-cta-copy"><strong>이 가격대 단지 지도에서 보기</strong><small>입력한 주택가격 ${target.toFixed(1)}억 이하 · 평균 실거래가 기준</small></span>
+    <span class="map-result-cta-go" aria-hidden="true">→</span>
+  </button>`;
+}
+
+function openDashboardMapFromResultCta(element) {
+  const targetPrice = Number(element?.dataset?.mapTargetPrice) || 0;
+  dashboardApartmentMapState.filters.grades = new Set(DASHBOARD_MAP_GRADE_ORDER);
+  dashboardApartmentMapState.filters.minScore = null;
+  dashboardApartmentMapState.filters.maxAveragePrice = targetPrice > 0 ? Math.round(targetPrice * 10000) : null;
+  closeDashboardMapApartment();
+  if (typeof showDashboard === 'function') showDashboard();
+  window.setTimeout(() => {
+    openDashboardMapFilterPanel();
+    if (dashboardApartmentMapState.map) applyDashboardMapFilters();
+  }, 380);
 }
 
 function formatDashboardMapPrice(price) {
@@ -1219,7 +1335,7 @@ function initDashboard() {
         <div id="dbMapFilterPanel" class="db-map-filter-panel" aria-label="지도 필터">
           <div class="db-map-filter-header">
             <div><strong>단지 필터</strong><span id="dbMapFilterSummary">전체 등급</span></div>
-            <button type="button" class="db-map-filter-reset" onclick="selectAllDashboardMapGrades(); setDashboardMapMinimumScore(0)">초기화</button>
+            <button type="button" class="db-map-filter-close" onclick="closeDashboardMapFilterPanel()" aria-label="필터 닫기">×</button>
           </div>
           <div class="db-map-filter-group">
             <span>등급</span>
@@ -1236,6 +1352,13 @@ function initDashboard() {
               <button type="button" data-map-min-score="80" class="db-map-filter-chip" onclick="setDashboardMapMinimumScore(80)">80점+</button>
             </div>
           </div>
+          <div class="db-map-filter-group db-map-price-filter">
+            <div class="db-map-price-filter-heading"><span>평균 실거래가 최대</span><strong id="dbMapMaxAveragePriceValue">전체</strong></div>
+            <input id="dbMapMaxAveragePrice" class="db-map-price-range" type="range" min="1" max="150" step="1" value="150" oninput="setDashboardMapMaximumAveragePrice(this.value)" aria-label="평균 실거래가 최대 가격">
+            <div class="db-map-price-filter-scale"><span>1억</span><span>10억</span><span>30억</span><span id="dbMapMaxAveragePriceLimit">150억</span></div>
+            <p>평균 실거래가가 있는 단지만 가격 조건에 표시돼요.</p>
+          </div>
+          <div class="db-map-filter-actions"><button type="button" class="db-map-filter-apply" onclick="applyDashboardMapFilterDraft()">적용하기</button><button type="button" class="db-map-filter-reset" onclick="resetDashboardMapFilters()">초기화</button></div>
         </div>
         <div id="dbMapSelectionSheet" class="db-map-selection-sheet" aria-live="polite"></div>
       </div>
