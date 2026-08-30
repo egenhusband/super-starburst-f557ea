@@ -785,16 +785,36 @@ function openDashboardMapApartmentDetail(kaptCode) {
   }
 }
 
+function setDashboardApartmentMapLoading(isLoading) {
+  const loader = document.getElementById('dbApartmentMapLoading');
+  if (!loader) return;
+  loader.classList.toggle('is-visible', Boolean(isLoading));
+  loader.setAttribute('aria-hidden', isLoading ? 'false' : 'true');
+}
+
 function initDashboardApartmentMap() {
   const container = document.getElementById('dbApartmentMap');
   if (!container) return;
-  loadKakaoMapsSdk()
-    .then(() => loadDashboardApartmentMapData())
-    .then(items => {
+  setDashboardApartmentMapLoading(true);
+  const sdkPromise = loadKakaoMapsSdk();
+  const dataPromise = loadDashboardApartmentMapData();
+
+  // Create the base map as soon as the SDK is ready; apartment overlays can wait for the index.
+  sdkPromise.then(() => {
+    renderDashboardApartmentMap([]);
+  }).catch(() => {
+    setDashboardApartmentMapLoading(false);
+  });
+
+  Promise.all([sdkPromise, dataPromise])
+    .then(([, items]) => {
       dashboardApartmentMapState.items = items;
       renderDashboardApartmentMap(items);
+      setDashboardApartmentMapLoading(false);
     })
-    .catch(() => {});
+    .catch(() => {
+      setDashboardApartmentMapLoading(false);
+    });
 }
 
 function searchComplexLocation(complex) {
@@ -1344,6 +1364,10 @@ function initDashboard() {
       </div>
       <div class="db-apartment-map-wrap">
         <div id="dbApartmentMap" class="db-apartment-map" aria-label="수도권 아파트 단지 지도"></div>
+        <div id="dbApartmentMapLoading" class="db-map-loading" role="status" aria-live="polite" aria-hidden="true">
+          <span class="db-map-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span>단지 정보를 불러오는 중</span>
+        </div>
         <div id="dbMapFilterPanel" class="db-map-filter-panel" aria-label="지도 필터">
           <div class="db-map-filter-header">
             <div><strong>단지 필터</strong><span id="dbMapFilterSummary">전체 등급</span></div>

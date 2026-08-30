@@ -5757,6 +5757,41 @@
   min-height: 0;
   background: var(--surface-3);
 }
+.db-map-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+  background: rgba(20,20,21,.78);
+  color: rgba(255,255,255,.74);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(-50% + 5px));
+  transition: opacity 150ms ease, transform 150ms ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.db-map-loading.is-visible { opacity: 1; transform: translate(-50%, -50%); }
+.db-map-loading-dots { display: flex; align-items: center; gap: 3px; }
+.db-map-loading-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--focus-accent);
+  animation: dbMapLoadingDot 900ms ease-in-out infinite;
+}
+.db-map-loading-dots i:nth-child(2) { animation-delay: 120ms; }
+.db-map-loading-dots i:nth-child(3) { animation-delay: 240ms; }
+@keyframes dbMapLoadingDot { 0%, 70%, 100% { opacity: .35; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-2px); } }
 .db-map-filter-panel {
   position: absolute;
   right: 36px;
