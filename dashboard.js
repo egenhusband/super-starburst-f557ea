@@ -480,6 +480,18 @@ function closeDashboardMapFilterPanel() {
   dashboardApartmentMapState.filterDraft = null;
 }
 
+function toggleDashboardMapGradeGuide() {
+  const guide = document.getElementById('dbMapGradeGuide');
+  if (!guide) return;
+  const isVisible = guide.classList.toggle('is-visible');
+  document.getElementById('dbMapGradeGuideButton')?.setAttribute('aria-expanded', isVisible ? 'true' : 'false');
+}
+
+function closeDashboardMapGradeGuide() {
+  document.getElementById('dbMapGradeGuide')?.classList.remove('is-visible');
+  document.getElementById('dbMapGradeGuideButton')?.setAttribute('aria-expanded', 'false');
+}
+
 function toggleDashboardMapGradeFilter(grade) {
   const draft = dashboardApartmentMapState.filterDraft || cloneDashboardMapFilters(dashboardApartmentMapState.filters);
   dashboardApartmentMapState.filterDraft = draft;
@@ -1361,6 +1373,14 @@ function initDashboard() {
           <div class="db-map-filter-actions"><button type="button" class="db-map-filter-apply" onclick="applyDashboardMapFilterDraft()">적용하기</button><button type="button" class="db-map-filter-reset" onclick="resetDashboardMapFilters()">초기화</button></div>
         </div>
         <div id="dbMapSelectionSheet" class="db-map-selection-sheet" aria-live="polite"></div>
+        <button id="dbMapGradeGuideButton" class="db-map-grade-guide-trigger" type="button" onclick="toggleDashboardMapGradeGuide()" aria-expanded="false">? 산정 안내</button>
+        <aside id="dbMapGradeGuide" class="db-map-grade-guide" aria-label="입지 등급 산정 안내">
+          <button type="button" class="db-map-grade-guide-close" onclick="closeDashboardMapGradeGuide()" aria-label="산정 안내 닫기">×</button>
+          <strong>입지 등급 산정 안내</strong>
+          <p>생활권, 교통·업무지구 접근성, 생활 인프라, 단지 규모와 가격 수준을 종합한 참고 지표예요.</p>
+          <p>미래 교통 호재와 정비사업은 확정성 차이로 현재 등급에 제한적으로만 반영합니다.</p>
+          <small>공공·실거래 데이터가 갱신되면 결과가 달라질 수 있으며, 산정 기준은 계속 고도화 중입니다. 투자·대출 판단의 단독 근거로 사용하지 마세요.</small>
+        </aside>
       </div>
       <div class="db-placeholder" id="dbPlaceholder">
         시장 데이터를 준비하고 있어요

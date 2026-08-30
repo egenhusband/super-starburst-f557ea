@@ -9,7 +9,7 @@
     { "id": "seongnam-sujeong-core", "sigungu": ["성남시 수정구"], "umd": ["신흥동", "태평동", "단대동"], "targetTier": "T3", "label": "성남 수정 핵심 생활권" },
     { "id": "seongnam-jungwon", "sigungu": ["성남시 중원구"], "umd": ["금광동", "은행동", "하대원동", "상대원동"], "targetTier": "T4", "label": "성남 중원 일반 생활권" },
 
-    { "id": "hanam-misa", "sigungu": ["하남시"], "umd": ["망월동", "선동", "풍산동"], "targetTier": "T3", "label": "미사 생활권" },
+    { "id": "hanam-misa", "sigungu": ["하남시"], "umd": ["망월동", "선동", "풍산동"], "targetTier": "T3_PLUS", "label": "미사 핵심 생활권" },
     { "id": "hanam-gamil", "sigungu": ["하남시"], "umd": ["감이동", "학암동"], "targetTier": "T3", "label": "감일 생활권" },
     { "id": "hanam-city-core", "sigungu": ["하남시"], "umd": ["신장동", "덕풍동"], "targetTier": "T3", "label": "하남 도심 생활권" },
     { "id": "hanam-geomdansan", "sigungu": ["하남시"], "umd": ["창우동"], "targetTier": "T4", "label": "하남 검단산 생활권" },

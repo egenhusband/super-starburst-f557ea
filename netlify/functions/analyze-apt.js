@@ -28,6 +28,7 @@ const LOCATION_GRADE_SCALE = [
 const LOCATION_TIER_SCORES = {
   T1: { base: 12, min: 9, max: 18, label: '서울 핵심 입지' },
   T2: { base: 9, min: 9, max: 12, label: '서울 준핵심 입지' },
+  T3_PLUS: { base: 7, min: 6, max: 12, label: '경기 핵심 상급 생활권' },
   T3: { base: 6, min: 3, max: 12, label: '서울 일반·경기 핵심 생활권' },
   T4_PLUS: { base: 3, min: 3, max: 10, label: '서울접근 우수 생활권' },
   T4: { base: 1, min: 0, max: 7, label: '서울 외곽·경기 일반 생활권' },
@@ -37,6 +38,7 @@ const LOCATION_TIER_SCORES = {
 const LOCATION_TIER_TRANSPORT_CAPS = {
   T1: 2,
   T2: 3,
+  T3_PLUS: 3,
   T3: 3,
   T4_PLUS: 4,
   T4: 4,

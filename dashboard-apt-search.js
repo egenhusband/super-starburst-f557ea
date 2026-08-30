@@ -5,10 +5,10 @@ const DASHBOARD_APT_SCHOOL_META_URL = '/data/apt-school-meta.json?v=20260507a';
 const DASHBOARD_APT_STATION_META_URL = '/data/apt-station-meta.json?v=20260518a';
 const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260517a';
 const DASHBOARD_APT_CONVENIENCE_META_URL = '/data/apt-convenience-meta.json?v=20260518a';
-const DASHBOARD_APT_RECOMMEND_INDEX_URL = '/data/apt-recommend-index.json?v=20260830recommend1';
-const DASHBOARD_APT_GRADE_INDEX_URL = '/data/apt-grade-index.json?v=20260830grade2';
+const DASHBOARD_APT_RECOMMEND_INDEX_URL = '/data/apt-recommend-index.json?v=20260830recommend2';
+const DASHBOARD_APT_GRADE_INDEX_URL = '/data/apt-grade-index.json?v=20260830grade3';
 const DASHBOARD_APT_ANALYZE_URL = '/api/analyze-apt';
-const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v22';
+const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v23';
 const DASHBOARD_APT_SEARCH_CACHE_TTL = 6 * 60 * 60 * 1000;
 
 const NINE_LINE_944_BENEFIT_NAMES = [

@@ -128,6 +128,7 @@ const scenarios = [
   ['여의도 공작', 'A15001012'],
   ['판교 푸르지오그랑블', 'A46374606'],
   ['성남단대푸르지오', 'A46170401'],
+  ['하남 미사강변루나리움', 'A10027782'],
   ['하남 창우 부영', 'A46571004'],
   ['구리 인창주공6', 'A47174523'],
   ['산성역 포레스티아', 'A10024631'],
@@ -142,6 +143,7 @@ const pangyo = summaries.find(item => item.label === '판교 푸르지오그랑�
 const inchangJugong = summaries.find(item => item.label === '구리 인창주공6');
 const forestia = summaries.find(item => item.label === '산성역 포레스티아');
 const daelimHansup = summaries.find(item => item.label === '구리 대림한숲');
+const misaLunarium = summaries.find(item => item.label === '하남 미사강변루나리움');
 
 const daelimStationBonus = daelimHansup?.adjustments?.transport?.items?.some(item => item.key === 'station');
 if (Number(daelimHansup?.stationDistance) > 350 || !daelimStationBonus) {
@@ -159,6 +161,12 @@ if (pangyo?.tier !== 'T2') {
 }
 if (daelimHansup?.tier !== 'T4') {
   throw new Error('구리 수택 생활권 기본 티어가 T4로 유지되어야 합니다.');
+}
+if (misaLunarium?.tier !== 'T3_PLUS' || misaLunarium?.finalGrade !== 'A') {
+  throw new Error('미사 핵심 생활권은 T3+로 분리되어 루나리움이 A 등급이어야 합니다.');
+}
+if (!(Number(misaLunarium?.clampedScore) > Number(daelimHansup?.clampedScore))) {
+  throw new Error('미사강변루나리움은 구리 대림한숲보다 높은 입지 점수를 받아야 합니다.');
 }
 if (daelimHansup?.finalGrade !== 'B+' || inchangJugong?.finalGrade !== 'B') {
   throw new Error('구리 잠실 접근성 보정 결과가 대림한숲 B+, 인창주공6 B여야 합니다.');
