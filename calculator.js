@@ -404,6 +404,7 @@
               <option value="incheon_gangwha">인천 — 강화군·옹진군</option>
               <option value="incheon_special">인천 — 서구 일부·경제특구</option>
               <option value="incheon_etc">인천 — 그 외</option>
+              <option value="metro_anyang_manan">경기 — 안양시 (만안구 · 비규제)</option>
               <option value="metro_city">경기 — 의정부·고양·수원 일부·부천·광명 일부·과천 일부·의왕 일부·군포·용인·화성 일부·세종·김포</option>
               <option value="siheung_banwol">시흥 — 반월특수지역</option>
               <option value="siheung_etc">시흥 — 그 외</option>
@@ -518,6 +519,7 @@
     incheon_gangwha: 2500,
     incheon_special: 2800,
     incheon_etc:     4800,
+    metro_anyang_manan: 4800,
     metro_city:      4800,
     siheung_banwol:  2500,
     siheung_etc:     4800,
@@ -542,7 +544,7 @@
     'reg_suwon','reg_anyang','reg_yongin','reg_yongin_giheung',
     'reg_hwaseong_dongtan','reg_guri','reg_uiwang','reg_hanam',
     'incheon_gangwha','incheon_special','incheon_etc',
-    'metro_city','siheung_banwol','siheung_etc',
+    'metro_anyang_manan','metro_city','siheung_banwol','siheung_etc',
     'namyangju_core','namyangju_etc','gyeonggi_city'
   ]);
 
