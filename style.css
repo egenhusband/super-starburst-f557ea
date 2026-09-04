@@ -4132,10 +4132,24 @@
   }
   .recent-calculation-toast-copy {
     min-width: 0;
-    font-size: 14px;
-    font-weight: 720;
-    line-height: 1.35;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    line-height: 1.3;
     letter-spacing: -0.2px;
+  }
+  .recent-calculation-toast-copy strong {
+    font-size: 14px;
+    font-weight: 760;
+  }
+  .recent-calculation-toast-copy span {
+    max-width: 250px;
+    overflow: hidden;
+    color: var(--label2);
+    font-size: 12px;
+    font-weight: 580;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .recent-calculation-toast-action {
     flex: 0 0 auto;

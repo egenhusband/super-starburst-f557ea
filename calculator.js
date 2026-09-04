@@ -41,15 +41,16 @@
     '용인시': {
       label: '구',
       options: [
-        ['regulated', '수지구·기흥구'],
-        ['metro', '처인구'],
+        ['regulated_suji', '수지구'],
+        ['regulated_giheung', '기흥구'],
+        ['metro_cheoin', '처인구'],
       ],
     },
     '화성시': {
       label: '세부 지역',
       options: [
-        ['regulated', '동탄구'],
-        ['metro', '동탄구 외 지역'],
+        ['regulated_dongtan', '동탄구'],
+        ['metro_elsewhere', '동탄구 외 지역'],
       ],
     },
   };
@@ -76,9 +77,16 @@
       result.hidden = false;
       result.classList.toggle('is-regulated', isRegulated);
       title.textContent = isRegulated ? '🔴 규제지역' : region === '수도권' ? '수도권 (규제지역 외)' : '지방';
+      const isNewLandPermitArea = (
+        regionSelection.city === '구리시'
+        || (regionSelection.city === '용인시' && regionSelection.detail === 'regulated_giheung')
+        || (regionSelection.city === '화성시' && regionSelection.detail === 'regulated_dongtan')
+      );
       desc.textContent = options.uncertain
         ? '세부 지역이 정해지지 않아 안전하게 규제지역 기준으로 계산해요.'
-        : `${regionSelection.locationLabel || '선택 지역'} 기준을 LTV 계산에 자동 반영해요.`;
+        : isNewLandPermitArea
+          ? '규제지역이며 토지거래허가구역(2026.7.5~2027.12.31)이에요.'
+          : `${regionSelection.locationLabel || '선택 지역'} 기준을 LTV 계산에 자동 반영해요.`;
     }
     updateNextBtn();
   }
@@ -140,7 +148,8 @@
     if (mixed) {
       if (detailField) detailField.hidden = false;
       if (detailLabel) detailLabel.textContent = mixed.label;
-      setSelectOptions(detailSelect, `${mixed.label}를 선택해주세요`, [
+      const detailParticle = mixed.label.endsWith('역') ? '을' : '를';
+      setSelectOptions(detailSelect, `${mixed.label}${detailParticle} 선택해주세요`, [
         ['unknown', '아직 정확히 정하지 않았어요'],
         ...mixed.options,
       ]);
@@ -164,7 +173,7 @@
     }
     const mixed = GYEONGGI_MIXED_AREAS[regionSelection.city];
     const detailName = mixed?.options.find(item => item[0] === value)?.[1] || '';
-    setRegionClassification(value === 'regulated' ? '규제지역' : '수도권', {
+    setRegionClassification(value.startsWith('regulated') ? '규제지역' : '수도권', {
       locationLabel: `${baseLabel} ${detailName}`.trim(),
     });
   }
@@ -185,8 +194,13 @@
     }
     if (savedSelection.detail) {
       const detail = document.getElementById('regionDetailSelect');
-      if (detail) detail.value = savedSelection.detail;
-      handleRegionDetailChange(savedSelection.detail);
+      let savedDetail = savedSelection.detail;
+      if (savedDetail === 'regulated' && savedSelection.city === '용인시') savedDetail = 'unknown';
+      if (savedDetail === 'regulated' && savedSelection.city === '화성시') savedDetail = 'regulated_dongtan';
+      if (savedDetail === 'metro' && savedSelection.city === '용인시') savedDetail = 'metro_cheoin';
+      if (savedDetail === 'metro' && savedSelection.city === '화성시') savedDetail = 'metro_elsewhere';
+      if (detail) detail.value = savedDetail;
+      handleRegionDetailChange(savedDetail);
     }
   }
 
@@ -241,13 +255,54 @@
     document.getElementById('recentCalculationToast')?.classList.remove('show');
   }
 
+  function formatRecentNumber(value, label, unit) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number <= 0) return '';
+    return `${label} ${number.toLocaleString(undefined, { maximumFractionDigits: 1 })}${unit}`;
+  }
+
+  function getRecentCalculationSummary(calculation) {
+    const input = calculation?.inputPayload || {};
+    if (calculation?.calculatorType === 'fund') {
+      const location = input.regionSelection?.locationLabel || input.region || '';
+      return {
+        title: `최근 기금대출 계산${input.house ? ` · ${input.house}` : ''}`,
+        summary: [
+          location,
+          formatRecentNumber(input.price, '주택', '억'),
+          formatRecentNumber(input.income, '소득', '만원'),
+        ].filter(Boolean).join(' · '),
+      };
+    }
+    return {
+      title: `최근 시중대출 계산${input.firstBuyer === 'Y' ? ' · 생애최초' : ''}`,
+      summary: [
+        formatRecentNumber(input.price, '주택', '억'),
+        formatRecentNumber(input.loan, '대출', '억'),
+        formatRecentNumber(input.years, '기간', '년'),
+      ].filter(Boolean).join(' · '),
+    };
+  }
+
   function showRecentCalculationToast(calculation) {
     if (!calculation || !['fund', 'bank'].includes(calculation.calculatorType)) return;
     pendingRecentCalculation = calculation;
     const toast = document.getElementById('recentCalculationToast');
     if (!toast) return;
+    document.getElementById('entryToast')?.classList.remove('show', 'is-hiding');
+    const copy = getRecentCalculationSummary(calculation);
+    const title = document.getElementById('recentCalculationToastTitle');
+    const summary = document.getElementById('recentCalculationToastSummary');
+    if (title) title.textContent = copy.title;
+    if (summary) summary.textContent = copy.summary;
     toast.classList.add('show');
   }
+
+  document.addEventListener('pointerdown', event => {
+    const toast = document.getElementById('recentCalculationToast');
+    if (!toast?.classList.contains('show') || toast.contains(event.target)) return;
+    hideRecentCalculationToast();
+  }, true);
 
   function selectSavedOption(group, value) {
     if (!value) return;
@@ -954,6 +1009,10 @@
         <div class="bank-notice-item">
           <div class="bank-notice-icon">🏙️</div>
           <div class="bank-notice-text"><strong>규제지역(서울 전역·경기 주요 지정 지역)</strong>은 LTV 40%가 적용됩니다. 2026년 7월 1일부터 화성 동탄구·용인 기흥구·구리시도 포함돼요.</div>
+        </div>
+        <div class="bank-notice-item">
+          <div class="bank-notice-icon">🗺️</div>
+          <div class="bank-notice-text"><strong>토지거래허가구역</strong>은 대출 규제와 별도예요. 화성 동탄구·용인 기흥구·구리시는 2026년 7월 5일부터 2027년 12월 31일까지 적용됩니다.</div>
         </div>
         <div class="bank-notice-item">
           <div class="bank-notice-icon">${icon('landmark', 18)}</div>
