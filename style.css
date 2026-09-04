@@ -4121,14 +4121,16 @@
     gap: 14px;
     opacity: 0;
     pointer-events: none;
-    transform: translate(-50%, 120%);
-    transition: opacity var(--motion-toast-exit) var(--ease-snappy), transform var(--motion-toast-exit) var(--ease-snappy);
+    transform: translate3d(-50%, 32px, 0);
+    transition:
+      opacity 240ms ease-out,
+      transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: opacity, transform;
   }
   .recent-calculation-toast.show {
     opacity: 1;
     pointer-events: auto;
-    transform: translate(-50%, 0);
-    animation: entryToastSoftSpring 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    transform: translate3d(-50%, 0, 0);
   }
   .recent-calculation-toast-copy {
     min-width: 0;
