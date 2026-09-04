@@ -1,0 +1,88 @@
+{
+  "meta": {
+    "updatedAt": "2026-09-04",
+    "scope": "서울·경기 공사 중 또는 기본계획 승인 철도와 예타 단계 주요 연장선",
+    "coordinatePolicy": "확정 정거장은 공식 계획 위치를 WGS84로 변환하고, 미확정 정거장은 점으로 표시하지 않음",
+    "note": "노선은 공식 노선도를 바탕으로 단순화한 안내선이며 실제 선형·출입구 위치와 다를 수 있습니다."
+  },
+  "routes": [
+    {
+      "id": "line-3-songpa-hanam", "name": "3호선 송파하남선", "stage": "design", "status": "기본계획 승인·입찰", "target": "2032년", "color": "#ef7c1c",
+      "sourceUrl": "https://gnews.gg.go.kr/briefing/brief_gongbo_view.do?BS_CODE=s017&number=68828",
+      "path": [[37.5024,127.1283],[37.5104,127.1438],[37.5071,127.1618],[37.5215,127.1856],[37.5308,127.2045],[37.5417,127.2061]],
+      "stations": [{"name":"오금","lat":37.5024,"lng":127.1283,"isNew":false,"locationStatus":"confirmed"},{"name":"하남시청","lat":37.5417,"lng":127.2061,"isNew":false,"locationStatus":"confirmed"}]
+    },
+    {
+      "id": "line-5-gimpo-geomdan", "name": "5호선 김포·검단 연장", "stage": "study", "status": "예비타당성조사", "target": "미정", "color": "#996cac",
+      "sourceUrl": "https://gnews.gg.go.kr/briefing/brief_gongbo_view.do?BS_CODE=S017&number=69529",
+      "path": [[37.5774,126.8128],[37.5927,126.7354],[37.6012,126.6672],[37.6434,126.6320],[37.6818,126.6265]],
+      "stations": [{"name":"방화","lat":37.5774,"lng":126.8128,"isNew":false,"locationStatus":"confirmed"}]
+    },
+    {
+      "id": "line-7-dobongsan-okjeong", "name": "7호선 도봉산~옥정", "stage": "construction", "status": "공사 중", "target": "2027년 목표", "color": "#747f00",
+      "sourceUrl": "https://gnews.gg.go.kr/briefing/brief_gongbo_view.do?BS_CODE=s017&number=69120",
+      "path": [[37.6896,127.0460],[37.7337,127.0888],[37.7730,127.0920],[37.8182,127.0948]],
+      "stations": [{"name":"도봉산","lat":37.6896,"lng":127.0460,"isNew":false,"locationStatus":"confirmed"},{"name":"탑석","lat":37.7337,"lng":127.0888,"isNew":false,"locationStatus":"confirmed"}]
+    },
+    {
+      "id": "line-7-okjeong-pocheon", "name": "7호선 옥정~포천", "stage": "construction", "status": "공사 중", "target": "2030년 목표", "color": "#747f00",
+      "sourceUrl": "https://gnews.gg.go.kr/briefing/brief_gongbo_view.do?BS_CODE=S017&number=70773",
+      "path": [[37.8182,127.0948],[37.8387,127.1036],[37.9137,127.1285],[37.9654,127.1910]],
+      "stations": []
+    },
+    {
+      "id": "line-8-byeollae-extension", "name": "8호선 별내별가람 연장", "stage": "study", "status": "예비타당성조사 대상", "target": "미정", "color": "#e6186c",
+      "sourceUrl": "https://gits.gg.go.kr/web/newboard/3386.do?idx=201756952&mode=view",
+      "path": [[37.6420,127.1267],[37.6677,127.1160],[37.7044,127.1087]],
+      "stations": [{"name":"별내","lat":37.6420,"lng":127.1267,"isNew":false,"locationStatus":"confirmed"},{"name":"별내별가람","lat":37.7044,"lng":127.1087,"isNew":false,"locationStatus":"confirmed"}]
+    },
+    {
+      "id": "line-9-phase-4", "name": "9호선 4단계", "stage": "construction", "status": "공사 중", "target": "2028년", "color": "#b49a5a",
+      "sourceUrl": "https://news.seoul.go.kr/citybuild/archives/516010",
+      "path": [[37.5292,127.1480],[37.5355,127.1508],[37.5456,127.1544],[37.5550,127.1541],[37.5656,127.1739]],
+      "stations": [{"name":"중앙보훈병원","lat":37.5292,"lng":127.1480,"isNew":false,"locationStatus":"confirmed"},{"name":"길동생태공원 인근","lat":37.5355,"lng":127.1508,"isNew":true,"locationStatus":"confirmed"},{"name":"한영외고 인근","lat":37.5456,"lng":127.1544,"isNew":true,"locationStatus":"confirmed"},{"name":"고덕","lat":37.5550,"lng":127.1541,"isNew":false,"locationStatus":"confirmed"},{"name":"고덕강일1지구","lat":37.5656,"lng":127.1739,"isNew":true,"locationStatus":"confirmed"}]
+    },
+    {
+      "id": "line-9-gangdong-wangsuk", "name": "9호선 강동하남남양주선", "stage": "design", "status": "기본계획 승인·설계", "target": "2031년", "color": "#b49a5a",
+      "sourceUrl": "https://gnews.gg.go.kr/briefing/brief_gongbo_view.do?BS_CODE=s017&number=64209",
+      "path": [[37.5656,127.1739],[37.5684,127.1902],[37.5768,127.2220],[37.5865,127.2211],[37.6016,127.1802],[37.6410,127.1813],[37.6822,127.1865],[37.7195,127.1950]],
+      "stations": []
+    },
+    {
+      "id": "shinansan", "name": "신안산선", "stage": "construction", "status": "공사 중", "target": "개통 준비", "color": "#1e88e5",
+      "sourceUrl": "https://www.molit.go.kr/USR/NEWS/m_71/dtl.jsp?id=95089847",
+      "path": [[37.4781,126.9633],[37.4937,126.8953],[37.5047,126.8697],[37.5217,126.9243],[37.5264,126.8962],[37.4643,126.8890],[37.4006,126.8875],[37.3450,126.8532],[37.3160,126.8230]],
+      "stations": []
+    },
+    {
+      "id": "wolgot-pangyo", "name": "월곶판교선", "stage": "construction", "status": "공사 중", "target": "2029년 목표", "color": "#4b7bec",
+      "sourceUrl": "https://www.kr.or.kr/boardCnts/view.do?boardID=51&boardSeq=1119912",
+      "path": [[37.3918,126.7427],[37.3815,126.8050],[37.3628,126.9355],[37.3948,126.9636],[37.4015,126.9767],[37.3948,127.1112]],
+      "stations": []
+    },
+    {
+      "id": "dongtan-indeogwon", "name": "동탄인덕원선", "stage": "construction", "status": "공사 중", "target": "2029년 목표", "color": "#ef5350",
+      "sourceUrl": "https://www.kr.or.kr/boardCnts/view.do?boardID=51&boardSeq=1119912",
+      "path": [[37.4015,126.9767],[37.3776,127.0082],[37.3527,127.0353],[37.3209,127.0680],[37.2747,127.1159],[37.2325,127.1167],[37.1998,127.0955]],
+      "stations": []
+    },
+    {
+      "id": "dongbuk-line", "name": "동북선", "stage": "construction", "status": "공사 중", "target": "2027년 목표", "color": "#55a630",
+      "sourceUrl": "https://news.seoul.go.kr/citybuild/city_railroad",
+      "path": [[37.5613,127.0371],[37.5860,127.0290],[37.5905,127.0363],[37.6109,127.0565],[37.6133,127.0614],[37.6364,127.0679],[37.6530,127.0473]],
+      "stations": []
+    },
+    {
+      "id": "gtx-b", "name": "GTX-B", "stage": "construction", "status": "공사 중", "target": "2031년", "color": "#3b82f6",
+      "sourceUrl": "https://www.molit.go.kr/2026plan/sub5_public.html",
+      "path": [[37.5054,126.7972],[37.5089,126.8913],[37.5218,126.9244],[37.5298,126.9646],[37.5555,126.9726],[37.5800,127.0447],[37.5956,127.0858],[37.6421,127.1270],[37.6532,127.2444],[37.6528,127.3117]],
+      "stations": []
+    },
+    {
+      "id": "gtx-c", "name": "GTX-C", "stage": "design", "status": "착공 준비", "target": "2030년대", "color": "#22c55e",
+      "sourceUrl": "https://www.molit.go.kr/USR/NEWS/m_71/dtl.jsp?id=95092337",
+      "path": [[37.8432,127.0616],[37.7384,127.0460],[37.6533,127.0476],[37.5800,127.0447],[37.5088,127.0630],[37.4846,127.0342],[37.4015,126.9767],[37.3725,126.9435],[37.2657,127.0000]],
+      "stations": []
+    }
+  ]
+}

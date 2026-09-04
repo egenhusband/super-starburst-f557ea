@@ -5921,8 +5921,22 @@
 }
 .db-map-rail-legend.is-visible { opacity: 1; transform: translateY(0); }
 .db-map-rail-legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-.db-map-rail-legend i { display: inline-block; width: 12px; height: 0; border-top: 2px solid rgba(84,160,255,.7); }
-.db-map-rail-legend i.is-gtx { border-top-color: rgba(168,85,247,.6); border-top-style: dashed; }
+.db-map-rail-legend i { display: inline-block; width: 12px; height: 0; border-top: 2px dashed rgba(84,160,255,.78); }
+.db-map-rail-legend i.is-planning { border-top-color: rgba(168,85,247,.58); opacity: .7; }
+.db-map-rail-legend .is-new-station { width: 5px; height: 5px; border: 1px solid rgba(255,255,255,.8); border-radius: 50%; background: #b49a5a; }
+.db-future-rail-station {
+  display: block;
+  padding: 2px 4px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 5px;
+  background: rgba(25,25,26,.7);
+  color: rgba(255,255,255,.72);
+  font-size: 8px;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
 .db-map-loading {
   position: absolute;
   top: 50%;

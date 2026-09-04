@@ -112,15 +112,8 @@ let selectedDealCityByRegion = {};
 let kakaoMapsSdkPromise = null;
 let dashboardApartmentMapPromise = null;
 const DASHBOARD_MAP_GRADE_ORDER = ['S', 'A+', 'A', 'B+', 'B', 'C+', 'C'];
-const DASHBOARD_RAIL_GRAPH_URL = '/data/subway-seoul-times.json?v=20260517a';
-const DASHBOARD_GTX_LINES_URL = '/data/capital-gtx-lines.json?v=20260904a';
+const DASHBOARD_FUTURE_RAIL_URL = '/data/capital-future-rail.json?v=20260904b';
 const DASHBOARD_RAIL_MAX_LEVEL = 5;
-const DASHBOARD_SUBWAY_COLORS = {
-  '1호선': '#0052a4', '2호선': '#00a84d', '3호선': '#ef7c1c', '4호선': '#00a5de',
-  '5호선': '#996cac', '6호선': '#cd7c2f', '7호선': '#747f00', '8호선': '#e6186c',
-  '9호선': '#bdb092', '경강선': '#0054a6', '경의중앙선': '#77c4a3', '공항철도': '#0090d2',
-  '분당선': '#f5a200', '신분당선': '#d4003b',
-};
 let dashboardApartmentMapState = {
   map: null,
   clusterer: null,
@@ -368,135 +361,59 @@ function clearDashboardRailLayer() {
   document.getElementById('dbMapRailLegend')?.classList.remove('is-visible');
 }
 
-function normalizeDashboardRailStationName(value) {
-  return String(value || '')
-    .trim()
-    .replace(/\([^)]*\)/g, '')
-    .replace(/\s+/g, '')
-    .replace(/역$/u, '')
-    .replace(/[()[\]{}.,·\-_/]/g, '')
-    .toLowerCase();
-}
-
 function loadDashboardRailData() {
   if (dashboardRailDataPromise) return dashboardRailDataPromise;
-  dashboardRailDataPromise = Promise.all([
-    fetch(DASHBOARD_RAIL_GRAPH_URL).then(response => {
-      if (!response.ok) throw new Error('지하철 노선 데이터를 불러오지 못했어요.');
-      return response.json();
-    }),
-    fetch(DASHBOARD_GTX_LINES_URL).then(response => {
-      if (!response.ok) throw new Error('GTX 노선 데이터를 불러오지 못했어요.');
-      return response.json();
-    }),
-  ]).then(([subway, gtx]) => ({ subway, gtx })).catch(error => {
+  dashboardRailDataPromise = fetch(DASHBOARD_FUTURE_RAIL_URL).then(response => {
+    if (!response.ok) throw new Error('예정 철도 데이터를 불러오지 못했어요.');
+    return response.json();
+  }).catch(error => {
     dashboardRailDataPromise = null;
     throw error;
   });
   return dashboardRailDataPromise;
 }
 
-function parseDashboardSubwayPlace(place) {
-  const placeName = String(place?.place_name || '').trim();
-  const aliases = { '수인분당선': '분당선' };
-  const candidates = [...Object.keys(DASHBOARD_SUBWAY_COLORS), ...Object.keys(aliases)]
-    .sort((a, b) => b.length - a.length);
-  const rawLine = candidates.find(line => placeName.includes(line));
-  if (!rawLine) return null;
-  const lineName = aliases[rawLine] || rawLine;
-  const stationName = placeName.replace(rawLine, '').trim().replace(/역$/u, '');
-  const lat = Number(place.y);
-  const lng = Number(place.x);
-  if (!stationName || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lineName, stationName, lat, lng };
-}
-
-function findVisibleDashboardSubwayStations(map, renderSeq) {
-  return new Promise(resolve => {
-    const places = new kakao.maps.services.Places(map);
-    const found = [];
-    let pageCount = 0;
-    const callback = (items, status, pagination) => {
-      if (renderSeq !== dashboardApartmentMapState.railRenderSeq) return resolve([]);
-      if (status !== kakao.maps.services.Status.OK) return resolve(found);
-      found.push(...items.filter(item => {
-        const address = String(item.address_name || item.road_address_name || '');
-        return address.startsWith('서울') || address.startsWith('경기');
-      }));
-      pageCount += 1;
-      if (pagination?.hasNextPage && pageCount < 3) pagination.nextPage();
-      else resolve(found);
-    };
-    const radiusByLevel = { 1: 2200, 2: 2800, 3: 3800, 4: 6000, 5: 10000 };
-    places.categorySearch('SW8', callback, {
-      location: map.getCenter(),
-      radius: radiusByLevel[map.getLevel()] || 10000,
-      size: 15,
-      sort: kakao.maps.services.SortBy.DISTANCE,
-    });
-  });
-}
-
-function drawDashboardGtxLines(kakao, map, gtxPayload) {
+function drawDashboardFutureRail(kakao, map, payload) {
   const bounds = map.getBounds();
-  (gtxPayload?.routes || []).forEach(route => {
-    const path = (route.stations || [])
-      .map(([, lat, lng]) => new kakao.maps.LatLng(Number(lat), Number(lng)));
+  (payload?.routes || []).forEach(route => {
+    const path = (route.path || []).map(([lat, lng]) => new kakao.maps.LatLng(Number(lat), Number(lng)));
     if (path.length < 2 || !path.some(position => bounds.contain(position))) return;
     const line = new kakao.maps.Polyline({
       path,
-      strokeWeight: 2,
+      strokeWeight: route.stage === 'construction' ? 3 : 2,
       strokeColor: route.color || '#64748b',
-      strokeOpacity: 0.28,
-      strokeStyle: 'shortdash',
+      strokeOpacity: route.stage === 'construction' ? 0.42 : 0.25,
+      strokeStyle: route.stage === 'construction' ? 'shortdash' : 'dash',
     });
     line.setMap(map);
     dashboardApartmentMapState.railPolylines.push(line);
-  });
-}
-
-function drawDashboardSubwayLines(kakao, map, subwayPayload, places) {
-  const stationByKey = new Map();
-  places.map(parseDashboardSubwayPlace).filter(Boolean).forEach(station => {
-    stationByKey.set(`${station.lineName}|${normalizeDashboardRailStationName(station.stationName)}`, station);
-  });
-  const graphStationById = new Map((subwayPayload?.stations || []).map(station => [station.id, station]));
-  const drawnStationKeys = new Set();
-  (subwayPayload?.edges || []).filter(edge => edge.type === 'ride').forEach(edge => {
-    const fromGraph = graphStationById.get(edge.from);
-    const toGraph = graphStationById.get(edge.to);
-    if (!fromGraph || !toGraph || fromGraph.lineName !== toGraph.lineName) return;
-    const fromKey = `${fromGraph.lineName}|${normalizeDashboardRailStationName(fromGraph.stationNameNormalized || fromGraph.stationName)}`;
-    const toKey = `${toGraph.lineName}|${normalizeDashboardRailStationName(toGraph.stationNameNormalized || toGraph.stationName)}`;
-    const from = stationByKey.get(fromKey);
-    const to = stationByKey.get(toKey);
-    if (!from || !to) return;
-    const line = new kakao.maps.Polyline({
-      path: [new kakao.maps.LatLng(from.lat, from.lng), new kakao.maps.LatLng(to.lat, to.lng)],
-      strokeWeight: 2,
-      strokeColor: DASHBOARD_SUBWAY_COLORS[fromGraph.lineName] || '#64748b',
-      strokeOpacity: 0.46,
-      strokeStyle: 'solid',
+    (route.stations || []).forEach(station => {
+      if (station.locationStatus !== 'confirmed') return;
+      const position = new kakao.maps.LatLng(Number(station.lat), Number(station.lng));
+      if (!bounds.contain(position)) return;
+      const dot = new kakao.maps.Circle({
+        center: position,
+        radius: station.isNew === false ? 24 : 38,
+        strokeWeight: station.isNew === false ? 1 : 2,
+        strokeColor: '#ffffff',
+        strokeOpacity: station.isNew === false ? 0.38 : 0.78,
+        fillColor: route.color || '#64748b',
+        fillOpacity: station.isNew === false ? 0.34 : 0.72,
+      });
+      dot.setMap(map);
+      dashboardApartmentMapState.railStationDots.push(dot);
+      if (station.isNew !== false && map.getLevel() <= 4) {
+        const label = new kakao.maps.CustomOverlay({
+          position,
+          content: `<span class="db-future-rail-station">${escapeHtml(station.name)}</span>`,
+          xAnchor: 0.5,
+          yAnchor: 1.7,
+          zIndex: 0,
+        });
+        label.setMap(map);
+        dashboardApartmentMapState.railStationDots.push(label);
+      }
     });
-    line.setMap(map);
-    dashboardApartmentMapState.railPolylines.push(line);
-    drawnStationKeys.add(fromKey);
-    drawnStationKeys.add(toKey);
-  });
-  drawnStationKeys.forEach(key => {
-    const station = stationByKey.get(key);
-    if (!station) return;
-    const dot = new kakao.maps.Circle({
-      center: new kakao.maps.LatLng(station.lat, station.lng),
-      radius: 20,
-      strokeWeight: 1,
-      strokeColor: '#ffffff',
-      strokeOpacity: 0.5,
-      fillColor: DASHBOARD_SUBWAY_COLORS[station.lineName] || '#64748b',
-      fillOpacity: 0.68,
-    });
-    dot.setMap(map);
-    dashboardApartmentMapState.railStationDots.push(dot);
   });
 }
 
@@ -504,19 +421,15 @@ async function renderDashboardRailLayer() {
   const map = dashboardApartmentMapState.map;
   const kakao = window.kakao;
   const renderSeq = ++dashboardApartmentMapState.railRenderSeq;
-  if (!map || !kakao?.maps?.services || map.getLevel() > DASHBOARD_RAIL_MAX_LEVEL) {
+  if (!map || !kakao?.maps || map.getLevel() > DASHBOARD_RAIL_MAX_LEVEL) {
     clearDashboardRailLayer();
     return;
   }
   try {
-    const [{ subway, gtx }, places] = await Promise.all([
-      loadDashboardRailData(),
-      findVisibleDashboardSubwayStations(map, renderSeq),
-    ]);
+    const railData = await loadDashboardRailData();
     if (renderSeq !== dashboardApartmentMapState.railRenderSeq || map.getLevel() > DASHBOARD_RAIL_MAX_LEVEL) return;
     clearDashboardRailLayer();
-    drawDashboardGtxLines(kakao, map, gtx);
-    drawDashboardSubwayLines(kakao, map, subway, places);
+    drawDashboardFutureRail(kakao, map, railData);
     if (dashboardApartmentMapState.railPolylines.length) {
       document.getElementById('dbMapRailLegend')?.classList.add('is-visible');
     }
@@ -1545,8 +1458,9 @@ function initDashboard() {
       <div class="db-apartment-map-wrap">
         <div id="dbApartmentMap" class="db-apartment-map" aria-label="수도권 아파트 단지 지도"></div>
         <div id="dbMapRailLegend" class="db-map-rail-legend" aria-hidden="true">
-          <span><i class="is-subway"></i>지하철</span>
-          <span title="GTX-A 운행·연결 공사 · GTX-B 공사 중 · GTX-C 착공 준비"><i class="is-gtx"></i>GTX 추진 노선</span>
+          <span title="공사 중이거나 기본계획이 승인된 노선만 표시해요"><i class="is-construction"></i>공사 중</span>
+          <span title="역 위치가 확정되지 않은 사업은 노선 축만 표시해요"><i class="is-planning"></i>계획·설계</span>
+          <span><b class="is-new-station"></b>신설 예정역</span>
         </div>
         <div id="dbApartmentMapLoading" class="db-map-loading" role="status" aria-live="polite" aria-hidden="true">
           <span class="db-map-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
