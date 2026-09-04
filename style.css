@@ -5920,8 +5920,8 @@
 }
 .db-map-rail-toggle {
   position: absolute;
-  top: 74px;
-  left: 12px;
+  right: 32px;
+  bottom: 48px;
   z-index: 4;
   height: 28px;
   padding: 0 10px;

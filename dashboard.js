@@ -130,6 +130,7 @@ let dashboardApartmentMapState = {
   railData: null,
   railRenderSeq: 0,
   railEnabled: true,
+  railRenderedMode: null,
 };
 let dashboardRailDataPromise = null;
 let dashboardMapRegionFilter = 'capital';
@@ -359,6 +360,7 @@ function clearDashboardRailLayer() {
   dashboardApartmentMapState.railStationDots.forEach(dot => dot.setMap(null));
   dashboardApartmentMapState.railPolylines = [];
   dashboardApartmentMapState.railStationDots = [];
+  dashboardApartmentMapState.railRenderedMode = null;
   document.getElementById('dbMapRailLegend')?.classList.remove('is-visible');
 }
 
@@ -386,11 +388,9 @@ function loadDashboardRailData() {
 }
 
 function drawDashboardFutureRail(kakao, map, payload) {
-  const bounds = map.getBounds();
   (payload?.routes || []).forEach(route => {
     const path = (route.path || []).map(([lat, lng]) => new kakao.maps.LatLng(Number(lat), Number(lng)));
-    const visiblePositions = path.filter(position => bounds.contain(position));
-    if (path.length < 2 || !visiblePositions.length) return;
+    if (path.length < 2) return;
     const line = new kakao.maps.Polyline({
       path,
       strokeWeight: route.stage === 'construction' ? 4 : 3,
@@ -403,7 +403,6 @@ function drawDashboardFutureRail(kakao, map, payload) {
     (route.stations || []).forEach(station => {
       if (station.locationStatus !== 'confirmed') return;
       const position = new kakao.maps.LatLng(Number(station.lat), Number(station.lng));
-      if (!bounds.contain(position)) return;
       const dot = new kakao.maps.Circle({
         center: position,
         radius: station.isNew === false ? 24 : 38,
@@ -428,16 +427,31 @@ function drawDashboardFutureRail(kakao, map, payload) {
       }
     });
     if (map.getLevel() <= 4) {
-      const position = visiblePositions[Math.floor(visiblePositions.length / 2)];
-      const label = new kakao.maps.CustomOverlay({
-        position,
-        content: `<span class="db-future-rail-route" style="--rail-color:${escapeHtml(route.color || '#3976ef')}"><strong>${escapeHtml(route.name)}</strong><em>${escapeHtml(route.target || route.status || '추진 중')}</em></span>`,
-        xAnchor: 0.5,
-        yAnchor: 2.05,
-        zIndex: 0,
+      const labelPositions = [];
+      for (let index = 0; index < path.length - 1; index += 1) {
+        const from = path[index];
+        const to = path[index + 1];
+        const distance = Math.max(Math.abs(to.getLat() - from.getLat()), Math.abs(to.getLng() - from.getLng()));
+        const steps = Math.max(1, Math.ceil(distance / 0.009));
+        for (let step = 1; step <= steps; step += 1) {
+          const ratio = step / steps;
+          labelPositions.push(new kakao.maps.LatLng(
+            from.getLat() + ((to.getLat() - from.getLat()) * ratio),
+            from.getLng() + ((to.getLng() - from.getLng()) * ratio),
+          ));
+        }
+      }
+      labelPositions.forEach(position => {
+        const label = new kakao.maps.CustomOverlay({
+          position,
+          content: `<span class="db-future-rail-route" style="--rail-color:${escapeHtml(route.color || '#3976ef')}"><strong>${escapeHtml(route.name)}</strong><em>${escapeHtml(route.target || route.status || '추진 중')}</em></span>`,
+          xAnchor: 0.5,
+          yAnchor: 2.05,
+          zIndex: 0,
+        });
+        label.setMap(map);
+        dashboardApartmentMapState.railStationDots.push(label);
       });
-      label.setMap(map);
-      dashboardApartmentMapState.railStationDots.push(label);
     }
   });
 }
@@ -450,11 +464,14 @@ async function renderDashboardRailLayer() {
     clearDashboardRailLayer();
     return;
   }
+  const renderMode = map.getLevel() <= 4 ? 'detail' : 'line';
+  if (dashboardApartmentMapState.railPolylines.length && dashboardApartmentMapState.railRenderedMode === renderMode) return;
   try {
     const railData = await loadDashboardRailData();
     if (renderSeq !== dashboardApartmentMapState.railRenderSeq || map.getLevel() > DASHBOARD_RAIL_MAX_LEVEL) return;
     clearDashboardRailLayer();
     drawDashboardFutureRail(kakao, map, railData);
+    dashboardApartmentMapState.railRenderedMode = renderMode;
     if (dashboardApartmentMapState.railPolylines.length) {
       document.getElementById('dbMapRailLegend')?.classList.add('is-visible');
     }
