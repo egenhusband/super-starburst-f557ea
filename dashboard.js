@@ -129,6 +129,7 @@ let dashboardApartmentMapState = {
   railStationDots: [],
   railData: null,
   railRenderSeq: 0,
+  railEnabled: true,
 };
 let dashboardRailDataPromise = null;
 let dashboardMapRegionFilter = 'capital';
@@ -361,6 +362,17 @@ function clearDashboardRailLayer() {
   document.getElementById('dbMapRailLegend')?.classList.remove('is-visible');
 }
 
+function toggleDashboardRailLayer() {
+  dashboardApartmentMapState.railEnabled = !dashboardApartmentMapState.railEnabled;
+  const toggle = document.getElementById('dbMapRailToggle');
+  toggle?.classList.toggle('is-off', !dashboardApartmentMapState.railEnabled);
+  toggle?.setAttribute('aria-pressed', String(dashboardApartmentMapState.railEnabled));
+  const state = toggle?.querySelector('span');
+  if (state) state.textContent = dashboardApartmentMapState.railEnabled ? 'ON' : 'OFF';
+  if (dashboardApartmentMapState.railEnabled) renderDashboardRailLayer();
+  else clearDashboardRailLayer();
+}
+
 function loadDashboardRailData() {
   if (dashboardRailDataPromise) return dashboardRailDataPromise;
   dashboardRailDataPromise = fetch(DASHBOARD_FUTURE_RAIL_URL).then(response => {
@@ -377,12 +389,13 @@ function drawDashboardFutureRail(kakao, map, payload) {
   const bounds = map.getBounds();
   (payload?.routes || []).forEach(route => {
     const path = (route.path || []).map(([lat, lng]) => new kakao.maps.LatLng(Number(lat), Number(lng)));
-    if (path.length < 2 || !path.some(position => bounds.contain(position))) return;
+    const visiblePositions = path.filter(position => bounds.contain(position));
+    if (path.length < 2 || !visiblePositions.length) return;
     const line = new kakao.maps.Polyline({
       path,
-      strokeWeight: route.stage === 'construction' ? 3 : 2,
+      strokeWeight: route.stage === 'construction' ? 4 : 3,
       strokeColor: route.color || '#64748b',
-      strokeOpacity: route.stage === 'construction' ? 0.42 : 0.25,
+      strokeOpacity: route.stage === 'construction' ? 0.68 : 0.46,
       strokeStyle: route.stage === 'construction' ? 'shortdash' : 'dash',
     });
     line.setMap(map);
@@ -414,6 +427,18 @@ function drawDashboardFutureRail(kakao, map, payload) {
         dashboardApartmentMapState.railStationDots.push(label);
       }
     });
+    if (map.getLevel() <= 4) {
+      const position = visiblePositions[Math.floor(visiblePositions.length / 2)];
+      const label = new kakao.maps.CustomOverlay({
+        position,
+        content: `<span class="db-future-rail-route" style="--rail-color:${escapeHtml(route.color || '#3976ef')}"><strong>${escapeHtml(route.name)}</strong><em>${escapeHtml(route.target || route.status || '추진 중')}</em></span>`,
+        xAnchor: 0.5,
+        yAnchor: 2.05,
+        zIndex: 0,
+      });
+      label.setMap(map);
+      dashboardApartmentMapState.railStationDots.push(label);
+    }
   });
 }
 
@@ -421,7 +446,7 @@ async function renderDashboardRailLayer() {
   const map = dashboardApartmentMapState.map;
   const kakao = window.kakao;
   const renderSeq = ++dashboardApartmentMapState.railRenderSeq;
-  if (!map || !kakao?.maps || map.getLevel() > DASHBOARD_RAIL_MAX_LEVEL) {
+  if (!dashboardApartmentMapState.railEnabled || !map || !kakao?.maps || map.getLevel() > DASHBOARD_RAIL_MAX_LEVEL) {
     clearDashboardRailLayer();
     return;
   }
@@ -1457,6 +1482,7 @@ function initDashboard() {
       </div>
       <div class="db-apartment-map-wrap">
         <div id="dbApartmentMap" class="db-apartment-map" aria-label="수도권 아파트 단지 지도"></div>
+        <button id="dbMapRailToggle" class="db-map-rail-toggle" type="button" aria-pressed="true" onclick="toggleDashboardRailLayer()">철도 호재 <span>ON</span></button>
         <div id="dbMapRailLegend" class="db-map-rail-legend" aria-hidden="true">
           <span title="공사 중이거나 기본계획이 승인된 노선만 표시해요"><i class="is-construction"></i>공사 중</span>
           <span title="역 위치가 확정되지 않은 사업은 노선 축만 표시해요"><i class="is-planning"></i>계획·설계</span>
