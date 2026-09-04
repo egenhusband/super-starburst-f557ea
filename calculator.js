@@ -6,6 +6,193 @@
   let pendingFundEditFeedback = false;
   let pendingRecentCalculation = null;
   const answers = { household: null, house: null, children: null, region: null, incomeType: 'salary', businessPeriod: null };
+  let regionSelection = { province: '', city: '', detail: '', locationLabel: '', uncertain: false };
+
+  const REGION_PROVINCES = [
+    ['seoul', '서울특별시'], ['gyeonggi', '경기도'], ['incheon', '인천광역시'],
+    ['busan', '부산광역시'], ['daegu', '대구광역시'], ['gwangju', '광주광역시'],
+    ['daejeon', '대전광역시'], ['ulsan', '울산광역시'], ['sejong', '세종특별자치시'],
+    ['gangwon', '강원특별자치도'], ['chungbuk', '충청북도'], ['chungnam', '충청남도'],
+    ['jeonbuk', '전북특별자치도'], ['jeonnam', '전라남도'], ['gyeongbuk', '경상북도'],
+    ['gyeongnam', '경상남도'], ['jeju', '제주특별자치도'],
+  ];
+  const GYEONGGI_CITIES = [
+    '수원시', '성남시', '의정부시', '안양시', '부천시', '광명시', '평택시', '동두천시',
+    '안산시', '고양시', '과천시', '구리시', '남양주시', '오산시', '시흥시', '군포시',
+    '의왕시', '하남시', '용인시', '파주시', '이천시', '안성시', '김포시', '화성시',
+    '광주시', '양주시', '포천시', '여주시', '연천군', '가평군', '양평군',
+  ];
+  const GYEONGGI_FULL_REGULATED = new Set(['과천시', '광명시', '성남시', '의왕시', '하남시', '구리시']);
+  const GYEONGGI_MIXED_AREAS = {
+    '수원시': {
+      label: '구',
+      options: [
+        ['regulated', '영통구·장안구·팔달구'],
+        ['metro', '권선구'],
+      ],
+    },
+    '안양시': {
+      label: '구',
+      options: [
+        ['regulated', '동안구'],
+        ['metro', '만안구'],
+      ],
+    },
+    '용인시': {
+      label: '구',
+      options: [
+        ['regulated', '수지구·기흥구'],
+        ['metro', '처인구'],
+      ],
+    },
+    '화성시': {
+      label: '세부 지역',
+      options: [
+        ['regulated', '동탄구'],
+        ['metro', '동탄구 외 지역'],
+      ],
+    },
+  };
+
+  function optionLabel(list, value) {
+    return list.find(item => item[0] === value)?.[1] || '';
+  }
+
+  function setSelectOptions(select, placeholder, options) {
+    if (!select) return;
+    select.innerHTML = `<option value="">${placeholder}</option>`
+      + options.map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
+  }
+
+  function setRegionClassification(region, options = {}) {
+    answers.region = region;
+    regionSelection.uncertain = Boolean(options.uncertain);
+    regionSelection.locationLabel = options.locationLabel || regionSelection.locationLabel;
+    const result = document.getElementById('regionAutoResult');
+    const title = document.getElementById('regionAutoResultTitle');
+    const desc = document.getElementById('regionAutoResultDesc');
+    if (result && title && desc) {
+      const isRegulated = region === '규제지역';
+      result.hidden = false;
+      result.classList.toggle('is-regulated', isRegulated);
+      title.textContent = isRegulated ? '🔴 규제지역' : region === '수도권' ? '수도권 (규제지역 외)' : '지방';
+      desc.textContent = options.uncertain
+        ? '세부 지역이 정해지지 않아 안전하게 규제지역 기준으로 계산해요.'
+        : `${regionSelection.locationLabel || '선택 지역'} 기준을 LTV 계산에 자동 반영해요.`;
+    }
+    updateNextBtn();
+  }
+
+  function resetRegionClassification() {
+    answers.region = null;
+    regionSelection.uncertain = false;
+    const result = document.getElementById('regionAutoResult');
+    if (result) {
+      result.hidden = true;
+      result.classList.remove('is-regulated');
+    }
+    updateNextBtn();
+  }
+
+  function handleRegionProvinceChange(value) {
+    regionSelection = { province: value, city: '', detail: '', locationLabel: optionLabel(REGION_PROVINCES, value), uncertain: false };
+    const cityField = document.getElementById('regionCityField');
+    const detailField = document.getElementById('regionDetailField');
+    const citySelect = document.getElementById('regionCitySelect');
+    if (detailField) detailField.hidden = true;
+    resetRegionClassification();
+    if (!value) {
+      if (cityField) cityField.hidden = true;
+      return;
+    }
+    if (value === 'gyeonggi') {
+      if (cityField) cityField.hidden = false;
+      setSelectOptions(citySelect, '시·군을 선택해주세요', [
+        ['__unknown__', '아직 시·군을 정하지 않았어요'],
+        ...GYEONGGI_CITIES.map(city => [city, city]),
+      ]);
+      return;
+    }
+    if (cityField) cityField.hidden = true;
+    if (value === 'seoul') setRegionClassification('규제지역', { locationLabel: regionSelection.locationLabel });
+    else if (value === 'incheon') setRegionClassification('수도권', { locationLabel: regionSelection.locationLabel });
+    else setRegionClassification('지방', { locationLabel: regionSelection.locationLabel });
+  }
+
+  function handleRegionCityChange(value) {
+    regionSelection.city = value;
+    regionSelection.detail = '';
+    regionSelection.locationLabel = value && value !== '__unknown__' ? `경기도 ${value}` : '경기도';
+    const detailField = document.getElementById('regionDetailField');
+    const detailSelect = document.getElementById('regionDetailSelect');
+    const detailLabel = document.getElementById('regionDetailLabel');
+    resetRegionClassification();
+    if (detailField) detailField.hidden = true;
+    if (!value) return;
+    if (value === '__unknown__') {
+      setRegionClassification('규제지역', {
+        uncertain: true,
+        locationLabel: '경기도 내 세부 지역 미정',
+      });
+      return;
+    }
+    const mixed = GYEONGGI_MIXED_AREAS[value];
+    if (mixed) {
+      if (detailField) detailField.hidden = false;
+      if (detailLabel) detailLabel.textContent = mixed.label;
+      setSelectOptions(detailSelect, `${mixed.label}를 선택해주세요`, [
+        ['unknown', '아직 정확히 정하지 않았어요'],
+        ...mixed.options,
+      ]);
+      return;
+    }
+    const region = GYEONGGI_FULL_REGULATED.has(value) ? '규제지역' : '수도권';
+    setRegionClassification(region, { locationLabel: `경기도 ${value}` });
+  }
+
+  function handleRegionDetailChange(value) {
+    regionSelection.detail = value;
+    resetRegionClassification();
+    if (!value) return;
+    const baseLabel = `경기도 ${regionSelection.city}`;
+    if (value === 'unknown') {
+      setRegionClassification('규제지역', {
+        uncertain: true,
+        locationLabel: `${baseLabel} 세부 지역 미정`,
+      });
+      return;
+    }
+    const mixed = GYEONGGI_MIXED_AREAS[regionSelection.city];
+    const detailName = mixed?.options.find(item => item[0] === value)?.[1] || '';
+    setRegionClassification(value === 'regulated' ? '규제지역' : '수도권', {
+      locationLabel: `${baseLabel} ${detailName}`.trim(),
+    });
+  }
+
+  function initializeRegionSelector() {
+    setSelectOptions(document.getElementById('regionProvinceSelect'), '시·도를 선택해주세요', REGION_PROVINCES);
+  }
+
+  function restoreRegionSelectorUi(savedSelection) {
+    if (!savedSelection?.province) return;
+    const province = document.getElementById('regionProvinceSelect');
+    if (province) province.value = savedSelection.province;
+    handleRegionProvinceChange(savedSelection.province);
+    if (savedSelection.city) {
+      const city = document.getElementById('regionCitySelect');
+      if (city) city.value = savedSelection.city;
+      handleRegionCityChange(savedSelection.city);
+    }
+    if (savedSelection.detail) {
+      const detail = document.getElementById('regionDetailSelect');
+      if (detail) detail.value = savedSelection.detail;
+      handleRegionDetailChange(savedSelection.detail);
+    }
+  }
+
+  window.handleRegionProvinceChange = handleRegionProvinceChange;
+  window.handleRegionCityChange = handleRegionCityChange;
+  window.handleRegionDetailChange = handleRegionDetailChange;
 
   function persistLatestCalculation(calculatorType, inputPayload) {
     const bridge = window.KakaoAuthBridge;
@@ -23,6 +210,7 @@
       house: answers.house,
       children: answers.children,
       region: answers.region,
+      regionSelection: { ...regionSelection },
       incomeType: answers.incomeType || 'salary',
       businessPeriod: answers.businessPeriod,
       income: document.getElementById('income')?.value || '',
@@ -74,8 +262,9 @@
     selectSavedOption('loanType', 'fund');
     ['household', 'house', 'children', 'region'].forEach(key => {
       answers[key] = input[key] || null;
-      selectSavedOption(key, answers[key]);
+      if (key !== 'region') selectSavedOption(key, answers[key]);
     });
+    if (input.regionSelection?.province) restoreRegionSelectorUi(input.regionSelection);
     answers.incomeType = input.incomeType === 'business' ? 'business' : 'salary';
     answers.businessPeriod = answers.incomeType === 'business' ? input.businessPeriod || null : null;
     selectSavedOption('incomeType', answers.incomeType);
@@ -198,6 +387,7 @@
   window.updateIncomeTypeUi = updateIncomeTypeUi;
   window.updateBusinessPeriodNote = updateBusinessPeriodNote;
   updateIncomeTypeUi();
+  initializeRegionSelector();
 
   ['income','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
     const el = document.getElementById(id);
@@ -4087,6 +4277,14 @@
     return '직장인만 · ' + amountText;
   }
 
+  function getRegionSummaryText() {
+    const location = regionSelection.locationLabel;
+    if (!location) return answers.region || '미선택';
+    return regionSelection.uncertain
+      ? `${location} · 규제지역 보수 적용`
+      : `${location} · ${answers.region || '미선택'}`;
+  }
+
   function getFundSummaryItems() {
     const priceValue = parseFloat(document.getElementById('price')?.value) || 0;
     const assetValue = parseFloat(document.getElementById('asset')?.value) || 0;
@@ -4094,7 +4292,7 @@
       { key: 'household', label: '가구조건', value: answers.household || '미선택', step: 1 },
       { key: 'house', label: '주택상황', value: answers.house || '미선택', step: 2 },
       { key: 'children', label: '자녀수', value: answers.children || '미선택', step: 3 },
-      { key: 'region', label: '지역', value: answers.region || '미선택', step: 4 },
+      { key: 'region', label: '지역', value: getRegionSummaryText(), step: 4 },
       { key: 'income', label: '소득', value: getIncomeSummaryText(), step: 5 },
       { key: 'price', label: '주택가격', value: formatOptionalEok(priceValue), step: 6 },
       { key: 'asset', label: '순자산', value: formatOptionalEok(assetValue), step: 7 },
@@ -4960,11 +5158,20 @@
     answers.house = null;
     answers.children = null;
     answers.region = null;
+    regionSelection = { province: '', city: '', detail: '', locationLabel: '', uncertain: false };
     answers.incomeType = 'salary';
     answers.businessPeriod = null;
     document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
     document.querySelector('[data-group="incomeType"][data-val="salary"]')?.classList.add('selected');
     updateIncomeTypeUi();
+    const provinceSelect = document.getElementById('regionProvinceSelect');
+    const cityField = document.getElementById('regionCityField');
+    const detailField = document.getElementById('regionDetailField');
+    const regionResult = document.getElementById('regionAutoResult');
+    if (provinceSelect) provinceSelect.value = '';
+    if (cityField) cityField.hidden = true;
+    if (detailField) detailField.hidden = true;
+    if (regionResult) regionResult.hidden = true;
     ['income','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
@@ -5089,6 +5296,7 @@
       this.closeTimer = setTimeout(() => {
         this.closeTimer = null;
         overlay.classList.remove('is-closing');
+        overlay.dispatchEvent(new CustomEvent('paywallclosed'));
         if (preserveContext) return;
         this.handleDismissedContext();
       }, 340);

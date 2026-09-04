@@ -41,6 +41,26 @@
     button.setAttribute('aria-busy', isLoading ? 'true' : 'false');
   }
 
+  function setPurchaseCtaDisabled(isDisabled) {
+    const cta = document.getElementById('btnPayPurchase');
+    if (!cta) return;
+    cta.classList.toggle('is-disabled', Boolean(isDisabled));
+    cta.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+    if (isDisabled) cta.setAttribute('tabindex', '-1');
+    else cta.removeAttribute('tabindex');
+  }
+
+  function showLatestCalculationAfterPaySheetClose() {
+    if (!latestCalculation || typeof window.showRecentCalculationToast !== 'function') return;
+    const overlay = document.getElementById('payOverlay');
+    const show = () => window.showRecentCalculationToast(latestCalculation);
+    if (overlay?.classList.contains('open') || overlay?.classList.contains('is-closing')) {
+      overlay.addEventListener('paywallclosed', show, { once: true });
+      return;
+    }
+    show();
+  }
+
   function buildProfile(me) {
     const id = me?.id ? String(me.id) : '';
     const nickname = me?.properties?.nickname
@@ -188,6 +208,7 @@
   async function restoreWithKakaoFromPaySheet() {
     const button = document.getElementById('btnKakaoAutoEnter');
     setButtonLoading(button, true);
+    setPurchaseCtaDisabled(true);
     setPayMessage('카카오 계정을 확인하고 있어요.');
     try {
       const restored = await restoreWithKakao();
@@ -199,13 +220,12 @@
       if (window.PaywallController && typeof window.PaywallController.resumeAfterAuth === 'function') {
         window.PaywallController.resumeAfterAuth({ skipKakaoLinkPrompt: true });
       }
-      if (latestCalculation && typeof window.showRecentCalculationToast === 'function') {
-        setTimeout(() => window.showRecentCalculationToast(latestCalculation), 680);
-      }
+      showLatestCalculationAfterPaySheetClose();
     } catch (error) {
       setPayMessage(error?.message || '카카오 자동 입장을 완료하지 못했어요.', true);
     } finally {
       setButtonLoading(button, false);
+      setPurchaseCtaDisabled(false);
     }
   }
 
@@ -239,7 +259,7 @@
       const data = await postAuthFunction('/api/kakao-session', { action: 'restore', accessToken });
       latestCalculation = data?.unlocked ? data.latestCalculation || null : null;
       if (latestCalculation && typeof window.showRecentCalculationToast === 'function') {
-        setTimeout(() => window.showRecentCalculationToast(latestCalculation), 680);
+        window.showRecentCalculationToast(latestCalculation);
       }
     } catch (_) {
       // 저장된 카카오 토큰이 없거나 만료된 경우 기존 진입 흐름은 그대로 유지한다.

@@ -481,6 +481,74 @@
     transform: scale(1);
   }
 
+  .region-selector-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px;
+    border-radius: 20px;
+    background: var(--bg3);
+  }
+  .region-selector-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .region-selector-field[hidden] { display: none; }
+  .region-selector-field > span {
+    padding: 0 2px;
+    color: var(--label2);
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .region-selector-field select {
+    width: 100%;
+    height: 52px;
+    padding: 0 42px 0 15px;
+    border: 1px solid var(--separator);
+    border-radius: 14px;
+    outline: none;
+    appearance: none;
+    background-color: var(--bg2);
+    background-image: linear-gradient(45deg, transparent 50%, var(--label3) 50%), linear-gradient(135deg, var(--label3) 50%, transparent 50%);
+    background-position: calc(100% - 18px) 22px, calc(100% - 13px) 22px;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    color: var(--label1);
+    font-family: 'Pretendard Variable', sans-serif;
+    font-size: 15px;
+    font-weight: 650;
+  }
+  .region-selector-field select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(10,132,255,0.15);
+  }
+  .region-auto-result {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 13px 14px;
+    border: 1px solid rgba(48,209,88,0.2);
+    border-radius: 14px;
+    background: rgba(48,209,88,0.07);
+  }
+  .region-auto-result[hidden] { display: none; }
+  .region-auto-result.is-regulated {
+    border-color: rgba(255,69,58,0.23);
+    background: rgba(255,69,58,0.08);
+  }
+  .region-auto-result strong {
+    color: var(--label1);
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .region-auto-result span {
+    color: var(--label2);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
   .income-type-wrap {
     display: flex;
     flex-direction: column;
@@ -3477,6 +3545,12 @@
     letter-spacing: -0.2px;
   }
   .btn-pay-go:active { opacity: 0.85; }
+  .btn-pay-go.is-disabled {
+    opacity: 0.42;
+    pointer-events: none;
+    filter: saturate(0.35);
+    cursor: wait;
+  }
   .btn-kakao-auto-enter {
     width: 100%;
     height: 44px;

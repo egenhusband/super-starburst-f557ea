@@ -28,7 +28,7 @@ function validateCalculation(value) {
   return { calculatorType, inputPayload, schemaVersion };
 }
 
-export default async (request) => {
+export default async (request, context) => {
   if (request.method !== 'POST') {
     return jsonResponse({ ok: false, error: 'POST만 지원해요.' }, 405);
   }
@@ -43,15 +43,17 @@ export default async (request) => {
     }
 
     const body = await request.json().catch(() => ({}));
-    const profile = await verifyKakaoAccessToken(body.accessToken);
-    const entitlement = await findEntitlement(profile.kakaoUserId);
-    if (!entitlement?.unlocked) {
-      return jsonResponse({ ok: true, unlocked: false });
-    }
-
     if (body.action === 'restore') {
-      await markLogin(profile.kakaoUserId, profile.nickname);
-      const latest = await findLatestCalculation(profile.kakaoUserId);
+      const profile = await verifyKakaoAccessToken(body.accessToken);
+      const [entitlement, latest] = await Promise.all([
+        findEntitlement(profile.kakaoUserId),
+        findLatestCalculation(profile.kakaoUserId),
+      ]);
+      if (!entitlement?.unlocked) {
+        return jsonResponse({ ok: true, unlocked: false });
+      }
+      const loginUpdate = markLogin(profile.kakaoUserId, profile.nickname).catch(() => {});
+      if (context?.waitUntil) context.waitUntil(loginUpdate);
       return jsonResponse({
         ok: true,
         unlocked: true,
@@ -66,6 +68,11 @@ export default async (request) => {
     }
 
     if (body.action === 'save') {
+      const profile = await verifyKakaoAccessToken(body.accessToken);
+      const entitlement = await findEntitlement(profile.kakaoUserId);
+      if (!entitlement?.unlocked) {
+        return jsonResponse({ ok: true, unlocked: false });
+      }
       const calculation = validateCalculation(body.calculation);
       if (!calculation) {
         return jsonResponse({ ok: false, error: '저장할 계산 정보가 올바르지 않아요.' }, 400);
