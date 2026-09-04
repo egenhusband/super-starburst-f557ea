@@ -141,7 +141,37 @@ async function markLogin(kakaoUserId, nickname) {
   });
 }
 
+async function findLatestCalculation(kakaoUserId) {
+  const query = new URLSearchParams({
+    kakao_user_id: `eq.${kakaoUserId}`,
+    select: 'calculator_type,input_payload,schema_version,updated_at',
+    limit: '1',
+  });
+  const rows = await supabaseFetch(`loan_calculation_latest?${query.toString()}`, {
+    method: 'GET',
+  });
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function upsertLatestCalculation(kakaoUserId, calculation) {
+  const rows = await supabaseFetch('loan_calculation_latest?on_conflict=kakao_user_id', {
+    method: 'POST',
+    headers: {
+      Prefer: 'resolution=merge-duplicates,return=representation',
+    },
+    body: JSON.stringify({
+      kakao_user_id: kakaoUserId,
+      calculator_type: calculation.calculatorType,
+      input_payload: calculation.inputPayload,
+      schema_version: calculation.schemaVersion,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
 module.exports = {
+  findLatestCalculation,
   findEntitlement,
   isPasswordValid,
   isSupabaseConfigured,
@@ -149,5 +179,6 @@ module.exports = {
   markLogin,
   parseBody,
   upsertEntitlement,
+  upsertLatestCalculation,
   verifyKakaoAccessToken,
 };

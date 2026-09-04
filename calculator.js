@@ -4,7 +4,154 @@
   let latestIncomeProfile = null;
   let isFundEditMode = false;
   let pendingFundEditFeedback = false;
+  let pendingRecentCalculation = null;
   const answers = { household: null, house: null, children: null, region: null, incomeType: 'salary', businessPeriod: null };
+
+  function persistLatestCalculation(calculatorType, inputPayload) {
+    const bridge = window.KakaoAuthBridge;
+    if (!bridge || typeof bridge.saveLatestCalculation !== 'function') return;
+    bridge.saveLatestCalculation({
+      calculatorType,
+      inputPayload,
+      schemaVersion: 1,
+    });
+  }
+
+  function collectFundCalculation() {
+    return {
+      household: answers.household,
+      house: answers.house,
+      children: answers.children,
+      region: answers.region,
+      incomeType: answers.incomeType || 'salary',
+      businessPeriod: answers.businessPeriod,
+      income: document.getElementById('income')?.value || '',
+      price: document.getElementById('price')?.value || '',
+      asset: document.getElementById('asset')?.value || '',
+      otherLoanNone: Boolean(document.getElementById('otherLoanNone')?.checked),
+      otherLoanPrincipal: document.getElementById('otherLoanPrincipal')?.value || '',
+      otherLoanRate: document.getElementById('otherLoanRate')?.value || '',
+      otherLoanYears: document.getElementById('otherLoanYears')?.value || '',
+    };
+  }
+
+  function collectBankCalculation() {
+    return {
+      firstBuyer: bankFirstBuyer,
+      regionKey: bankRegionKey,
+      price: document.getElementById('bankPrice')?.value || '',
+      income: document.getElementById('bankIncome')?.value || '',
+      loan: document.getElementById('bankLoan')?.value || '',
+      years: document.getElementById('bankYears')?.value || '',
+      mortgageTypes: [...bankFilter.mrtg],
+      rateTypes: [...bankFilter.rate],
+      repaymentTypes: [...bankFilter.rpay],
+    };
+  }
+
+  function hideRecentCalculationToast() {
+    document.getElementById('recentCalculationToast')?.classList.remove('show');
+  }
+
+  function showRecentCalculationToast(calculation) {
+    if (!calculation || !['fund', 'bank'].includes(calculation.calculatorType)) return;
+    pendingRecentCalculation = calculation;
+    const toast = document.getElementById('recentCalculationToast');
+    if (!toast) return;
+    toast.classList.add('show');
+  }
+
+  function selectSavedOption(group, value) {
+    if (!value) return;
+    document.querySelectorAll(`[data-group="${group}"]`).forEach(card => {
+      card.classList.toggle('selected', card.dataset.val === value);
+    });
+  }
+
+  function restoreFundCalculation(input) {
+    startCalculatorFlow();
+    loanType = 'fund';
+    selectSavedOption('loanType', 'fund');
+    ['household', 'house', 'children', 'region'].forEach(key => {
+      answers[key] = input[key] || null;
+      selectSavedOption(key, answers[key]);
+    });
+    answers.incomeType = input.incomeType === 'business' ? 'business' : 'salary';
+    answers.businessPeriod = answers.incomeType === 'business' ? input.businessPeriod || null : null;
+    selectSavedOption('incomeType', answers.incomeType);
+    selectSavedOption('businessPeriod', answers.businessPeriod);
+    updateIncomeTypeUi();
+
+    ['income', 'price', 'asset', 'otherLoanPrincipal', 'otherLoanRate', 'otherLoanYears'].forEach(id => {
+      const inputKey = id;
+      const element = document.getElementById(id);
+      if (element) element.value = input[inputKey] ?? '';
+    });
+    const none = document.getElementById('otherLoanNone');
+    if (none) none.checked = Boolean(input.otherLoanNone);
+    toggleOtherLoanNone();
+
+    const values = validateFundInputsForResult();
+    if (!values) return;
+    renderResult(values.income, values.price, values.asset, values.otherLoanInterest);
+    navigateTo(9, 'forward');
+    resetResultScroll();
+    document.getElementById('bottomNav').style.display = 'none';
+    document.getElementById('progressWrap').style.display = 'none';
+  }
+
+  function setBankFilterFromSaved(input) {
+    const saved = {
+      mrtg: Array.isArray(input.mortgageTypes) ? input.mortgageTypes : ['A'],
+      rate: Array.isArray(input.rateTypes) ? input.rateTypes : ['F', 'C'],
+      rpay: Array.isArray(input.repaymentTypes) ? input.repaymentTypes : ['D', 'S'],
+    };
+    const allowed = { mrtg: ['A', 'E'], rate: ['F', 'C'], rpay: ['D', 'S'] };
+    Object.keys(saved).forEach(key => {
+      const valid = saved[key].filter(value => allowed[key].includes(value));
+      bankFilter[key] = valid.length ? valid : [...allowed[key]];
+    });
+    [['mrtg', 'mrtg'], ['rate', 'rate'], ['rpay', 'rpay']].forEach(([key, prefix]) => {
+      allowed[key].forEach(value => {
+        document.getElementById(prefix + value)?.classList.toggle('active', bankFilter[key].includes(value));
+      });
+    });
+  }
+
+  function restoreBankCalculation(input) {
+    startCalculatorFlow();
+    loanType = 'bank';
+    selectSavedOption('loanType', 'bank');
+    showBankLoanScreen();
+    bankFirstBuyer = input.firstBuyer === 'Y' ? 'Y' : 'N';
+    document.getElementById('fbY')?.classList.toggle('active', bankFirstBuyer === 'Y');
+    document.getElementById('fbN')?.classList.toggle('active', bankFirstBuyer !== 'Y');
+    const regionSelect = document.getElementById('bankRegionSelect');
+    if (regionSelect) regionSelect.value = input.regionKey || '';
+    selectRegionDetail(input.regionKey || '');
+    const valueMap = { bankPrice: 'price', bankIncome: 'income', bankLoan: 'loan', bankYears: 'years' };
+    Object.entries(valueMap).forEach(([id, key]) => {
+      const element = document.getElementById(id);
+      if (element) element.value = input[key] ?? '';
+    });
+    setBankFilterFromSaved(input);
+    updateBankCalc();
+    checkBankSearchBtn();
+    searchBankLoans();
+  }
+
+  function continueRecentCalculation() {
+    const calculation = pendingRecentCalculation;
+    pendingRecentCalculation = null;
+    hideRecentCalculationToast();
+    const input = calculation?.inputPayload;
+    if (!input || typeof input !== 'object') return;
+    if (calculation.calculatorType === 'fund') restoreFundCalculation(input);
+    if (calculation.calculatorType === 'bank') restoreBankCalculation(input);
+  }
+
+  window.showRecentCalculationToast = showRecentCalculationToast;
+  window.continueRecentCalculation = continueRecentCalculation;
 
   function haptic(ms) {
     if (navigator.vibrate) navigator.vibrate(ms || 8);
@@ -1002,6 +1149,7 @@
     bankSortBy = 'rate';
     bankMajorFirst = false;
     renderBankPage(loanEok, years);
+    persistLatestCalculation('bank', collectBankCalculation());
 
     // 힌트 플로팅 표시
     showCompareHint();
@@ -4572,6 +4720,7 @@
       pendingFundEditFeedback = false;
       setTimeout(showFundEditFeedback, 260);
     }
+    persistLatestCalculation('fund', collectFundCalculation());
   }
 
   function switchTab(tab) {

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>주택 기금대출 추천</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=20260830map-load1">
+<link rel="stylesheet" href="style.css?v=20260904recent1">
 <script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
 </head>
 <body>
@@ -56,7 +56,10 @@
           <strong>7,200원으로 시작하기</strong>
         </span>
       </a>
-      <button class="btn-kakao-auto-enter" id="btnKakaoAutoEnter" type="button" onclick="restoreWithKakaoFromPaySheet()">이미 결제했다면 카카오로 자동 입장하기</button>
+      <button class="btn-kakao-auto-enter" id="btnKakaoAutoEnter" type="button" onclick="restoreWithKakaoFromPaySheet()">
+        <span class="btn-kakao-link-label">이미 결제했다면 카카오로 자동 입장하기</span>
+        <span class="btn-kakao-link-loader" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
     </div>
   </div>
 
@@ -70,7 +73,8 @@
       </div>
       <div class="kakao-link-message" id="kakaoLinkMessage"></div>
       <button class="btn-kakao-link" id="btnKakaoLink" type="button" onclick="linkKakaoAfterPassword()">
-        카카오로 저장하기
+        <span class="btn-kakao-link-label">카카오로 저장하기</span>
+        <span class="btn-kakao-link-loader" aria-hidden="true"><span></span><span></span><span></span></span>
       </button>
       <button class="btn-kakao-skip" type="button" onclick="closeKakaoLinkSheet()">나중에 할게요</button>
     </div>
@@ -586,8 +590,8 @@
 <script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
 <script src="icons.js?v=20260518a"></script>
 <script src="tax.js?v=20260702tax"></script>
-<script src="kakao-auth.js?v=20260819a"></script>
-<script src="calculator.js?v=20260830map-price1"></script>
+<script src="kakao-auth.js?v=20260904recent1"></script>
+<script src="calculator.js?v=20260904recent1"></script>
 <script src="dashboard.js?v=20260830map-load1"></script>
 <script src="dashboard-apt-search.js?v=20260830search-grade1"></script>
 <script>
@@ -684,6 +688,11 @@
     <strong>먼저 둘러보고 결과가 궁금하면 결제해도 돼요!</strong>
     <button class="entry-toast-action" type="button" onclick="openPaySheet('result')">지금 바로 결제할래요! &gt;</button>
   </span>
+</div>
+
+<div class="recent-calculation-toast" id="recentCalculationToast" role="status" aria-live="polite">
+  <span class="recent-calculation-toast-copy">최근 계산한 내용을 이어서 볼까요?</span>
+  <button class="recent-calculation-toast-action" type="button" onclick="continueRecentCalculation()">이어보기</button>
 </div>
 
   <!-- 단지 기준 대출 계산 바텀시트 -->

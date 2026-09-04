@@ -4027,6 +4027,56 @@
     letter-spacing: -0.15px;
     cursor: pointer;
   }
+  .recent-calculation-toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+    z-index: 410;
+    width: calc(100% - 32px);
+    max-width: 398px;
+    min-height: 56px;
+    padding: 10px 12px 10px 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--surface-1) 97%, transparent);
+    box-shadow: 0 18px 44px rgba(0,0,0,0.42);
+    color: var(--neutral-0);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 120%);
+    transition: opacity var(--motion-toast-exit) var(--ease-snappy), transform var(--motion-toast-exit) var(--ease-snappy);
+  }
+  .recent-calculation-toast.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+    animation: entryToastSoftSpring 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .recent-calculation-toast-copy {
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 720;
+    line-height: 1.35;
+    letter-spacing: -0.2px;
+  }
+  .recent-calculation-toast-action {
+    flex: 0 0 auto;
+    min-width: 76px;
+    height: 36px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #fff;
+    font-family: 'Pretendard Variable', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+  }
   @media (max-width: 420px) {
     .entry-toast {
       width: calc(100% - 32px);
