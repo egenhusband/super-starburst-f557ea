@@ -2,6 +2,8 @@
   let current = 0;      // 0 = intro, 1~7 = 기금대출 슬라이드
   let loanType = null;  // 'fund' | 'bank'
   let latestIncomeProfile = null;
+  // Keep the inputs that produced the visible result so edit mode cannot lose them.
+  let latestFundInputSnapshot = null;
   let isFundEditMode = false;
   let pendingFundEditFeedback = false;
   let pendingRecentCalculation = null;
@@ -593,7 +595,7 @@
     navigateTo(current + 1, 'forward');
   }
 
-  function toggleOtherLoanNone() {
+  function toggleOtherLoanNone(options = {}) {
     const checked = document.getElementById('otherLoanNone')?.checked;
     const wrap    = document.getElementById('otherLoanInputWrap');
     const label   = document.getElementById('otherLoanNoneLabel');
@@ -602,7 +604,7 @@
       wrap.classList.toggle('is-disabled', checked);
     }
     if (label) label.classList.toggle('is-checked', !!checked);
-    if (checked) {
+    if (checked && options.clearValues !== false) {
       document.getElementById('otherLoanPrincipal').value = '';
       document.getElementById('otherLoanRate').value = '';
       document.getElementById('otherLoanYears').value = '';
@@ -4324,8 +4326,14 @@
   }
 
   function getOtherLoanSummaryText() {
-    const noneChecked = document.getElementById('otherLoanNone')?.checked;
-    const principal = parseFloat(document.getElementById('otherLoanPrincipal')?.value) || 0;
+    const source = !isFundEditMode && latestFundInputSnapshot
+      ? latestFundInputSnapshot
+      : {
+          otherLoanNone: document.getElementById('otherLoanNone')?.checked,
+          otherLoanPrincipal: document.getElementById('otherLoanPrincipal')?.value,
+        };
+    const noneChecked = source.otherLoanNone;
+    const principal = parseFloat(source.otherLoanPrincipal) || 0;
     if (noneChecked || principal <= 0) return '없음';
     return formatOptionalEok(principal);
   }
@@ -4451,6 +4459,15 @@
     closeFundInputSheet();
     isFundEditMode = true;
     loanType = 'fund';
+    if (step === 8 && latestFundInputSnapshot) {
+      ['otherLoanPrincipal', 'otherLoanRate', 'otherLoanYears'].forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.value = latestFundInputSnapshot[id] ?? '';
+      });
+      const none = document.getElementById('otherLoanNone');
+      if (none) none.checked = Boolean(latestFundInputSnapshot.otherLoanNone);
+      toggleOtherLoanNone({ clearValues: false });
+    }
     const bottomNav = document.getElementById('bottomNav');
     const progressWrap = document.getElementById('progressWrap');
     if (bottomNav) bottomNav.style.display = 'flex';
@@ -4498,6 +4515,7 @@
   window.closeIncomeProfileSheet = closeIncomeProfileSheet;
 
   function renderResult(income, price, asset, otherLoanInterest) {
+    latestFundInputSnapshot = collectFundCalculation();
     renderResultLoading();
     fetchCalcLoanResult(income, price, asset, otherLoanInterest)
       .then(serverCalc => renderResultLocal(income, price, asset, otherLoanInterest, serverCalc))
@@ -5214,6 +5232,7 @@
   function restartApp(options = {}) {
     const { showDashboardAfterReset = true } = options;
     loanType = null;
+    latestFundInputSnapshot = null;
     isFundEditMode = false;
     pendingFundEditFeedback = false;
     answers.household = null;
