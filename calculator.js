@@ -2906,9 +2906,9 @@
             <span>상환 방식</span>
           </div>
           <div class="repay-method-tabs" id="tabs-${uid}">
-            <button class="repay-method-tab ${activeClass}" id="tab-annuity-${uid}" onclick="selectRepayTab('${uid}','annuity','${product}','${colorCls}',${principal})">원리금균등</button>
-            <button class="repay-method-tab" id="tab-equal-principal-${uid}" onclick="selectRepayTab('${uid}','equal-principal','${product}','${colorCls}',${principal})">원금균등</button>
-            <button class="repay-method-tab" id="tab-increasing-${uid}" onclick="selectRepayTab('${uid}','increasing','${product}','${colorCls}',${principal})">체증식</button>
+            <button class="repay-method-tab ${activeClass}" id="tab-annuity-${uid}" type="button" data-repay-method="annuity" data-repay-uid="${uid}" data-repay-product="${product}" data-repay-color="${colorCls}" data-repay-principal="${principal}">원리금균등</button>
+            <button class="repay-method-tab" id="tab-equal-principal-${uid}" type="button" data-repay-method="equal-principal" data-repay-uid="${uid}" data-repay-product="${product}" data-repay-color="${colorCls}" data-repay-principal="${principal}">원금균등</button>
+            <button class="repay-method-tab" id="tab-increasing-${uid}" type="button" data-repay-method="increasing" data-repay-uid="${uid}" data-repay-product="${product}" data-repay-color="${colorCls}" data-repay-principal="${principal}">체증식</button>
           </div>
           <button class="sch-open-btn" onclick="openScheduleSheet('${uid}','${colorCls}')" style="color:${accentColor}">
             전체 상환 스케줄 보기 →
@@ -3256,13 +3256,11 @@
     if (dynamicNewborn) currentPrincipal = dynamicNewborn.selectedPrincipal ?? Math.max(0, dynamicNewborn.displayLimit) * 100000000;
     else if (dynamicDidimdol) currentPrincipal = dynamicDidimdol.selectedPrincipal ?? Math.max(0, dynamicDidimdol.displayLimit) * 100000000;
     else if (dynamicBogeum) currentPrincipal = dynamicBogeum.selectedPrincipal ?? Math.max(0, dynamicBogeum.finalLimit) * 100000000;
-    const amt   = calcMonthly(currentPrincipal, finalRate, method, years);
     if (amtEl) {
       amtEl.dataset.principal = String(currentPrincipal);
-      amtEl.dataset.motionTarget = String(Math.round(amt));
-      // Cancel any initial annuity animation before rendering the newly selected method.
-      setAnimatedAmount(amtEl, amt, formatWon);
     }
+    // This is the sole monthly-payment update path after a repayment-method change.
+    refreshSelectedLoanMonthly(uid);
     const noteEl = document.getElementById('mc-note-' + uid);
     if (noteEl) {
       const methodLabel = method === 'equal-principal' ? '원금균등' : method === 'increasing' ? '체증식' : '원리금균등';
@@ -3274,6 +3272,20 @@
     renderSchedule(uid);
     updateResultFloatingSummary();
   }
+
+  document.addEventListener('click', function(event) {
+    const button = event.target.closest('.repay-method-tab[data-repay-method]');
+    if (!button) return;
+    event.preventDefault();
+    selectRepayTab(
+      button.dataset.repayUid,
+      button.dataset.repayMethod,
+      button.dataset.repayProduct,
+      button.dataset.repayColor,
+      Number(button.dataset.repayPrincipal || 0)
+    );
+  });
+  window.selectRepayTab = selectRepayTab;
 
   const ROOM_DEDUCTION_AMOUNTS = {
     seoul: 0.55,
@@ -4092,7 +4104,7 @@
     const selectedPrincipal = syncLoanAmountControl(sectionUid, finalLimit * 100000000, { preserve: true });
     amtEl.dataset.principal = String(selectedPrincipal);
     animateLoanBar(sectionUid, selectedPrincipal / 100000000, price);
-    updateRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
+    syncRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
     return { finalLimit, selectedPrincipal, dtiLimit };
   }
 
@@ -4128,7 +4140,7 @@
     const selectedPrincipal = syncLoanAmountControl(sectionUid, roomState.finalLimit * 100000000, { preserve: true });
     amtEl.dataset.principal = String(selectedPrincipal);
     animateLoanBar(sectionUid, selectedPrincipal / 100000000, parseFloat(card.dataset.didimdolPrice || 0));
-    updateRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
+    syncRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
     return { finalLimit, displayLimit: roomState.finalLimit, selectedPrincipal, dtiLimit };
   }
 
@@ -4164,8 +4176,15 @@
     const selectedPrincipal = syncLoanAmountControl(sectionUid, roomState.finalLimit * 100000000, { preserve: true });
     amtEl.dataset.principal = String(selectedPrincipal);
     animateLoanBar(sectionUid, selectedPrincipal / 100000000, parseFloat(card.dataset.newbornPrice || 0));
-    updateRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
+    syncRecommendCtaLoanPayload(card, selectedPrincipal / 100000000);
     return { finalLimit, displayLimit: roomState.finalLimit, selectedPrincipal, dtiLimit };
+  }
+
+  function syncRecommendCtaLoanPayload(card, selectedLoanEok) {
+    // The optional map CTA must never interrupt the core loan calculation flow.
+    if (typeof window.updateRecommendCtaLoanPayload === 'function') {
+      window.updateRecommendCtaLoanPayload(card, selectedLoanEok);
+    }
   }
 
   // 체증식 초기 평균 원리금 산출 (초기 10년 또는 5년 평균)
