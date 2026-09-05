@@ -3260,7 +3260,8 @@
     if (amtEl) {
       amtEl.dataset.principal = String(currentPrincipal);
       amtEl.dataset.motionTarget = String(Math.round(amt));
-      amtEl.textContent = formatWon(amt);
+      // Cancel any initial annuity animation before rendering the newly selected method.
+      setAnimatedAmount(amtEl, amt, formatWon);
     }
     const noteEl = document.getElementById('mc-note-' + uid);
     if (noteEl) {
