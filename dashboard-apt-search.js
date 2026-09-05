@@ -661,6 +661,7 @@ function buildDashboardSearchIndex({ codeMap, households, trades, schools, stati
       lng: Number(household?.lng || 0) || null,
       canonicalGradeData: canonicalGrade || null,
       grade: canonicalGrade?.grade || '',
+      gradeWithheld: Boolean(canonicalGrade?.withheld),
       displayScore: getDashboardAptPublicScore(
         canonicalGrade?.grade,
         canonicalGrade?.clampedScore,
@@ -1100,7 +1101,7 @@ function renderDashboardSelectedApartment() {
     const statusText = !insight?.ready
       ? '단지 입지 데이터를 불러오는 중이에요.'
       : gradeData?.withheld
-        ? '핵심 축이 너무 적어서 등급은 잠시 보류하고, 확보된 정보만 먼저 보여드려요.'
+        ? '최근 실거래 평당가를 취합 중이라 등급과 점수는 표기하지 않아요.'
         : '선택한 단지 기준으로 정적 입지 데이터를 묶어서 정리했어요.';
     const calculatorIcon = typeof icon === 'function' ? icon('calculator', 18) : '';
     target.innerHTML = `
@@ -1113,7 +1114,7 @@ function renderDashboardSelectedApartment() {
           </div>
           <div class="db-apt-grade-badge ${gradeClass}">
             <span>등급</span>
-            <strong>${isGradeReady ? gradeData.grade : '보류'}</strong>
+            <strong>${isGradeReady ? gradeData.grade : '취합 중'}</strong>
             ${isGradeReady && gradeData.scoreLabel ? `<em>${escapeHtml(gradeData.scoreLabel)}</em>` : ''}
           </div>
         </div>

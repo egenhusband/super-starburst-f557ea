@@ -6154,6 +6154,8 @@
 }
 .db-map-apartment-price { color: var(--label1); }
 .db-map-apartment-grade { flex: 0 0 auto; color: var(--focus-accent); }
+.db-map-apartment-pending { color: var(--label3); font-size: 8px; font-weight: 700; line-height: 1.2; }
+.db-map-sheet-heading b.is-pending { color: var(--label3); font-size: 13px; }
 .db-map-info {
   display: flex;
   flex-direction: column;

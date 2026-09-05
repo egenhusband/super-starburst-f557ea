@@ -490,7 +490,9 @@ function getDashboardMapFilteredItems(items = []) {
   const minScore = Number(filters.minScore);
   const maxAveragePrice = Number(filters.maxAveragePrice);
   return items.filter(item => {
-    const gradeMatches = selectedGrades.has(item.grade);
+    const gradeMatches = item.gradeWithheld
+      ? selectedGrades.size === DASHBOARD_MAP_GRADE_ORDER.length
+      : selectedGrades.has(item.grade);
     const score = Number(item.displayScore);
     const scoreMatches = !Number.isFinite(minScore) || minScore <= 0 || (Number.isFinite(score) && score >= minScore);
     const averagePrice = Number(item.avgPrice);
@@ -766,10 +768,10 @@ function createDashboardMapOverlay(kakao, item, mode) {
     overlay.innerHTML = `
       <span class="db-map-area-overlay-top">${escapeHtml(area.area || (item.avgTradeArea ? `${Math.round(item.avgTradeArea)}㎡` : '면적 정보 없음'))}</span>
       <strong>${escapeHtml(item.aptName || '단지명 확인 중')}</strong>
-      <span class="db-map-apartment-metrics">
+      ${item.gradeWithheld ? '<span class="db-map-apartment-pending">데이터 취합 중</span>' : `<span class="db-map-apartment-metrics">
         <span class="db-map-apartment-price">${formatDashboardMapPrice(area.latestPrice)}</span>
         ${item.grade ? `<span class="db-map-apartment-grade">${escapeHtml(item.grade)}${Number(item.displayScore) ? ` ${Number(item.displayScore)}` : ''}</span>` : ''}
-      </span>`;
+      </span>`}`;
     overlay.addEventListener('click', event => {
       event.stopPropagation();
       closeDashboardMapFilterPanel();
@@ -893,7 +895,7 @@ function openDashboardMapApartment(item) {
     <button class="db-map-sheet-close" type="button" onclick="closeDashboardMapApartment()" aria-label="단지 정보 닫기">×</button>
     <div class="db-map-sheet-heading">
       <div><span class="db-map-sheet-eyebrow">단지 정보</span><strong>${escapeHtml(item.aptName || '단지명 확인 중')}</strong></div>
-      <b>${escapeHtml(item.grade || '등급 미산정')}${Number(item.displayScore) ? ` <em>${Number(item.displayScore)}점</em>` : ''}</b>
+      <b class="${item.gradeWithheld ? 'is-pending' : ''}">${item.gradeWithheld ? '데이터 취합 중' : `${escapeHtml(item.grade || '등급 미산정')}${Number(item.displayScore) ? ` <em>${Number(item.displayScore)}점</em>` : ''}`}</b>
     </div>
     <div class="db-map-sheet-meta">
       <span>${escapeHtml([item.sigunguName, item.umdName].filter(Boolean).join(' '))}</span>

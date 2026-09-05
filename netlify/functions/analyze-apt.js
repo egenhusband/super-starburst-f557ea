@@ -382,14 +382,14 @@ function computePublicLocationScore(grade, clampedScore) {
 }
 
 function toPublicAptGradeResult(result) {
-  const displayScore = computePublicLocationScore(result.grade, result.clampedScore);
+  const displayScore = result.withheld ? null : computePublicLocationScore(result.grade, result.clampedScore);
   return {
     ok: true,
     ready: result.ready,
     kaptCode: result.kaptCode,
     grade: result.grade,
     displayScore,
-    scoreLabel: `${displayScore}점`,
+    scoreLabel: Number.isFinite(displayScore) ? `${displayScore}점` : '',
     tierLabel: result.tierLabel,
     businessDistrict: result.businessDistrict,
     reasons: result.reasons,
@@ -800,6 +800,36 @@ function computeAptGrade(entry, insight, graph) {
             : item.key === 'newBuild'
               ? '준공 정보'
               : '업무지구 접근성');
+  if (!marketPriceAdjustment.source) {
+    return {
+      ready: true,
+      kaptCode: entry.kaptCode || '',
+      grade: '',
+      tier: locationTier.tier,
+      tierLabel: locationTier.label,
+      baseScore: tierScore.base,
+      rawScore: null,
+      clampedScore: null,
+      transportAdjustment,
+      infraAdjustment,
+      marketPriceAdjustment,
+      businessDistrict: businessDistrictResult,
+      reasons: [
+        `${locationTier.label}으로 분류했어요.`,
+        '최근 실거래 평당가를 취합 중이라 등급과 점수는 표기하지 않아요.',
+      ],
+      withheld: true,
+      missingCount: missingLabels.length + 1,
+      scoring: {
+        tier: locationTier.tier,
+        tierLabel: locationTier.label,
+        transport: transportAdjustment,
+        infra: infraAdjustment,
+        marketPrice: marketPriceAdjustment,
+        jamsilLivingAccess,
+      },
+    };
+  }
   const locationScore = tierScore.base + transportAdjustment.score + infraAdjustment.score;
   const locationClampedScore = clampNumber(locationScore, tierScore.min, tierScore.max);
   const marketGrade = gradeFromLocationScore(marketPriceAdjustment.score);

@@ -64,7 +64,7 @@ function median(values) {
   return nums[Math.floor(nums.length / 2)];
 }
 
-function getRepresentativeRecentPyeongPrice(byArea) {
+function getRepresentativeRecentPyeongPrice(byArea, fallbackRecentPrice = null) {
   const entries = Object.entries(byArea || {})
     .map(([area, value]) => ({
       size: Number.parseInt(area, 10),
@@ -73,8 +73,8 @@ function getRepresentativeRecentPyeongPrice(byArea) {
     }))
     .filter(item => Number.isFinite(item.size)
       && Number.isFinite(Number(item.recent?.median))
-      && item.tradeCount >= 2);
-  if (!entries.length) return null;
+      && item.tradeCount >= 1);
+  if (!entries.length) return toFiniteNumber(fallbackRecentPrice?.median);
 
   const preferred = entries
     .filter(item => item.size >= 59 && item.size <= 84)
@@ -82,7 +82,7 @@ function getRepresentativeRecentPyeongPrice(byArea) {
   const selected = preferred || entries
     .slice()
     .sort((a, b) => b.tradeCount - a.tradeCount || b.size - a.size)[0];
-  return toFiniteNumber(selected?.recent?.median);
+  return toFiniteNumber(selected?.recent?.median) ?? toFiniteNumber(fallbackRecentPrice?.median);
 }
 
 function parseTransitWalkDistance(rawValue) {
@@ -212,7 +212,7 @@ function main() {
       stationMetaDistance: station.stationMetaDistance ?? parseTransitWalkDistance(house.subwayDistance),
       schoolName: school.schoolName || '',
       schoolDistance: school.schoolDistance ?? null,
-      recentPricePerPyeong: getRepresentativeRecentPyeongPrice(byArea),
+      recentPricePerPyeong: getRepresentativeRecentPyeongPrice(byArea, cand.recentPyeongPrice),
       capitalRecentPricePerPyeongPercentile: capitalRecentPricePerPyeongPercentileByKapt.get(kaptCode) ?? null,
       capitalMedianPricePerPyeong,
       capitalOfficialPricePerPyeongPercentile,
@@ -231,14 +231,16 @@ function main() {
         : null,
     };
     const gradeResult = computeAptGrade(entry, insight, graph);
-    const displayScore = computePublicLocationScore(gradeResult.grade, gradeResult.clampedScore);
+    const displayScore = gradeResult.withheld
+      ? null
+      : computePublicLocationScore(gradeResult.grade, gradeResult.clampedScore);
     return {
       kaptCode,
       ready: true,
       grade: gradeResult.grade,
       clampedScore: gradeResult.clampedScore,
       displayScore,
-      scoreLabel: `${displayScore}점`,
+      scoreLabel: Number.isFinite(displayScore) ? `${displayScore}점` : '',
       tierLabel: gradeResult.tierLabel,
       businessDistrict: gradeResult.businessDistrict,
       reasons: gradeResult.reasons,
@@ -269,7 +271,8 @@ function main() {
   for (const c of capital) {
     const kaptCode = c.kaptCode;
     const areaFile = path.join(AREA_DIR, `${kaptCode}.json`);
-    const byArea = fs.existsSync(areaFile) ? readJson(areaFile).byArea || {} : {};
+    const areaPayload = fs.existsSync(areaFile) ? readJson(areaFile) : {};
+    const byArea = areaPayload.byArea || {};
     const house = houseByKapt.get(kaptCode) || {};
     const sigunguName = house.sigunguName || c.as2 || '';
 
@@ -285,7 +288,14 @@ function main() {
       }
     });
     if (!hasPrice) skippedNoPrice += 1;
-    candidates.push({ c, kaptCode, regionKey: REGION_KEY_BY_SIDO[c.as1], sigunguName, byArea });
+    candidates.push({
+      c,
+      kaptCode,
+      regionKey: REGION_KEY_BY_SIDO[c.as1],
+      sigunguName,
+      byArea,
+      recentPyeongPrice: areaPayload.recentPyeongPrice || null,
+    });
   }
 
   // 시군구별 ㎡당 중위가 + 이상치 하한(중위 × ANOMALY_RATIO)
@@ -302,7 +312,7 @@ function main() {
   const recentPyeongPrices = candidates
     .map(candidate => ({
       kaptCode: candidate.kaptCode,
-      price: getRepresentativeRecentPyeongPrice(candidate.byArea),
+      price: getRepresentativeRecentPyeongPrice(candidate.byArea, candidate.recentPyeongPrice),
     }))
     .filter(item => item.price !== null && item.price > 0)
     .sort((a, b) => a.price - b.price);

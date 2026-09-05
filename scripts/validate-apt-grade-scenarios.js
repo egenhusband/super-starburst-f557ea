@@ -120,6 +120,7 @@ function summarizeScenario(label, kaptCode) {
     canonicalMapAndDetailGrade: staticGrade ? {
       grade: staticGrade.grade,
       displayScore: staticGrade.displayScore,
+      withheld: Boolean(staticGrade.withheld),
     } : null,
   };
 }
@@ -134,6 +135,7 @@ const scenarios = [
   ['산성역 포레스티아', 'A10024631'],
   ['구리 대림한숲', 'A47103203'],
   ['암사 강동현대홈타운', 'A13485301'],
+  ['이매동신3단지', 'A46379708'],
   ['목동 구축 소형', 'A10020839'],
   ['목동 신시가지 대단지', 'A15875103'],
 ];
@@ -147,6 +149,7 @@ const dandaePrugio = summaries.find(item => item.label === '성남단대푸르�
 const daelimHansup = summaries.find(item => item.label === '구리 대림한숲');
 const misaLunarium = summaries.find(item => item.label === '하남 미사강변루나리움');
 const amsaHyundai = summaries.find(item => item.label === '암사 강동현대홈타운');
+const imaedongDongshin3 = summaries.find(item => item.label === '이매동신3단지');
 
 const daelimStationBonus = daelimHansup?.adjustments?.transport?.items?.some(item => item.key === 'station');
 if (Number(daelimHansup?.stationDistance) > 350 || !daelimStationBonus) {
@@ -182,7 +185,7 @@ const canonicalExpectations = [
   [misaLunarium, 'A'],
   [daelimHansup, 'B+'],
   [inchangJugong, 'B'],
-  [amsaHyundai, 'A+'],
+  [amsaHyundai, 'A'],
   [pangyo, 'A+'],
 ];
 canonicalExpectations.forEach(([scenario, grade]) => {
@@ -190,6 +193,11 @@ canonicalExpectations.forEach(([scenario, grade]) => {
     throw new Error(`${scenario?.label || '시나리오'}: 지도와 상세 공통 등급은 ${grade}여야 합니다.`);
   }
 });
+if (!imaedongDongshin3?.canonicalMapAndDetailGrade?.withheld
+  || imaedongDongshin3?.canonicalMapAndDetailGrade?.grade
+  || imaedongDongshin3?.canonicalMapAndDetailGrade?.displayScore) {
+  throw new Error('최근 실거래 가격이 없는 단지는 등급·점수 대신 데이터 취합 중 상태여야 합니다.');
+}
 
 console.log(JSON.stringify({
   generatedAt: new Date().toISOString(),
