@@ -177,6 +177,7 @@ function main() {
     .filter(price => price !== null && price > 0)
     .sort((a, b) => a - b);
   const capitalMedianPricePerPyeong = median(capitalTradePyeongPrices);
+  let capitalRecentPricePerPyeongPercentileByKapt = new Map();
 
   // 지도와 단지 상세가 같은 결과를 사용하도록, 지도 좌표가 있는 모든 아파트의
   // 공개 등급 결과를 여기서 한 번만 만든다. 추천 목록의 세대수 필터와는 분리한다.
@@ -212,6 +213,7 @@ function main() {
       schoolName: school.schoolName || '',
       schoolDistance: school.schoolDistance ?? null,
       recentPricePerPyeong: getRepresentativeRecentPyeongPrice(byArea),
+      capitalRecentPricePerPyeongPercentile: capitalRecentPricePerPyeongPercentileByKapt.get(kaptCode) ?? null,
       capitalMedianPricePerPyeong,
       capitalOfficialPricePerPyeongPercentile,
       convenienceHospital: convenience.hospital || null,
@@ -294,6 +296,24 @@ function main() {
     const median = arr[Math.floor(arr.length / 2)];
     minPerM2BySgg.set(sgg, median * ANOMALY_RATIO);
   });
+
+  // 개별 단지의 최근 거래 평당가를 수도권 전체 단지와 비교한다.
+  // 시군구 중위가 대비 비율보다 신축·구축과 생활권 간 가격 차이를 더 세밀하게 읽을 수 있다.
+  const recentPyeongPrices = candidates
+    .map(candidate => ({
+      kaptCode: candidate.kaptCode,
+      price: getRepresentativeRecentPyeongPrice(candidate.byArea),
+    }))
+    .filter(item => item.price !== null && item.price > 0)
+    .sort((a, b) => a.price - b.price);
+  if (recentPyeongPrices.length >= 5) {
+    recentPyeongPrices.forEach((item, index) => {
+      capitalRecentPricePerPyeongPercentileByKapt.set(
+        item.kaptCode,
+        index / (recentPyeongPrices.length - 1),
+      );
+    });
+  }
 
   // ── Pass 2: 이상치 제거 + 메타 조인 + 등급 계산 ──
   const index = [];
@@ -398,7 +418,7 @@ function main() {
       source: output.meta.source,
       scope: output.meta.scope,
       count: gradeItems.length,
-      version: 'location-grade-v2',
+      version: 'location-grade-v3-market-price',
     },
     items: gradeItems,
   };

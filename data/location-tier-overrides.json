@@ -2,6 +2,7 @@
   "version": "2026-08-30",
   "description": "시군구 기본 티어 위에 적용하는 생활권 단위 보정표. 단지별 예외가 아니라 동·역세권 묶음만 관리한다.",
   "overrides": [
+    { "id": "seoul-gangdong-core", "sigungu": ["강동구"], "umd": ["암사동", "천호동", "성내동", "길동"], "targetTier": "T2", "label": "강동 핵심 생활권" },
     { "id": "seongnam-pangyo", "sigungu": ["성남시 분당구"], "umd": ["백현동", "삼평동", "판교동"], "targetTier": "T2", "label": "판교 핵심 생활권" },
     { "id": "seongnam-bundang-core", "sigungu": ["성남시 분당구"], "umd": ["정자동", "수내동", "서현동", "이매동"], "targetTier": "T2", "label": "분당 핵심 생활권" },
     { "id": "seongnam-bundang-general", "sigungu": ["성남시 분당구"], "umd": ["야탑동", "구미동", "금곡동", "분당동"], "targetTier": "T3", "label": "분당 일반 생활권" },

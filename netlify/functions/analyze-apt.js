@@ -45,6 +45,18 @@ const LOCATION_TIER_TRANSPORT_CAPS = {
   T5: 4,
 };
 
+// 평당가를 등급의 주 신호로 쓰되, 생활권은 한 단계 이내의 안전장치로만 쓴다.
+// 점수 상한은 해당 등급의 다음 경계 바로 아래 값이다.
+const LOCATION_TIER_MARKET_GUARDRAILS = {
+  T1: { score: 17.99, context: 1.0 },
+  T2: { score: 14.99, context: 0.5 },
+  T3_PLUS: { score: 14.99, context: 0.4 },
+  T3: { score: 11.99, context: 0.0 },
+  T4_PLUS: { score: 8.99, context: 0.15 },
+  T4: { score: 8.99, context: 0.0 },
+  T5: { score: 5.99, context: -0.5 },
+};
+
 const SEOUL_ACCESS_UPLIFT_LINES = /신분당|GTX|8호선|9호선|경의중앙|별내선/u;
 
 const NINE_LINE_944_BENEFIT_NAMES = [
@@ -629,7 +641,25 @@ function computeInfraAdjustment(entry, schoolDistance) {
   return { score: clampNumber(raw, -2, 2), raw, cap: 2, floor: -2, items };
 }
 
-function computeMarketPriceAdjustment(entry) {
+function computeMarketPositionScore(entry) {
+  const recentPercentile = entry?.capitalRecentPricePerPyeongPercentile;
+  if (Number.isFinite(recentPercentile) && recentPercentile >= 0 && recentPercentile <= 1) {
+    const score = recentPercentile >= 0.95 ? 15
+      : recentPercentile >= 0.90 ? 12
+        : recentPercentile >= 0.80 ? 9
+          : recentPercentile >= 0.73 ? 6.5
+            : recentPercentile >= 0.60 ? 4.5
+              : recentPercentile >= 0.45 ? 1.5
+                : 0;
+    return {
+      score,
+      source: 'recent-trade-pyeong-percentile',
+      percentile: recentPercentile,
+      confidence: 'high',
+      label: '수도권 최근 실거래 평당가 백분위를 등급의 주요 기준으로 반영했어요.',
+    };
+  }
+
   const recentPricePerPyeong = Number(entry?.recentPricePerPyeong);
   const capitalMedianPricePerPyeong = Number(entry?.capitalMedianPricePerPyeong);
   if (
@@ -639,31 +669,65 @@ function computeMarketPriceAdjustment(entry) {
     && capitalMedianPricePerPyeong > 0
   ) {
     const ratio = recentPricePerPyeong / capitalMedianPricePerPyeong;
-    const score = ratio >= 1.5 ? 2 : ratio >= 1.1 ? 1 : ratio <= 0.5 ? -2 : ratio <= 0.8 ? -1 : 0;
+    const score = ratio >= 2.0 ? 15
+      : ratio >= 1.6 ? 12
+        : ratio >= 1.3 ? 9
+          : ratio >= 1.1 ? 6.5
+            : ratio >= 0.9 ? 4.5
+              : ratio >= 0.75 ? 3.5
+                : ratio >= 0.55 ? 1.5
+                  : 0;
     return {
       score,
       source: 'recent-trade-pyeong',
       ratio,
-      label: score > 0
-        ? '수도권 대비 최근 실거래 평당가가 높은 편'
-        : score < 0
-          ? '수도권 대비 최근 실거래 평당가는 낮은 편'
-          : '수도권과 비슷한 실거래 평당가',
+      confidence: 'high',
+      label: '최근 실거래 평당가를 등급의 주요 기준으로 반영했어요.',
     };
   }
 
-  const percentile = Number(entry?.capitalOfficialPricePerPyeongPercentile);
+  const percentile = entry?.capitalOfficialPricePerPyeongPercentile;
   if (Number.isFinite(percentile) && percentile >= 0 && percentile <= 1) {
-    const score = percentile >= 0.85 ? 2 : percentile >= 0.65 ? 1 : percentile <= 0.15 ? -2 : percentile <= 0.35 ? -1 : 0;
+    const score = percentile >= 0.95 ? 15
+      : percentile >= 0.85 ? 12
+        : percentile >= 0.77 ? 9
+          : percentile >= 0.72 ? 6.5
+            : percentile >= 0.65 ? 4.5
+              : percentile >= 0.60 ? 3.5
+                : percentile >= 0.40 ? 1.5
+                  : 0;
     return {
       score,
       source: 'official-pyeong-percentile',
       percentile,
-      label: '실거래가 어려워 수도권 공시가격 평당가로 보완',
+      confidence: 'fallback',
+      label: '실거래 평당가가 부족해 수도권 공시가격 평당가로 보완했어요.',
     };
   }
 
-  return { score: 0, source: null, label: '평당가 비교 데이터 보강 중' };
+  return { score: 0, source: null, confidence: 'none', label: '평당가 비교 데이터 보강 중' };
+}
+
+function getPreviousGradeCeiling(grade) {
+  const index = LOCATION_GRADE_SCALE.findIndex(item => item.grade === grade);
+  if (index <= 0) return LOCATION_GRADE_SCALE[0].min;
+  const currentFloor = LOCATION_GRADE_SCALE[index].min;
+  return currentFloor - 0.01;
+}
+
+function getCurrentGradeCeiling(grade) {
+  const index = LOCATION_GRADE_SCALE.findIndex(item => item.grade === grade);
+  const nextFloor = LOCATION_GRADE_SCALE[index + 1]?.min;
+  return Number.isFinite(nextFloor) ? nextFloor - 0.01 : 18.99;
+}
+
+function computeSupportingLocationAdjustment(locationTier, transportAdjustment, infraAdjustment) {
+  const guardrail = LOCATION_TIER_MARKET_GUARDRAILS[locationTier] || LOCATION_TIER_MARKET_GUARDRAILS.T5;
+  // 보조 항목은 시장 가격이 만든 등급 안에서 순서만 조정한다.
+  const transport = Math.min(Number(transportAdjustment?.score || 0), 3) / 3 * 1.2;
+  const infra = clampNumber(Number(infraAdjustment?.score || 0) * 0.4, -0.8, 0.8);
+  const score = clampNumber(guardrail.context + transport + infra, -1, 2);
+  return { score, transport, infra, context: guardrail.context };
 }
 
 function qualifiesSeoulAccessUplift(entry, stationDistance, businessDistrictResult, schoolDistance) {
@@ -714,7 +778,7 @@ function computeAptGrade(entry, insight, graph) {
     jamsilLivingAccess,
   );
   const infraAdjustment = computeInfraAdjustment(entry, schoolDistance);
-  const marketPriceAdjustment = computeMarketPriceAdjustment(entry);
+  const marketPriceAdjustment = computeMarketPositionScore(entry);
   const dimensions = [
     { key: 'priceLevel', available: priceLevelSource !== null, result: priceLevelResult },
     { key: 'school', available: Number.isFinite(schoolDistance), result: computeSchoolScore(schoolDistance) },
@@ -738,12 +802,19 @@ function computeAptGrade(entry, insight, graph) {
               : '업무지구 접근성');
   const locationScore = tierScore.base + transportAdjustment.score + infraAdjustment.score;
   const locationClampedScore = clampNumber(locationScore, tierScore.min, tierScore.max);
-  const locationGrade = gradeFromLocationScore(locationClampedScore);
-  const locationGradeFloor = LOCATION_GRADE_SCALE.find(item => item.grade === locationGrade)?.min ?? 0;
-  const nextGradeFloor = LOCATION_GRADE_SCALE.find(item => item.min > locationGradeFloor)?.min ?? 19;
-  const rawScore = locationClampedScore + marketPriceAdjustment.score;
-  // 시장가격은 같은 입지 등급 내 순서만 보정하고, 입지 등급 자체를 바꾸지는 않는다.
-  const clampedScore = clampNumber(rawScore, locationGradeFloor, nextGradeFloor - 1);
+  const marketGrade = gradeFromLocationScore(marketPriceAdjustment.score);
+  const locationAdjustment = computeSupportingLocationAdjustment(
+    locationTier.tier,
+    transportAdjustment,
+    infraAdjustment,
+  );
+  const rawScore = marketPriceAdjustment.score + locationAdjustment.score;
+  const guardrail = LOCATION_TIER_MARKET_GUARDRAILS[locationTier.tier] || LOCATION_TIER_MARKET_GUARDRAILS.T5;
+  // 광역·생활권 상한은 시장 가격이 만든 등급을 최대 한 단계만 낮출 수 있다.
+  // 역·학교·단지 규모는 같은 등급 안에서만 점수 순서를 바꾼다.
+  const oneBandGuardrail = Math.max(guardrail.score, getPreviousGradeCeiling(marketGrade));
+  const maxScore = Math.min(getCurrentGradeCeiling(marketGrade), oneBandGuardrail);
+  const clampedScore = clampNumber(rawScore, 0, maxScore);
   const grade = gradeFromLocationScore(clampedScore);
   const primaryTransportReason = transportAdjustment.items.find(item => item.key === 'jamsil')
     || transportAdjustment.items.slice().sort((a, b) => b.points - a.points)[0];
@@ -757,7 +828,7 @@ function computeAptGrade(entry, insight, graph) {
       : `${locationTier.label} 기준으로 기본 등급 범위를 먼저 잡았어요.`,
     ...(primaryTransportReason ? [primaryTransportReason.label] : []),
     ...(infraAdjustment.items.length ? [infraAdjustment.items.slice().sort((a, b) => b.points - a.points)[0].label] : []),
-    ...(marketPriceAdjustment.score !== 0 ? [marketPriceAdjustment.label] : []),
+    ...(marketPriceAdjustment.source ? [marketPriceAdjustment.label] : []),
     ...(hasOfficialFallback ? ['실거래 커버리지가 얇아 가격 레벨은 공시가격으로 우선 보완했어요.'] : []),
     ...(missingLabels.length ? [`아직 ${missingLabels.join(', ')} 데이터는 순차 보강 중이에요.`] : []),
   ];
@@ -787,6 +858,14 @@ function computeAptGrade(entry, insight, graph) {
       transport: transportAdjustment,
       infra: infraAdjustment,
       marketPrice: marketPriceAdjustment,
+      marketGrade,
+      locationAdjustment,
+      marketGuardrail: {
+        maxScore,
+        tierMaxScore: guardrail.score,
+        oneBandFloor: getPreviousGradeCeiling(marketGrade),
+        marketBandMaxScore: getCurrentGradeCeiling(marketGrade),
+      },
       jamsilLivingAccess,
       locationScore: locationClampedScore,
       rawScore,
