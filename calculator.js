@@ -285,7 +285,8 @@
   }
 
   function showRecentCalculationToast(calculation) {
-    if (!calculation || !['fund', 'bank'].includes(calculation.calculatorType)) return;
+    // Keep recent-resume guidance scoped to the fund-loan flow.
+    if (!calculation || calculation.calculatorType !== 'fund') return;
     pendingRecentCalculation = calculation;
     const toast = document.getElementById('recentCalculationToast');
     if (!toast) return;

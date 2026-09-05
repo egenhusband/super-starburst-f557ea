@@ -112,8 +112,8 @@ let selectedDealCityByRegion = {};
 let kakaoMapsSdkPromise = null;
 let dashboardApartmentMapPromise = null;
 const DASHBOARD_MAP_GRADE_ORDER = ['S', 'A+', 'A', 'B+', 'B', 'C+', 'C'];
-const DASHBOARD_FUTURE_RAIL_URL = '/data/capital-future-rail.json?v=20260904b';
-const DASHBOARD_RAIL_MAX_LEVEL = 5;
+const DASHBOARD_FUTURE_RAIL_URL = '/data/capital-future-rail.json?v=20260905shinbundang1';
+const DASHBOARD_RAIL_MAX_LEVEL = 6;
 let dashboardApartmentMapState = {
   map: null,
   clusterer: null,
@@ -414,7 +414,7 @@ function drawDashboardFutureRail(kakao, map, payload) {
       });
       dot.setMap(map);
       dashboardApartmentMapState.railStationDots.push(dot);
-      if (station.isNew !== false && map.getLevel() <= 4) {
+      if (station.isNew !== false && map.getLevel() <= 5) {
         const label = new kakao.maps.CustomOverlay({
           position,
           content: `<span class="db-future-rail-station">${escapeHtml(station.name)}</span>`,
@@ -426,7 +426,7 @@ function drawDashboardFutureRail(kakao, map, payload) {
         dashboardApartmentMapState.railStationDots.push(label);
       }
     });
-    if (map.getLevel() <= 4) {
+    if (map.getLevel() <= 5) {
       const labelPositions = [];
       for (let index = 0; index < path.length - 1; index += 1) {
         const from = path[index];
@@ -464,7 +464,7 @@ async function renderDashboardRailLayer() {
     clearDashboardRailLayer();
     return;
   }
-  const renderMode = map.getLevel() <= 4 ? 'detail' : 'line';
+  const renderMode = map.getLevel() <= 5 ? 'detail' : 'line';
   if (dashboardApartmentMapState.railPolylines.length && dashboardApartmentMapState.railRenderedMode === renderMode) return;
   try {
     const railData = await loadDashboardRailData();

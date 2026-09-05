@@ -1,6 +1,6 @@
 {
   "meta": {
-    "updatedAt": "2026-09-04",
+    "updatedAt": "2026-09-05",
     "scope": "서울·경기 공사 중 또는 기본계획 승인 철도와 예타 단계 주요 연장선",
     "coordinatePolicy": "확정 정거장은 공식 계획 위치를 WGS84로 변환하고, 미확정 정거장은 점으로 표시하지 않음",
     "note": "노선은 공식 노선도를 바탕으로 단순화한 안내선이며 실제 선형·출입구 위치와 다를 수 있습니다."
@@ -47,6 +47,12 @@
       "sourceUrl": "https://gnews.gg.go.kr/briefing/brief_gongbo_view.do?BS_CODE=s017&number=64209",
       "path": [[37.5656,127.1739],[37.5684,127.1902],[37.5768,127.2220],[37.5865,127.2211],[37.6016,127.1802],[37.6410,127.1813],[37.6822,127.1865],[37.7195,127.1950]],
       "stations": []
+    },
+    {
+      "id": "shinbundang-gwanggyo-homaesil", "name": "신분당선 광교~호매실", "stage": "construction", "status": "공사 중", "target": "2029년 목표", "color": "#d31145",
+      "sourceUrl": "https://www.molit.go.kr/USR/NEWS/m_71/dtl.jsp?id=95086376",
+      "path": [[37.3022,127.0446],[37.2978,127.0312],[37.2916,127.0157],[37.2825,126.9904],[37.2742,126.9662]],
+      "stations": [{"name":"광교","lat":37.3022,"lng":127.0446,"isNew":false,"locationStatus":"confirmed"}]
     },
     {
       "id": "shinansan", "name": "신안산선", "stage": "construction", "status": "공사 중", "target": "개통 준비", "color": "#1e88e5",
