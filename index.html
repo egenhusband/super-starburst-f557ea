@@ -536,6 +536,7 @@
       screen.style.display = 'none';
       app.classList.remove('screen-dashboard-active');
       setCalculatorUiVisible(true);
+      requestAnimationFrame(() => window.restoreResultFloatingSummaryIfResult?.());
       return;
     }
 
@@ -554,6 +555,7 @@
     screenTransitionTimer = setTimeout(() => {
       screen.style.display = 'none';
       app.classList.remove('screen-transitioning', 'screen-to-calculator');
+      window.restoreResultFloatingSummaryIfResult?.();
       screenTransitionTimer = null;
     }, SCREEN_TRANSITION_MS);
   }
@@ -592,7 +594,7 @@
 <script src="icons.js?v=20260518a"></script>
 <script src="tax.js?v=20260702tax"></script>
 <script src="kakao-auth.js?v=20260904recent2"></script>
-<script src="calculator.js?v=20260906repay-method3"></script>
+<script src="calculator.js?v=20260906result-return1"></script>
 <script src="dashboard.js?v=20260905rail-zoom1"></script>
 <script src="dashboard-apt-search.js?v=20260830search-grade1"></script>
 <script>

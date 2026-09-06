@@ -239,6 +239,17 @@
     };
   }
 
+  function getStoredFundInputSnapshot() {
+    if (latestFundInputSnapshot) return latestFundInputSnapshot;
+    const raw = document.getElementById('resultContent')?.dataset.fundInputSnapshot;
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
   function collectBankCalculation() {
     return {
       firstBuyer: bankFirstBuyer,
@@ -4346,16 +4357,24 @@
   }
 
   function getOtherLoanSummaryText() {
-    const source = !isFundEditMode && latestFundInputSnapshot
-      ? latestFundInputSnapshot
+    const storedSnapshot = getStoredFundInputSnapshot();
+    const source = !isFundEditMode && storedSnapshot
+      ? storedSnapshot
       : {
           otherLoanNone: document.getElementById('otherLoanNone')?.checked,
           otherLoanPrincipal: document.getElementById('otherLoanPrincipal')?.value,
+          otherLoanRate: document.getElementById('otherLoanRate')?.value,
+          otherLoanYears: document.getElementById('otherLoanYears')?.value,
         };
     const noneChecked = source.otherLoanNone;
     const principal = parseFloat(source.otherLoanPrincipal) || 0;
     if (noneChecked || principal <= 0) return '없음';
-    return formatOptionalEok(principal);
+    const rate = parseFloat(source.otherLoanRate);
+    const years = parseInt(source.otherLoanYears, 10);
+    const details = [formatOptionalEok(principal)];
+    if (Number.isFinite(rate) && rate >= 0) details.push(rate.toFixed(1) + '%');
+    if (Number.isFinite(years) && years > 0) details.push(years + '년');
+    return details.join(' · ');
   }
 
   function getIncomeSummaryText() {
@@ -4479,13 +4498,14 @@
     closeFundInputSheet();
     isFundEditMode = true;
     loanType = 'fund';
-    if (step === 8 && latestFundInputSnapshot) {
+    const storedSnapshot = getStoredFundInputSnapshot();
+    if (step === 8 && storedSnapshot) {
       ['otherLoanPrincipal', 'otherLoanRate', 'otherLoanYears'].forEach(id => {
         const field = document.getElementById(id);
-        if (field) field.value = latestFundInputSnapshot[id] ?? '';
+        if (field) field.value = storedSnapshot[id] ?? '';
       });
       const none = document.getElementById('otherLoanNone');
-      if (none) none.checked = Boolean(latestFundInputSnapshot.otherLoanNone);
+      if (none) none.checked = Boolean(storedSnapshot.otherLoanNone);
       toggleOtherLoanNone({ clearValues: false });
     }
     const bottomNav = document.getElementById('bottomNav');
@@ -4536,6 +4556,8 @@
 
   function renderResult(income, price, asset, otherLoanInterest) {
     latestFundInputSnapshot = collectFundCalculation();
+    const resultContent = document.getElementById('resultContent');
+    if (resultContent) resultContent.dataset.fundInputSnapshot = JSON.stringify(latestFundInputSnapshot);
     renderResultLoading();
     fetchCalcLoanResult(income, price, asset, otherLoanInterest)
       .then(serverCalc => renderResultLocal(income, price, asset, otherLoanInterest, serverCalc))
