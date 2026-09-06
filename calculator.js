@@ -5400,6 +5400,8 @@
     RESULT: 'result',
     APT_ANALYSIS: 'apt-analysis',
   });
+  const PAYWALL_RETURN_STATE_KEY = 'paywallReturnState';
+  const PAYWALL_RETURN_STATE_TTL_MS = 4 * 60 * 60 * 1000;
   const PaywallController = {
     isGuestMode: false,
     context: PAY_CONTEXT.RESULT,
@@ -5432,8 +5434,44 @@
       if (err) err.textContent = '';
     },
 
+    getReturnState() {
+      try {
+        const raw = sessionStorage.getItem(PAYWALL_RETURN_STATE_KEY);
+        const state = raw ? JSON.parse(raw) : null;
+        if (!state || Date.now() - Number(state.savedAt || 0) > PAYWALL_RETURN_STATE_TTL_MS) {
+          sessionStorage.removeItem(PAYWALL_RETURN_STATE_KEY);
+          return null;
+        }
+        return state;
+      } catch (_) {
+        return null;
+      }
+    },
+
+    rememberReturnState() {
+      const state = { context: this.context, savedAt: Date.now() };
+      if (this.context === PAY_CONTEXT.APT_ANALYSIS) {
+        state.apartment = typeof window.getDashboardAptPaywallSelection === 'function'
+          ? window.getDashboardAptPaywallSelection()
+          : null;
+      } else {
+        const hasBankResult = Boolean(document.getElementById('bankResultArea')?.innerHTML.trim());
+        state.calculation = hasBankResult
+          ? { calculatorType: 'bank', inputPayload: collectBankCalculation() }
+          : { calculatorType: 'fund', inputPayload: getStoredFundInputSnapshot() || collectFundCalculation() };
+      }
+      try { sessionStorage.setItem(PAYWALL_RETURN_STATE_KEY, JSON.stringify(state)); } catch (_) {}
+    },
+
+    clearReturnState() {
+      try { sessionStorage.removeItem(PAYWALL_RETURN_STATE_KEY); } catch (_) {}
+    },
+
     open(context = PAY_CONTEXT.RESULT) {
-      this.context = context || PAY_CONTEXT.RESULT;
+      const saved = this.getReturnState();
+      const hasCurrentAptSelection = typeof hasDashboardAptSelection === 'function' && hasDashboardAptSelection();
+      const hasCurrentView = this.hasRenderedResult() || hasCurrentAptSelection;
+      this.context = hasCurrentView ? (context || PAY_CONTEXT.RESULT) : (saved?.context || context || PAY_CONTEXT.RESULT);
       const overlay = document.getElementById('payOverlay');
       if (!overlay) return;
       if (this.closeTimer) {
@@ -5494,6 +5532,7 @@
     },
 
     resumeAfterAuth(options = {}) {
+      const saved = this.getReturnState();
       const shouldPreserveAptAnalysis = this.context === PAY_CONTEXT.APT_ANALYSIS
         && typeof hasDashboardAptSelection === 'function'
         && hasDashboardAptSelection();
@@ -5510,9 +5549,18 @@
         resetResultScroll();
       } else if (shouldPreserveAptAnalysis && typeof revealDashboardAptAnalysisAfterAuth === 'function') {
         revealDashboardAptAnalysisAfterAuth();
+      } else if (saved?.context === PAY_CONTEXT.APT_ANALYSIS
+          && saved.apartment
+          && typeof window.restoreDashboardAptPaywallSelection === 'function') {
+        window.restoreDashboardAptPaywallSelection(saved.apartment);
+      } else if (saved?.calculation?.inputPayload) {
+        const calculation = saved.calculation;
+        if (calculation.calculatorType === 'bank') restoreBankCalculation(calculation.inputPayload);
+        else restoreFundCalculation(calculation.inputPayload);
       } else {
         startCalculatorFlow();
       }
+      this.clearReturnState();
       if (typeof preloadMarketBundle === 'function') preloadMarketBundle().catch(() => {});
       if (!options.skipKakaoLinkPrompt && window.KakaoAuthBridge && typeof window.KakaoAuthBridge.openKakaoLinkSheet === 'function') {
         setTimeout(() => window.KakaoAuthBridge.openKakaoLinkSheet(), 520);
@@ -5542,6 +5590,9 @@
   };
   window.PAY_CONTEXT = PAY_CONTEXT;
   window.PaywallController = PaywallController;
+  window.rememberPaywallReturnState = function() {
+    PaywallController.rememberReturnState();
+  };
 
   // 초기 진입 처리는 dashboard.js 로드 후 실행됨
 

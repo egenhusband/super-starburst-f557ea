@@ -1468,6 +1468,30 @@ function hasDashboardAptSelection() {
   return Boolean(dashboardAptSearchState.selectedId && getDashboardSelectedEntry());
 }
 
+function getDashboardAptPaywallSelection() {
+  const entry = getDashboardSelectedEntry();
+  if (!entry) return null;
+  return {
+    entryId: entry.id,
+    query: dashboardAptSearchState.query,
+    lastSearchQuery: dashboardAptSearchState.lastSearchQuery,
+  };
+}
+
+function restoreDashboardAptPaywallSelection(snapshot) {
+  if (!snapshot?.entryId) return false;
+  loadDashboardAptSearchIndex().then(() => {
+    const entry = dashboardAptSearchState.entriesById.get(snapshot.entryId)
+      || dashboardAptSearchState.entries.find(item => item.kaptCode === snapshot.entryId);
+    if (!entry) return;
+    dashboardAptSearchState.lastSearchQuery = snapshot.lastSearchQuery || '';
+    dashboardAptSearchState.query = snapshot.query || '';
+    pickDashboardApartment(entry.id);
+    if (typeof showAptSearchScreen === 'function') showAptSearchScreen();
+  }).catch(() => {});
+  return true;
+}
+
 function revealDashboardAptAnalysisAfterAuth() {
   renderDashboardSelectedApartment();
   if (typeof showAptSearchScreen === 'function') showAptSearchScreen();
@@ -1776,6 +1800,8 @@ window.closeAptLoanSheet = closeAptLoanSheet;
 window.openAptAnalysisPaywallSheet = openAptAnalysisPaywallSheet;
 window.closeAptAnalysisPaywallSheet = closeAptAnalysisPaywallSheet;
 window.hasDashboardAptSelection = hasDashboardAptSelection;
+window.getDashboardAptPaywallSelection = getDashboardAptPaywallSelection;
+window.restoreDashboardAptPaywallSelection = restoreDashboardAptPaywallSelection;
 window.revealDashboardAptAnalysisAfterAuth = revealDashboardAptAnalysisAfterAuth;
 window.retryDashboardAptGrade = retryDashboardAptGrade;
 window.setAptLoanType = setAptLoanType;
