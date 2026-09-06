@@ -2015,43 +2015,33 @@
   function mountResultTaxSummaries(root) {
     const scope = root || document;
     scope.querySelectorAll('[data-result-tax-summary]').forEach(node => node.remove());
-    scope.querySelectorAll('.limit-detail-card[data-limit-product]').forEach(card => {
-      const html = buildResultTaxSummaryHtml(card);
-      if (html) card.insertAdjacentHTML('beforeend', html);
-    });
+    const activePane = scope.querySelector('.tab-pane3.active, .tab-pane.active');
+    const card = activePane?.querySelector('.limit-detail-card[data-limit-product]')
+      || scope.querySelector('.limit-detail-card[data-limit-product]');
+    const html = buildResultTaxSummaryHtml(card);
+    const restart = scope.querySelector('.btn-restart');
+    if (html && restart) {
+      // Purchase costs apply to the selected product, so show them once at the result's end.
+      restart.insertAdjacentHTML('beforebegin', '<div class="result-spacer"></div>' + html + '<div class="result-spacer-sm"></div>');
+    }
   }
 
   function updateResultTaxSummaries(root) {
-    const tax = window.RealEstateTax;
-    if (!tax) return;
     const scope = root || document;
-    scope.querySelectorAll('.limit-detail-card[data-limit-product]').forEach(card => {
-      const summary = card.querySelector('[data-result-tax-summary]');
-      if (!summary) return;
-      const priceEok = Number(card.dataset.limitPrice || card.dataset.bogeumPrice || card.dataset.didimdolPrice || card.dataset.newbornPrice || 0);
-      const barWrap = getLimitLoanBar(card);
-      const loanEok = Number(barWrap?.dataset.loanBarLoan || 0);
-      if (!(priceEok > 0)) return;
-      const house = card.dataset.limitHouse || card.dataset.bogeumHouse || card.dataset.didimdolHouse || card.dataset.newbornHouse || '';
-      const region = card.dataset.limitRegion || card.dataset.bogeumRegion || card.dataset.didimdolRegion || card.dataset.newbornRegion || '';
-      const acquisition = tax.calculateAcquisitionTax({
-        priceEok,
-        homeCount: getTaxHomeCountFromHouse(house),
-        isRegulatedArea: getTaxRegulatedArea(region),
-        isOver85: false,
-      });
-      const costs = getResultPurchaseCosts(priceEok, acquisition);
-      const totalPrepareEok = Math.max(0, priceEok - loanEok) + costs.total / 100000000;
-      summary.querySelector('[data-purchase-brokerage]').textContent = formatTaxWon(costs.brokerage);
-      summary.querySelector('[data-purchase-registration]').textContent = costs.registrationMissing ? '미입력 · 합계 제외' : formatTaxWon(costs.registration);
-      summary.querySelector('[data-purchase-other]').textContent = purchaseCostQuotes.other == null ? '미입력 · 합계 제외' : formatTaxWon(costs.other);
-      const totalEl = summary.querySelector('[data-tax-total-prepare]');
-      const acquisitionEl = summary.querySelector('[data-tax-acquisition-total]');
-      const basisEl = summary.querySelector('[data-tax-basis]');
-      if (totalEl) totalEl.textContent = formatLimit(totalPrepareEok);
-      if (acquisitionEl) acquisitionEl.textContent = formatTaxWon(acquisition.total);
-      if (basisEl) basisEl.textContent = acquisition.basisLabel;
-    });
+    const summary = scope.querySelector('[data-result-tax-summary]');
+    const context = getActiveResultTaxContext();
+    if (!summary || !context) return;
+    const { acquisition, costs, requiredEok } = context;
+    const brokerageEl = summary.querySelector('[data-purchase-brokerage]');
+    const registrationEl = summary.querySelector('[data-purchase-registration]');
+    const otherEl = summary.querySelector('[data-purchase-other]');
+    const totalEl = summary.querySelector('[data-tax-total-prepare]');
+    const acquisitionEl = summary.querySelector('[data-tax-acquisition-total]');
+    if (totalEl) totalEl.textContent = formatLimit(requiredEok);
+    if (acquisitionEl) acquisitionEl.textContent = formatTaxWon(acquisition.total);
+    if (brokerageEl) brokerageEl.textContent = formatTaxWon(costs.brokerage);
+    if (registrationEl) registrationEl.textContent = costs.registrationMissing ? '미입력 · 합계 제외' : formatTaxWon(costs.registration);
+    if (otherEl) otherEl.textContent = purchaseCostQuotes.other == null ? '미입력 · 합계 제외' : formatTaxWon(costs.other);
   }
 
   function getAcquisitionTaxForResultCard(card, priceEok) {
@@ -2258,7 +2248,7 @@
           <strong id="resultFloatLimit" data-motion-value="0" data-motion-target="0">—</strong>
         </div>
         <div class="result-floating-summary-item">
-          <button class="result-floating-summary-label-compact" type="button" onclick="openResultTaxInfoSheet(this)" aria-expanded="false">예상 자금 · 부대비용<span class="result-floating-summary-info-dot">i</span></button>
+          <button class="result-floating-summary-label-compact" type="button" onclick="openResultTaxInfoSheet(this)" aria-expanded="false">필요 자금<span class="result-floating-summary-info-dot">i</span></button>
           <strong id="resultFloatCapital" data-motion-value="0" data-motion-target="0">—</strong>
         </div>
         <div class="result-floating-summary-item">
@@ -3748,6 +3738,16 @@
     if (didimdolOk)   tabs.push('didimdol');
     if (bogeumjariOk) tabs.push('bogeumjari');
     var firstTab = tabs[0];
+    var eligibleLabels = [];
+    if (newbornOk) eligibleLabels.push('신생아 특례');
+    if (didimdolOk) eligibleLabels.push('디딤돌');
+    if (bogeumjariOk) eligibleLabels.push('보금자리론');
+    var eligibleSummary = eligibleLabels.length > 1
+      ? eligibleLabels.join(' · ') + ' 해당'
+      : '신생아 특례 해당';
+    var eligibleTitle = eligibleLabels.length > 1
+      ? eligibleLabels.length + '개 상품을 비교해 보세요'
+      : '상품을 비교해 보세요';
 
     // 탭 버튼 HTML
     function makeTabBtn(id, badge, name, limit, colorCls) {
@@ -3867,7 +3867,7 @@
 
     return '<div class="result-header-area"><div class="result-badge-wrap">'
       + '<div class="result-icon" style="background:linear-gradient(135deg,#ff6b9d,#ff8c42)">' + icon('baby', 28) + '</div>'
-      + '<div><div class="result-option-label" style="color:#ff6b9d">신생아 특례 해당</div><div class="result-title">상품을 비교해 보세요</div></div>'
+      + '<div><div class="result-option-label" style="color:#ff6b9d">' + eligibleSummary + '</div><div class="result-title">' + eligibleTitle + '</div></div>'
       + '</div></div>'
       + tabsHtml
       + paneNewborn + paneDidimdol + paneBogeumjari
@@ -5111,6 +5111,7 @@
         tabsWrap.dataset.activeProduct = 'bogeumjari';
       }
     }
+    updateResultTaxSummaries();
     updateResultFloatingSummary();
   }
 
@@ -5131,6 +5132,7 @@
         }
       }
     });
+    updateResultTaxSummaries();
     updateResultFloatingSummary();
   }
 
