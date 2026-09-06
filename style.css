@@ -1227,6 +1227,57 @@
     margin: 10px 0 0;
   }
 
+  .purchase-cost-edit {
+    margin-top: 12px;
+    padding: 12px;
+    width: 100%;
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .purchase-cost-inputs {
+    display: grid;
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .purchase-cost-inputs label {
+    display: grid;
+    gap: 8px;
+    color: var(--label2);
+    font-size: 13px;
+  }
+  .purchase-cost-inputs input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--label3);
+    border-radius: 10px;
+    color: var(--label1);
+    background: var(--bg);
+    font-size: 16px;
+  }
+  .result-tax-info-sheet .dti-sheet-body {
+    overflow-y: auto;
+    min-height: 0;
+    overscroll-behavior: contain;
+  }
+  .dti-sheet.result-tax-info-sheet {
+    max-height: 85vh;
+    max-height: 85dvh;
+  }
+  .result-tax-info-sheet .dti-sheet-head,
+  .result-tax-info-sheet .dti-sheet-handle {
+    flex-shrink: 0;
+  }
+  body:has(.result-tax-info-sheet.open) #entryToast {
+    visibility: hidden;
+  }
+
 
   /* 그룹 레이블 */
   .group-label {

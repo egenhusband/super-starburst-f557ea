@@ -156,6 +156,27 @@
     return Math.max(0, toNumber(priceEok, 0) * DEFAULT_OFFICIAL_PRICE_RATIO);
   }
 
+  // Residential sale brokerage ceiling; VAT is a separate budgeting assumption.
+  function calculatePurchaseCosts(options = {}) {
+    const price = Math.max(0, toNumber(options.priceEok, 0) * 100000000);
+    const rate = price < 50000000 ? 0.006 : price < 200000000 ? 0.005
+      : price < 900000000 ? 0.004 : price < 1200000000 ? 0.005
+      : price < 1500000000 ? 0.006 : 0.007;
+    const cap = price < 50000000 ? 250000 : price < 200000000 ? 800000 : Infinity;
+    const brokerageCeiling = Math.round(Math.min(price * rate, cap));
+    const amount = value => Math.max(0, Math.round(toNumber(value, 0)));
+    const brokerage = options.brokerage == null
+      ? Math.round(brokerageCeiling * 1.1) : amount(options.brokerage);
+    const registration = amount(options.registration);
+    const other = amount(options.other);
+    const acquisition = amount(options.acquisition);
+    return {
+      brokerageCeiling, brokerage, registration, other, acquisition,
+      registrationMissing: options.registration == null,
+      total: acquisition + brokerage + registration + other,
+    };
+  }
+
   window.RealEstateTax = {
     constants: {
       propertyTaxFairMarketRatio: PROPERTY_TAX_FAIR_MARKET_RATIO,
@@ -165,6 +186,7 @@
       generalJongbooDeductionEok: GENERAL_JONGBOO_DEDUCTION_EOK,
     },
     calculateAcquisitionTax,
+    calculatePurchaseCosts,
     calculatePropertyTax,
     getJongbooPossibility,
     estimateOfficialPriceEok,

@@ -1960,6 +1960,15 @@
     return region === '투기과열' || region === '조정대상';
   }
 
+  // Quotes belong to the purchase, not to a specific loan product.
+  const purchaseCostQuotes = { brokerage: null, registration: null, other: null };
+
+  function getResultPurchaseCosts(priceEok, acquisition) {
+    return window.RealEstateTax.calculatePurchaseCosts({
+      priceEok, acquisition: acquisition?.total || 0, ...purchaseCostQuotes,
+    });
+  }
+
   function buildResultTaxSummaryHtml(card) {
     const tax = window.RealEstateTax;
     if (!tax || !card) return '';
@@ -1977,12 +1986,13 @@
       isOver85: false,
     });
     const capitalEok = Math.max(0, priceEok - loanEok);
-    const totalPrepareEok = capitalEok + acquisition.totalEok;
+    const costs = getResultPurchaseCosts(priceEok, acquisition);
+    const totalPrepareEok = capitalEok + costs.total / 100000000;
 
     return `
       <div class="result-tax-summary" data-result-tax-summary>
         <div class="result-tax-summary-head">
-          <span>세금 포함 준비금</span>
+          <span>부대비용 포함 예상 필요 자금</span>
           <strong data-tax-total-prepare>${formatLimit(totalPrepareEok)}</strong>
         </div>
         <div class="result-tax-summary-grid">
@@ -1991,11 +2001,14 @@
             <strong data-tax-acquisition-total>${formatTaxWon(acquisition.total)}</strong>
           </div>
           <div>
-            <span>세율 기준</span>
-            <strong data-tax-basis>${acquisition.basisLabel}</strong>
+            <span>중개보수 · VAT 포함 예산</span>
+            <strong data-purchase-brokerage>${formatTaxWon(costs.brokerage)}</strong>
           </div>
+          <div><span>법무사 · 등기 관련 비용</span><strong data-purchase-registration>미입력 · 합계 제외</strong></div>
+          <div><span>이사 · 기타 비용</span><strong data-purchase-other>미입력 · 합계 제외</strong></div>
         </div>
-        <p>지방교육세${acquisition.ruralSpecialTax > 0 ? '·농어촌특별세' : ''} 포함 추정값이에요. 생애최초 감면 등은 실제 조건에 따라 달라질 수 있어요.</p>
+        <p>주택가격 − 선택 대출금 + 부대비용. 취득세는 전용 85㎡ 이하·감면 미적용 추정이며, 주택 수·과세지역에 따라 달라져요. 미입력 비용은 합계에 포함되지 않아요.</p>
+        <button type="button" class="purchase-cost-edit" onclick="openResultTaxInfoSheet(this)">부대비용 확인 · 견적 입력</button>
       </div>`;
   }
 
@@ -2027,7 +2040,11 @@
         isRegulatedArea: getTaxRegulatedArea(region),
         isOver85: false,
       });
-      const totalPrepareEok = Math.max(0, priceEok - loanEok) + acquisition.totalEok;
+      const costs = getResultPurchaseCosts(priceEok, acquisition);
+      const totalPrepareEok = Math.max(0, priceEok - loanEok) + costs.total / 100000000;
+      summary.querySelector('[data-purchase-brokerage]').textContent = formatTaxWon(costs.brokerage);
+      summary.querySelector('[data-purchase-registration]').textContent = costs.registrationMissing ? '미입력 · 합계 제외' : formatTaxWon(costs.registration);
+      summary.querySelector('[data-purchase-other]').textContent = purchaseCostQuotes.other == null ? '미입력 · 합계 제외' : formatTaxWon(costs.other);
       const totalEl = summary.querySelector('[data-tax-total-prepare]');
       const acquisitionEl = summary.querySelector('[data-tax-acquisition-total]');
       const basisEl = summary.querySelector('[data-tax-basis]');
@@ -2241,7 +2258,7 @@
           <strong id="resultFloatLimit" data-motion-value="0" data-motion-target="0">—</strong>
         </div>
         <div class="result-floating-summary-item">
-          <button class="result-floating-summary-label-compact" type="button" onclick="openResultTaxInfoSheet(this)" aria-expanded="false">필요 자금 (세금포함)<span class="result-floating-summary-info-dot">i</span></button>
+          <button class="result-floating-summary-label-compact" type="button" onclick="openResultTaxInfoSheet(this)" aria-expanded="false">예상 자금 · 부대비용<span class="result-floating-summary-info-dot">i</span></button>
           <strong id="resultFloatCapital" data-motion-value="0" data-motion-target="0">—</strong>
         </div>
         <div class="result-floating-summary-item">
@@ -2277,7 +2294,7 @@
     const limitEok = principalWon > 0 ? principalWon / 100000000 : 0;
     const capitalEok = Math.max(0, priceEok - limitEok);
     const acquisitionTax = getAcquisitionTaxForResultCard(card, priceEok);
-    const requiredCapitalEok = capitalEok + (acquisitionTax ? acquisitionTax.totalEok : 0);
+    const requiredCapitalEok = capitalEok + getResultPurchaseCosts(priceEok, acquisitionTax).total / 100000000;
 
     const priceEl = document.getElementById('resultFloatPrice');
     const limitEl = document.getElementById('resultFloatLimit');
@@ -2430,8 +2447,9 @@
     if (!(priceEok > 0)) return null;
     const acquisition = getAcquisitionTaxForResultCard(card, priceEok);
     const capitalEok = Math.max(0, priceEok - Math.max(0, limitEok));
-    const requiredEok = capitalEok + (acquisition ? acquisition.totalEok : 0);
-    return { priceEok, limitEok, capitalEok, requiredEok, acquisition };
+    const costs = getResultPurchaseCosts(priceEok, acquisition);
+    const requiredEok = capitalEok + costs.total / 100000000;
+    return { priceEok, limitEok, capitalEok, requiredEok, acquisition, costs };
   }
 
   function ensureResultTaxInfoSheet() {
@@ -2451,7 +2469,7 @@
     sheet.innerHTML = ''
       + '<div class="dti-sheet-handle"></div>'
       + '<div class="dti-sheet-head">'
-      + '<div class="dti-sheet-title-group"><div class="dti-sheet-kicker">세금 안내</div><div class="dti-sheet-title">예상 세금 기준</div></div>'
+      + '<div class="dti-sheet-title-group"><div class="dti-sheet-kicker">매매 부대비용</div><div class="dti-sheet-title">실제로 준비할 자금</div></div>'
       + '<button class="dti-sheet-close" type="button" onclick="closeResultTaxInfoSheet()" aria-label="닫기">&times;</button>'
       + '</div>'
       + '<div class="dti-sheet-body">'
@@ -2460,16 +2478,39 @@
       + '<div class="dti-sheet-metric"><span class="dti-sheet-metric-label">예상 취득세 등</span><strong class="dti-sheet-metric-value" id="resultTaxInfoAcquisition">-</strong></div>'
       + '<div class="dti-sheet-metric"><span class="dti-sheet-metric-label">세율 기준</span><strong class="dti-sheet-metric-value" id="resultTaxInfoBasis">-</strong></div>'
       + '</div>'
+      + '<div class="purchase-cost-inputs">'
+      + '<label>중개보수 (VAT 포함 · 만원)<input data-purchase-quote="brokerage" type="number" min="0" max="100000" step="0.01" inputmode="decimal"></label>'
+      + '<label>법무사 · 등기 관련 비용 (만원)<input data-purchase-quote="registration" type="number" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="견적 입력 · 미입력 시 합계 제외"></label>'
+      + '<label>이사 · 기타 비용 (만원)<input data-purchase-quote="other" type="number" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="선택 입력 · 미입력 시 합계 제외"></label>'
+      + '</div>'
       + '<ul class="result-tax-info-list">'
-      + '<li>취득세 등은 집을 살 때 한 번 내는 세금이에요.</li>'
+      + '<li>중개보수 기본값은 주택 매매 상한액에 VAT 10%를 더한 예산이에요. 실제 협의 금액·과세유형에 맞게 수정하세요. 비우면 기본값으로 돌아가요.</li>'
+      + '<li>법무사 보수, 등기 수수료, 인지세, 국민주택채권 할인 부담액은 견적 합계를 입력하세요. 이미 계산된 취득세·지방교육세는 제외해 중복을 피하세요.</li>'
       + '<li>재산세와 종부세는 보유 중 따로 발생해요.</li>'
       + '<li>생애최초 감면, 면적, 주택 수, 중과 여부에 따라 실제 금액은 달라질 수 있어요.</li>'
+      + '<li>미입력 비용은 합계에서 제외됩니다. 확정 세액·대출 승인 금액이 아니며 계약 전 세무 담당자·법무사·은행의 견적을 확인하세요.</li>'
       + '</ul>'
+      + '<p><a href="https://land.seoul.go.kr/land/broker/brokerageCommission.do" target="_blank" rel="noopener noreferrer">주택 중개보수 상한요율 기준</a></p>'
       + '</div>';
     sheet.addEventListener('click', function(event) { event.stopPropagation(); });
+    sheet.addEventListener('input', function(event) {
+      const key = event.target.dataset.purchaseQuote;
+      if (!Object.prototype.hasOwnProperty.call(purchaseCostQuotes, key)) return;
+      if (event.target.value !== '' && !event.target.validity.valid) return;
+      purchaseCostQuotes[key] = event.target.value === '' ? null : Math.round(Number(event.target.value) * 10000);
+      updateResultTaxSummaries();
+      updateResultFloatingSummary();
+      updatePurchaseCostSheetTotal();
+    });
     host.appendChild(overlay);
     host.appendChild(sheet);
     return { overlay, sheet };
+  }
+
+  function updatePurchaseCostSheetTotal() {
+    const context = getActiveResultTaxContext();
+    const copyEl = document.getElementById('resultTaxInfoCopy');
+    if (context && copyEl) copyEl.textContent = `주택 자기자금 ${formatLimit(context.capitalEok)} + 부대비용 ${formatTaxWon(context.costs.total)} = 예상 필요 자금 ${formatLimit(context.requiredEok)}. 미입력 비용은 별도예요.`;
   }
 
   function openResultTaxInfoSheet(button) {
@@ -2477,10 +2518,14 @@
     const parts = ensureResultTaxInfoSheet();
     if (!context || !parts) return;
     const acquisitionText = context.acquisition ? formatTaxWon(context.acquisition.total) : '미반영';
-    const copyEl = document.getElementById('resultTaxInfoCopy');
     const acquisitionEl = document.getElementById('resultTaxInfoAcquisition');
     const basisEl = document.getElementById('resultTaxInfoBasis');
-    if (copyEl) copyEl.textContent = '하단 필요 자금에는 집을 살 때 바로 준비해야 하는 취득세 등 초기 세금만 더했어요.';
+    updatePurchaseCostSheetTotal();
+    parts.sheet.querySelectorAll('[data-purchase-quote]').forEach(input => {
+      const key = input.dataset.purchaseQuote;
+      input.value = purchaseCostQuotes[key] == null ? '' : String(purchaseCostQuotes[key] / 10000);
+      if (key === 'brokerage') input.placeholder = `기본 예산 ${(context.costs.brokerageCeiling * 1.1 / 10000).toFixed(2)}만원`;
+    });
     if (acquisitionEl) acquisitionEl.textContent = acquisitionText;
     if (basisEl) basisEl.textContent = context.acquisition?.basisLabel || '-';
     if (button) {
@@ -4948,6 +4993,7 @@
 
     const resultContent = document.getElementById('resultContent');
     resultContent.innerHTML = fundResultSummaryHtml() + html;
+    mountResultTaxSummaries(resultContent);
     const incomeProfile = serverCalc?.incomeProfile || buildLocalIncomeProfile();
     latestIncomeProfile = incomeProfile;
     const incomeTrigger = incomeProfileTriggerHtml(incomeProfile);
@@ -5273,6 +5319,7 @@
 
   function restartApp(options = {}) {
     const { showDashboardAfterReset = true } = options;
+    Object.keys(purchaseCostQuotes).forEach(key => { purchaseCostQuotes[key] = null; });
     loanType = null;
     latestFundInputSnapshot = null;
     isFundEditMode = false;
