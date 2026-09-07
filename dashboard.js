@@ -135,7 +135,13 @@ let dashboardApartmentMapState = {
 let dashboardRailDataPromise = null;
 let dashboardMapRegionFilter = 'capital';
 let topComplexInsightSeq = 0;
-const DASHBOARD_MAP_PRICE_MAX_EOK = 150;
+const DASHBOARD_MAP_PRICE_OPTIONS_EOK = [
+  ...Array.from({ length: 19 }, (_, index) => 1 + (index * 0.5)),
+  ...Array.from({ length: 10 }, (_, index) => 12 + (index * 2)),
+  35, 40, 45, 50,
+  ...Array.from({ length: 10 }, (_, index) => 60 + (index * 10)),
+];
+const DASHBOARD_MAP_PRICE_MAX_EOK = DASHBOARD_MAP_PRICE_OPTIONS_EOK[DASHBOARD_MAP_PRICE_OPTIONS_EOK.length - 1];
 let regionSwapSeq = 0;
 let pendingRegionStageEnter = false;
 const topComplexInsightCache = new Map();
@@ -495,9 +501,9 @@ function getDashboardMapFilteredItems(items = []) {
       : selectedGrades.has(item.grade);
     const score = Number(item.displayScore);
     const scoreMatches = !Number.isFinite(minScore) || minScore <= 0 || (Number.isFinite(score) && score >= minScore);
-    const averagePrice = Number(item.avgPrice);
+    const displayedPrice = getDashboardMapRepresentativePrice(item);
     const priceMatches = !Number.isFinite(maxAveragePrice) || maxAveragePrice <= 0
-      || (Number.isFinite(averagePrice) && averagePrice > 0 && averagePrice <= maxAveragePrice);
+      || (Number.isFinite(displayedPrice) && displayedPrice > 0 && displayedPrice <= maxAveragePrice);
     return gradeMatches && scoreMatches && priceMatches;
   });
 }
@@ -529,20 +535,15 @@ function getDashboardMapFilterSummary(filters = dashboardApartmentMapState.filte
   return parts.join(' · ');
 }
 
-function getDashboardMapAveragePriceCeiling() {
-  const prices = dashboardApartmentMapState.items
-    .map(item => Number(item.avgPrice))
-    .filter(price => Number.isFinite(price) && price > 0);
-  if (!prices.length) return DASHBOARD_MAP_PRICE_MAX_EOK * 10000;
-  return Math.min(DASHBOARD_MAP_PRICE_MAX_EOK * 10000, Math.ceil(Math.max(...prices) / 100000) * 100000);
-}
-
 function normalizeDashboardMapPriceEok(rawPrice) {
   const price = Math.max(1, Math.min(DASHBOARD_MAP_PRICE_MAX_EOK, Number(rawPrice) || 1));
-  if (price <= 10) return Math.round(price);
-  if (price <= 30) return Math.round(price / 2) * 2;
-  if (price <= 50) return Math.round(price / 5) * 5;
-  return Math.round(price / 10) * 10;
+  return DASHBOARD_MAP_PRICE_OPTIONS_EOK.reduce((closest, option) => (
+    Math.abs(option - price) < Math.abs(closest - price) ? option : closest
+  ));
+}
+
+function getDashboardMapPriceSliderIndex(priceEok) {
+  return Math.max(0, DASHBOARD_MAP_PRICE_OPTIONS_EOK.indexOf(normalizeDashboardMapPriceEok(priceEok)));
 }
 
 function updateDashboardMapFilterUi() {
@@ -574,13 +575,14 @@ function updateDashboardMapFilterUi() {
   const priceRange = document.getElementById('dbMapMaxAveragePrice');
   const priceValue = document.getElementById('dbMapMaxAveragePriceValue');
   const priceLimit = document.getElementById('dbMapMaxAveragePriceLimit');
-  const ceiling = getDashboardMapAveragePriceCeiling();
   if (priceRange) {
-    priceRange.max = String(DASHBOARD_MAP_PRICE_MAX_EOK);
-    priceRange.value = String(normalizeDashboardMapPriceEok((Number(maxAveragePrice) || ceiling) / 10000));
+    priceRange.max = String(DASHBOARD_MAP_PRICE_OPTIONS_EOK.length - 1);
+    priceRange.value = String(Number(maxAveragePrice) > 0
+      ? getDashboardMapPriceSliderIndex(Number(maxAveragePrice) / 10000)
+      : DASHBOARD_MAP_PRICE_OPTIONS_EOK.length - 1);
   }
   if (priceValue) priceValue.textContent = Number(maxAveragePrice) > 0 ? `${formatDashboardMapPrice(maxAveragePrice)} 이하` : '전체';
-  if (priceLimit) priceLimit.textContent = `${formatDashboardMapPrice(ceiling)}`;
+  if (priceLimit) priceLimit.textContent = `${DASHBOARD_MAP_PRICE_MAX_EOK}억`;
 }
 
 function applyDashboardMapFilters() {
@@ -662,7 +664,11 @@ function resetDashboardMapFilters() {
 
 function setDashboardMapMaximumAveragePrice(priceEok) {
   const draft = dashboardApartmentMapState.filterDraft || cloneDashboardMapFilters(dashboardApartmentMapState.filters);
-  const price = normalizeDashboardMapPriceEok(priceEok);
+  const optionIndex = Math.max(0, Math.min(
+    DASHBOARD_MAP_PRICE_OPTIONS_EOK.length - 1,
+    Math.round(Number(priceEok) || 0),
+  ));
+  const price = DASHBOARD_MAP_PRICE_OPTIONS_EOK[optionIndex];
   draft.maxAveragePrice = Number.isFinite(price) && price > 0 ? Math.round(price * 10000) : null;
   dashboardApartmentMapState.filterDraft = draft;
   updateDashboardMapFilterUi();
@@ -710,6 +716,12 @@ function getDashboardMapRepresentativeArea(item) {
   return areas
     .slice()
     .sort((a, b) => String(b.latestDate || '').localeCompare(String(a.latestDate || '')))[0] || null;
+}
+
+function getDashboardMapRepresentativePrice(item) {
+  const area = getDashboardMapRepresentativeArea(item);
+  const price = Number(area?.latestPrice || item?.latestTradePrice || 0);
+  return Number.isFinite(price) && price > 0 ? price : null;
 }
 
 function getDashboardMapMode(level) {
@@ -769,7 +781,7 @@ function createDashboardMapOverlay(kakao, item, mode) {
       <span class="db-map-area-overlay-top">${escapeHtml(area.area || (item.avgTradeArea ? `${Math.round(item.avgTradeArea)}㎡` : '면적 정보 없음'))}</span>
       <strong>${escapeHtml(item.aptName || '단지명 확인 중')}</strong>
       ${item.gradeWithheld ? '<span class="db-map-apartment-pending">데이터 취합 중</span>' : `<span class="db-map-apartment-metrics">
-        <span class="db-map-apartment-price">${formatDashboardMapPrice(area.latestPrice)}</span>
+        <span class="db-map-apartment-price">${formatDashboardMapPrice(getDashboardMapRepresentativePrice(item))}</span>
         ${item.grade ? `<span class="db-map-apartment-grade">${escapeHtml(item.grade)}${Number(item.displayScore) ? ` ${Number(item.displayScore)}` : ''}</span>` : ''}
       </span>`}`;
     overlay.addEventListener('click', event => {
@@ -888,7 +900,8 @@ function openDashboardMapApartment(item) {
   const sheet = document.getElementById('dbMapSelectionSheet');
   if (!sheet) return;
   const area = getDashboardMapRepresentativeArea(item);
-  const price = area?.latestPrice ? `${(Number(area.latestPrice) / 10000).toFixed(1)}억` : '최근 실거래 없음';
+  const representativePrice = getDashboardMapRepresentativePrice(item);
+  const price = representativePrice ? `${(representativePrice / 10000).toFixed(1)}억` : '최근 실거래 없음';
   const latestDate = area?.latestDate || '거래일 확인 중';
   sheet.innerHTML = `
     <div class="db-map-sheet-grabber" aria-hidden="true"></div>
@@ -1532,10 +1545,10 @@ function initDashboard() {
             </div>
           </div>
           <div class="db-map-filter-group db-map-price-filter">
-            <div class="db-map-price-filter-heading"><span>평균 실거래가 최대</span><strong id="dbMapMaxAveragePriceValue">전체</strong></div>
-            <input id="dbMapMaxAveragePrice" class="db-map-price-range" type="range" min="1" max="150" step="1" value="150" oninput="setDashboardMapMaximumAveragePrice(this.value)" aria-label="평균 실거래가 최대 가격">
-            <div class="db-map-price-filter-scale"><span>1억</span><span>10억</span><span>30억</span><span id="dbMapMaxAveragePriceLimit">150억</span></div>
-            <p>평균 실거래가가 있는 단지만 가격 조건에 표시돼요.</p>
+            <div class="db-map-price-filter-heading"><span>최근 실거래가 최대</span><strong id="dbMapMaxAveragePriceValue">전체</strong></div>
+            <input id="dbMapMaxAveragePrice" class="db-map-price-range" type="range" min="0" max="42" step="1" value="42" oninput="setDashboardMapMaximumAveragePrice(this.value)" aria-label="최근 실거래가 최대 가격">
+            <div class="db-map-price-filter-scale"><span style="left:0">1억</span><span style="left:43%">10억</span><span style="left:67%">30억</span><span id="dbMapMaxAveragePriceLimit" style="left:100%">150억</span></div>
+            <p>지도에 표시되는 최근 실거래가를 기준으로 적용해요.</p>
           </div>
           <div class="db-map-filter-actions"><button type="button" class="db-map-filter-apply" onclick="applyDashboardMapFilterDraft()">적용하기</button><button type="button" class="db-map-filter-reset" onclick="resetDashboardMapFilters()">초기화</button></div>
         </div>
