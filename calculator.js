@@ -2019,10 +2019,12 @@
     const card = activePane?.querySelector('.limit-detail-card[data-limit-product]')
       || scope.querySelector('.limit-detail-card[data-limit-product]');
     const html = buildResultTaxSummaryHtml(card);
-    const restart = scope.querySelector('.btn-restart');
-    if (html && restart) {
-      // Purchase costs apply to the selected product, so show them once at the result's end.
-      restart.insertAdjacentHTML('beforebegin', '<div class="result-spacer"></div>' + html + '<div class="result-spacer-sm"></div>');
+    const rateSection = activePane?.querySelector('.rate-calc-section[data-uid]')
+      || scope.querySelector('.rate-calc-section[data-uid]');
+    const anchor = rateSection?.closest('.result-group') || card?.closest('.result-group') || card;
+    if (html && anchor) {
+      // Keep purchase costs with the currently selected loan result, before FAQs and notices.
+      anchor.insertAdjacentHTML('afterend', html);
     }
   }
 
@@ -2031,6 +2033,11 @@
     const summary = scope.querySelector('[data-result-tax-summary]');
     const context = getActiveResultTaxContext();
     if (!summary || !context) return;
+    const activePane = scope.querySelector('.tab-pane3.active, .tab-pane.active');
+    const rateSection = activePane?.querySelector('.rate-calc-section[data-uid]');
+    const card = activePane?.querySelector('.limit-detail-card[data-limit-product]');
+    const anchor = rateSection?.closest('.result-group') || card?.closest('.result-group') || card;
+    if (anchor && summary.previousElementSibling !== anchor) anchor.insertAdjacentElement('afterend', summary);
     const { acquisition, costs, requiredEok } = context;
     const brokerageEl = summary.querySelector('[data-purchase-brokerage]');
     const registrationEl = summary.querySelector('[data-purchase-registration]');

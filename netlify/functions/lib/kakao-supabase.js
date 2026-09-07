@@ -77,26 +77,36 @@ async function supabaseFetch(path, options = {}) {
     throw error;
   }
 
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    ...options,
-    headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
+  const isOpaqueApiKey = SUPABASE_SERVICE_ROLE_KEY.startsWith('sb_');
+  const headers = {
+    apikey: SUPABASE_SERVICE_ROLE_KEY,
+    'Content-Type': 'application/json',
+    ...(isOpaqueApiKey ? {} : { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` }),
+    ...(options.headers || {}),
+  };
 
-  const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...options, headers });
+    const text = await response.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch (_) {
+      data = null;
+    }
 
-  if (!response.ok) {
+    if (response.ok) return data;
+    const isFutureJwt = response.status === 401
+      && (data?.code === 'PGRST303' || /jwt issued at future/i.test(data?.message || text));
+    if (isFutureJwt && attempt === 0) {
+      await new Promise(resolve => setTimeout(resolve, 650));
+      continue;
+    }
     const error = new Error(data?.message || 'Supabase 요청에 실패했어요.');
+    error.code = data?.code || '';
     error.statusCode = response.status;
     throw error;
   }
-
-  return data;
 }
 
 async function findEntitlement(kakaoUserId) {

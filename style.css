@@ -3481,9 +3481,8 @@
   }
   .pay-sheet {
     position: relative;
-    box-sizing: border-box;
-    width: calc(100% - 72px); max-width: 358px; margin: 0 36px 24px; background: var(--bg2);
-    border-radius: 18px;
+    width: 100%; max-width: 430px; background: var(--bg2);
+    border-radius: 20px 20px 0 0;
     padding: 32px 24px max(env(safe-area-inset-bottom), 28px);
     transform: translateY(100%);
     opacity: 0.98;
@@ -3608,7 +3607,7 @@
     height: 44px;
     background: transparent;
     border: 0;
-    color: var(--label3);
+    color: #fff;
     font-family: 'Pretendard Variable', sans-serif;
     font-size: 14px;
     font-weight: 780;
