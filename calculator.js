@@ -5127,7 +5127,12 @@
       ? '체증식은 만 40세 미만 채무자 및 공사가 사전심사한 경우에만 허용되며, 대출만기 50년 적용 불가'
       : '채무자가 접수일 현재 만 40세 미만 근로자이고 고정금리를 선택한 경우에만 허용';
     return `
-      <div class="result-group">
+      <details class="repay-guide-dropdown">
+        <summary>
+          <span class="repay-guide-dropdown-title">상환 방식 설명</span>
+          <span class="repay-guide-dropdown-meta">3가지 방식 <span class="repay-guide-dropdown-chevron">${icon('chevronDown', 16)}</span></span>
+        </summary>
+        <div class="repay-guide-dropdown-content">
           <div class="repay-item">
             <div class="repay-name">원리금균등분할상환</div>
             <div class="repay-desc">매월 납부액(원금+이자)이 일정 — 가계 계획 세우기 좋아요.</div>
@@ -5144,7 +5149,8 @@
           <span class="repay-tenure-label">대출 만기</span>
           <span class="repay-tenure-val">${tenure}</span>
         </div>
-      </div>`;
+        </div>
+      </details>`;
   }
 
   // ── 신생아 특례 FAQ HTML ──

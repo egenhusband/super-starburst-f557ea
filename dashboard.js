@@ -692,14 +692,11 @@ function applyDashboardMapFilterDraft() {
 function buildDashboardMapCtaHtml(ctx) {
   const target = Number(ctx?.targetPrice) || 0;
   if (target <= 0) return '';
-  return `<section class="result-map-discovery-group" aria-label="맞춤 단지 찾기">
-    <span class="result-map-discovery-label">다음으로</span>
-    <button class="map-result-cta" data-map-result-cta="true" data-map-target-price="${target}" type="button" onclick="openDashboardMapFromResultCta(this)">
+  return `<button class="map-result-cta" data-map-result-cta="true" data-map-target-price="${target}" type="button" onclick="openDashboardMapFromResultCta(this)">
       <span class="map-result-cta-ico" aria-hidden="true">🏠</span>
       <span class="map-result-cta-copy"><strong>이 예산으로 살 수 있는 단지 찾기</strong><small>최근 실거래가 ${target.toFixed(1)}억 이하 단지만 지도에서 보여드려요</small></span>
       <span class="map-result-cta-go" aria-hidden="true">→</span>
-    </button>
-  </section>`;
+    </button>`;
 }
 
 function openDashboardMapFromResultCta(element) {
