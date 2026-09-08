@@ -1105,7 +1105,7 @@
     background: transparent;
     color: var(--label3);
     font: inherit;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     line-height: 1.1;
     letter-spacing: -0.1px;
@@ -1146,9 +1146,7 @@
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
   }
-  #resultFloatCapital {
-    font-size: 14px;
-  }
+  #resultFloatCapital { font-size: 16px; }
   @keyframes resultFloatingSummaryEnter {
     from { opacity: 0; transform: translateX(-50%) translateY(14px); }
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -1172,11 +1170,11 @@
   }
   .result-group:last-child { margin-bottom: 0; }
   .result-tax-summary {
-    margin-top: 12px;
-    padding: 13px 14px;
+    margin-top: 16px;
+    padding: 14px;
     border-radius: 14px;
-    border: 1px solid rgba(255,255,255,0.08);
-    background: rgba(255,255,255,0.035);
+    border: 1px solid var(--separator);
+    background: var(--bg3);
   }
   .result-tax-summary-head {
     display: flex;
@@ -1231,35 +1229,63 @@
     margin-top: 12px;
     padding: 12px;
     width: 100%;
-    border: 1px solid var(--accent);
+    border: 0;
     border-radius: 12px;
-    background: transparent;
-    color: var(--accent);
+    background: var(--bg4);
+    color: var(--label1);
     font: inherit;
     font-size: 13px;
+    font-weight: 720;
     cursor: pointer;
   }
   .purchase-cost-inputs {
     display: grid;
-    gap: 16px;
-    margin: 20px 0;
+    gap: 18px;
+    margin: 20px 0 22px;
   }
   .purchase-cost-inputs label {
     display: grid;
-    gap: 8px;
+    gap: 7px;
     color: var(--label2);
     font-size: 13px;
+    font-weight: 680;
+  }
+  .purchase-cost-inputs label > span {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    color: var(--label2);
+  }
+  .purchase-cost-inputs label small {
+    color: var(--label3);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .purchase-cost-inputs label em {
+    color: var(--label3);
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 450;
+    line-height: 1.45;
   }
   .purchase-cost-inputs input {
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
-    padding: 12px;
-    border: 1px solid var(--label3);
-    border-radius: 10px;
+    min-height: 52px;
+    padding: 13px 14px;
+    border: 1px solid var(--separator);
+    border-radius: 14px;
     color: var(--label1);
-    background: var(--bg);
-    font-size: 16px;
+    background: var(--bg3);
+    font-family: 'Pretendard Variable', sans-serif;
+    font-size: 15px;
+    font-weight: 650;
+    outline: none;
+  }
+  .purchase-cost-inputs input:focus {
+    border-color: var(--label2);
+    background: var(--bg4);
   }
   .result-tax-info-sheet .dti-sheet-body {
     overflow-y: auto;
@@ -1692,6 +1718,7 @@
     overflow: visible;
   }
   .rate-dropdown-box:focus-within { border-color: var(--accent); }
+  .rate-dropdown-box--result { margin-bottom: 12px; }
   .rate-dropdown-label {
     font-size: 14px;
     font-weight: 600;
@@ -1821,6 +1848,53 @@
     gap: 6px;
     margin-bottom: 10px;
   }
+  .rate-pref-dropdown {
+    border: 1.5px solid var(--separator);
+    border-radius: 14px;
+    background: var(--bg3);
+    overflow: hidden;
+  }
+  .rate-pref-dropdown-trigger {
+    width: 100%;
+    min-height: 52px;
+    padding: 0 16px;
+    border: 0;
+    background: transparent;
+    color: var(--label1);
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+  }
+  .rate-pref-dropdown-trigger > span:first-child {
+    font-size: 14px;
+    font-weight: 650;
+  }
+  .rate-pref-dropdown-summary {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    color: var(--label3);
+    font-size: 12px;
+    font-weight: 650;
+  }
+  .rate-pref-dropdown-summary .ui-icon { transition: transform 180ms var(--ease-smooth); }
+  .rate-pref-dropdown.open .rate-pref-dropdown-summary .ui-icon { transform: rotate(180deg); }
+  .rate-pref-dropdown-content {
+    display: none;
+    padding: 0 10px 10px;
+    border-top: 1px solid transparent;
+  }
+  .rate-pref-dropdown.open .rate-pref-dropdown-content {
+    display: block;
+    padding-top: 10px;
+    border-top-color: var(--separator);
+  }
+  .rate-pref-dropdown .rate-pref-list:last-child { margin-bottom: 0; }
   .rate-pref-card {
     display: flex;
     align-items: center;
@@ -3559,7 +3633,7 @@
     margin: 14px 0 8px;
   }
   .btn-pay-go {
-    width: 100%; min-height: 58px; padding: 8px 16px; background: var(--accent); border: none;
+    width: 100%; min-height: 58px; padding: 14px 16px; background: var(--accent); border: none;
     border-radius: 14px; color: #fff; font-family: 'Pretendard Variable', sans-serif;
     font-size: 16px; font-weight: 700; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
@@ -3639,6 +3713,7 @@
   }
   .pay-pw-err {
     margin-bottom: 10px;
+    min-height: 4px;
   }
   .pay-pw-err.is-info {
     color: rgba(255, 224, 80, 0.92);
@@ -3984,6 +4059,36 @@
     font-weight: 300;
     line-height: 1.65;
   }
+  .product-hero-metrics {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 13px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .product-hero-metric {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .product-hero-metric > span {
+    color: var(--label3);
+    font-size: 10px;
+    font-weight: 620;
+  }
+  .product-hero-metric > strong {
+    color: var(--label1);
+    font-size: 15px;
+    font-weight: 780;
+    line-height: 1.25;
+  }
+  .didimdol-hero .product-hero-metric strong { color: var(--accent); }
+  .newborn-hero .product-hero-metric strong { color: #ff6b9d; }
+  .bogeumjari-hero .product-hero-metric strong { color: var(--green); }
 
   /* ── 6. 처음부터 다시하기 확인 바텀시트 ── */
   .restart-confirm-overlay {
@@ -4239,14 +4344,17 @@
   }
   /* 상환 스케줄 버튼 */
   .sch-open-btn {
-    width: 100%;
-    margin-top: 10px;
-    padding: 10px;
+    width: auto;
+    display: block;
+    align-self: flex-end;
+    margin-left: auto;
+    margin-top: 8px;
+    padding: 6px 2px;
     background: transparent;
-    border: 1px solid var(--separator);
-    border-radius: 10px;
-    font-size: 13px;
-    font-weight: 500;
+    border: 0;
+    border-radius: 0;
+    font-size: 12px;
+    font-weight: 650;
     font-family: 'Pretendard Variable', sans-serif;
     cursor: pointer;
     text-align: right;

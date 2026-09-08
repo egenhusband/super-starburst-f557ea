@@ -11,12 +11,16 @@ for (const [priceEok, expected] of [[0, 0], [0.49, 250000], [0.5, 250000],
   assert.equal(calculate({ priceEok }).brokerageCeiling, expected, `price ${priceEok}`);
 }
 const base = calculate({ priceEok: 5, acquisition: 5500000 });
-assert.equal(base.total, 7700000);
-assert.equal(base.registrationMissing, true);
+assert.equal(base.total, 9200000);
+assert.equal(base.registration, 500000);
+assert.equal(base.other, 1000000);
+assert.equal(base.registrationDefaulted, true);
+assert.equal(base.otherDefaulted, true);
 const quote = calculate({ priceEok: 5, acquisition: 5500000,
   brokerage: 1800000, registration: 1000000, other: 2000000 });
 assert.equal(quote.total, 10300000);
-assert.equal(quote.registrationMissing, false);
+assert.equal(quote.registrationDefaulted, false);
+assert.equal(quote.otherDefaulted, false);
 assert.equal(calculate({ priceEok: 5, brokerage: 0 }).brokerage, 0);
 assert.equal(calculate({ priceEok: 5, registration: -5 }).registration, 0);
-console.log('Purchase costs: 16 assertions passed');
+console.log('Purchase costs: 19 assertions passed');

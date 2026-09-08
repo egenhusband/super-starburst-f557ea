@@ -9,6 +9,8 @@
   const DEFAULT_OFFICIAL_PRICE_RATIO = 0.65;
   const ONE_HOUSE_JONGBOO_DEDUCTION_EOK = 12;
   const GENERAL_JONGBOO_DEDUCTION_EOK = 9;
+  const DEFAULT_REGISTRATION_COST_WON = 500000;
+  const DEFAULT_MOVING_COST_WON = 1000000;
 
   function toNumber(value, fallback = 0) {
     const num = Number(value);
@@ -167,12 +169,15 @@
     const amount = value => Math.max(0, Math.round(toNumber(value, 0)));
     const brokerage = options.brokerage == null
       ? Math.round(brokerageCeiling * 1.1) : amount(options.brokerage);
-    const registration = amount(options.registration);
-    const other = amount(options.other);
+    const registration = options.registration == null
+      ? DEFAULT_REGISTRATION_COST_WON : amount(options.registration);
+    const other = options.other == null
+      ? DEFAULT_MOVING_COST_WON : amount(options.other);
     const acquisition = amount(options.acquisition);
     return {
       brokerageCeiling, brokerage, registration, other, acquisition,
-      registrationMissing: options.registration == null,
+      registrationDefaulted: options.registration == null,
+      otherDefaulted: options.other == null,
       total: acquisition + brokerage + registration + other,
     };
   }
@@ -184,6 +189,8 @@
       defaultOfficialPriceRatio: DEFAULT_OFFICIAL_PRICE_RATIO,
       oneHouseJongbooDeductionEok: ONE_HOUSE_JONGBOO_DEDUCTION_EOK,
       generalJongbooDeductionEok: GENERAL_JONGBOO_DEDUCTION_EOK,
+      defaultRegistrationCostWon: DEFAULT_REGISTRATION_COST_WON,
+      defaultMovingCostWon: DEFAULT_MOVING_COST_WON,
     },
     calculateAcquisitionTax,
     calculatePurchaseCosts,

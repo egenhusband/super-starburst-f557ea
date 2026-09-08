@@ -687,7 +687,7 @@ function buildDashboardMapCtaHtml(ctx) {
   if (target <= 0) return '';
   return `<button class="map-result-cta" data-map-result-cta="true" data-map-target-price="${target}" type="button" onclick="openDashboardMapFromResultCta(this)">
     <span class="map-result-cta-ico" aria-hidden="true">⌖</span>
-    <span class="map-result-cta-copy"><strong>이 가격대 단지 지도에서 보기</strong><small>입력한 주택가격 ${target.toFixed(1)}억 이하 · 평균 실거래가 기준</small></span>
+    <span class="map-result-cta-copy"><strong>이 가격대 단지 지도에서 보기</strong><small>입력한 주택가격 ${target.toFixed(1)}억 이하 · 최근 실거래가 기준</small></span>
     <span class="map-result-cta-go" aria-hidden="true">→</span>
   </button>`;
 }

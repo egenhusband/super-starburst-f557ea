@@ -2004,10 +2004,10 @@
             <span>중개보수 · VAT 포함 예산</span>
             <strong data-purchase-brokerage>${formatTaxWon(costs.brokerage)}</strong>
           </div>
-          <div><span>법무사 · 등기 관련 비용</span><strong data-purchase-registration>미입력 · 합계 제외</strong></div>
-          <div><span>이사 · 기타 비용</span><strong data-purchase-other>미입력 · 합계 제외</strong></div>
+          <div><span>법무사 · 등기 기본 예산</span><strong data-purchase-registration>${formatTaxWon(costs.registration)}</strong></div>
+          <div><span>이사 · 기타 기본 예산</span><strong data-purchase-other>${formatTaxWon(costs.other)}</strong></div>
         </div>
-        <p>주택가격 − 선택 대출금 + 부대비용. 취득세는 전용 85㎡ 이하·감면 미적용 추정이며, 주택 수·과세지역에 따라 달라져요. 미입력 비용은 합계에 포함되지 않아요.</p>
+        <p>주택가격 − 선택 대출금 + 부대비용이에요. 취득세는 전용 85㎡ 이하·감면 미적용 기준이며, 법무사·등기 50만원과 이사·기타 100만원을 기본 예산으로 포함했어요.</p>
         <button type="button" class="purchase-cost-edit" onclick="openResultTaxInfoSheet(this)">부대비용 확인 · 견적 입력</button>
       </div>`;
   }
@@ -2021,10 +2021,9 @@
     const html = buildResultTaxSummaryHtml(card);
     const rateSection = activePane?.querySelector('.rate-calc-section[data-uid]')
       || scope.querySelector('.rate-calc-section[data-uid]');
-    const anchor = rateSection?.closest('.result-group') || card?.closest('.result-group') || card;
-    if (html && anchor) {
-      // Keep purchase costs with the currently selected loan result, before FAQs and notices.
-      anchor.insertAdjacentHTML('afterend', html);
+    const resultCard = rateSection?.querySelector('.rate-calc-card--result');
+    if (html && resultCard) {
+      resultCard.insertAdjacentHTML('beforeend', html);
     }
   }
 
@@ -2035,9 +2034,12 @@
     if (!summary || !context) return;
     const activePane = scope.querySelector('.tab-pane3.active, .tab-pane.active');
     const rateSection = activePane?.querySelector('.rate-calc-section[data-uid]');
-    const card = activePane?.querySelector('.limit-detail-card[data-limit-product]');
-    const anchor = rateSection?.closest('.result-group') || card?.closest('.result-group') || card;
-    if (anchor && summary.previousElementSibling !== anchor) anchor.insertAdjacentElement('afterend', summary);
+    const resultCard = rateSection?.querySelector('.rate-calc-card--result');
+    if (resultCard && summary.parentElement !== resultCard) {
+      const mapCta = resultCard.querySelector('.map-result-cta');
+      if (mapCta) resultCard.insertBefore(summary, mapCta);
+      else resultCard.insertAdjacentElement('beforeend', summary);
+    }
     const { acquisition, costs, requiredEok } = context;
     const brokerageEl = summary.querySelector('[data-purchase-brokerage]');
     const registrationEl = summary.querySelector('[data-purchase-registration]');
@@ -2047,8 +2049,8 @@
     if (totalEl) totalEl.textContent = formatLimit(requiredEok);
     if (acquisitionEl) acquisitionEl.textContent = formatTaxWon(acquisition.total);
     if (brokerageEl) brokerageEl.textContent = formatTaxWon(costs.brokerage);
-    if (registrationEl) registrationEl.textContent = costs.registrationMissing ? '미입력 · 합계 제외' : formatTaxWon(costs.registration);
-    if (otherEl) otherEl.textContent = purchaseCostQuotes.other == null ? '미입력 · 합계 제외' : formatTaxWon(costs.other);
+    if (registrationEl) registrationEl.textContent = formatTaxWon(costs.registration);
+    if (otherEl) otherEl.textContent = formatTaxWon(costs.other);
   }
 
   function getAcquisitionTaxForResultCard(card, priceEok) {
@@ -2476,18 +2478,17 @@
       + '<div class="dti-sheet-metric"><span class="dti-sheet-metric-label">세율 기준</span><strong class="dti-sheet-metric-value" id="resultTaxInfoBasis">-</strong></div>'
       + '</div>'
       + '<div class="purchase-cost-inputs">'
-      + '<label>중개보수 (VAT 포함 · 만원)<input data-purchase-quote="brokerage" type="number" min="0" max="100000" step="0.01" inputmode="decimal"></label>'
-      + '<label>법무사 · 등기 관련 비용 (만원)<input data-purchase-quote="registration" type="number" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="견적 입력 · 미입력 시 합계 제외"></label>'
-      + '<label>이사 · 기타 비용 (만원)<input data-purchase-quote="other" type="number" min="0" max="100000" step="0.01" inputmode="decimal" placeholder="선택 입력 · 미입력 시 합계 제외"></label>'
+      + '<label><span>중개보수 <small>VAT 포함 · 만원</small></span><input data-purchase-quote="brokerage" type="number" min="0" max="100000" step="0.01" inputmode="decimal"><em>매매가 기준 상한 예산을 기본으로 적용해요.</em></label>'
+      + '<label><span>법무사 · 등기 관련 비용 <small>만원</small></span><input data-purchase-quote="registration" type="number" min="0" max="100000" step="0.01" inputmode="decimal"><em>평균적인 준비 예산 50만원을 기본으로 적용해요.</em></label>'
+      + '<label><span>이사 · 기타 비용 <small>만원</small></span><input data-purchase-quote="other" type="number" min="0" max="100000" step="0.01" inputmode="decimal"><em>평균적인 준비 예산 100만원을 기본으로 적용해요.</em></label>'
       + '</div>'
       + '<ul class="result-tax-info-list">'
       + '<li>중개보수 기본값은 주택 매매 상한액에 VAT 10%를 더한 예산이에요. 실제 협의 금액·과세유형에 맞게 수정하세요. 비우면 기본값으로 돌아가요.</li>'
-      + '<li>법무사 보수, 등기 수수료, 인지세, 국민주택채권 할인 부담액은 견적 합계를 입력하세요. 이미 계산된 취득세·지방교육세는 제외해 중복을 피하세요.</li>'
+      + '<li>법무사·등기 비용은 50만원, 이사·기타 비용은 100만원을 기본 예산으로 넣었어요. 주택 규모·지역·시기와 실제 견적에 따라 수정하세요.</li>'
       + '<li>재산세와 종부세는 보유 중 따로 발생해요.</li>'
       + '<li>생애최초 감면, 면적, 주택 수, 중과 여부에 따라 실제 금액은 달라질 수 있어요.</li>'
-      + '<li>미입력 비용은 합계에서 제외됩니다. 확정 세액·대출 승인 금액이 아니며 계약 전 세무 담당자·법무사·은행의 견적을 확인하세요.</li>'
+      + '<li>확정 세액·대출 승인 금액이 아니며 계약 전 세무 담당자·법무사·은행의 견적을 확인하세요.</li>'
       + '</ul>'
-      + '<p><a href="https://land.seoul.go.kr/land/broker/brokerageCommission.do" target="_blank" rel="noopener noreferrer">주택 중개보수 상한요율 기준</a></p>'
       + '</div>';
     sheet.addEventListener('click', function(event) { event.stopPropagation(); });
     sheet.addEventListener('input', function(event) {
@@ -2507,7 +2508,7 @@
   function updatePurchaseCostSheetTotal() {
     const context = getActiveResultTaxContext();
     const copyEl = document.getElementById('resultTaxInfoCopy');
-    if (context && copyEl) copyEl.textContent = `주택 자기자금 ${formatLimit(context.capitalEok)} + 부대비용 ${formatTaxWon(context.costs.total)} = 예상 필요 자금 ${formatLimit(context.requiredEok)}. 미입력 비용은 별도예요.`;
+    if (context && copyEl) copyEl.textContent = `주택 자기자금 ${formatLimit(context.capitalEok)} + 부대비용 ${formatTaxWon(context.costs.total)} = 예상 필요 자금 ${formatLimit(context.requiredEok)}. 기본 예산은 실제 견적에 맞게 바꿀 수 있어요.`;
   }
 
   function openResultTaxInfoSheet(button) {
@@ -2520,7 +2521,7 @@
     updatePurchaseCostSheetTotal();
     parts.sheet.querySelectorAll('[data-purchase-quote]').forEach(input => {
       const key = input.dataset.purchaseQuote;
-      input.value = purchaseCostQuotes[key] == null ? '' : String(purchaseCostQuotes[key] / 10000);
+      input.value = purchaseCostQuotes[key] == null ? String(context.costs[key] / 10000) : String(purchaseCostQuotes[key] / 10000);
       if (key === 'brokerage') input.placeholder = `기본 예산 ${(context.costs.brokerageCeiling * 1.1 / 10000).toFixed(2)}만원`;
     });
     if (acquisitionEl) acquisitionEl.textContent = acquisitionText;
@@ -2853,6 +2854,30 @@
       + '</div>';
   }
 
+  function prefDropdownHtml(uid, content) {
+    return '<div class="rate-pref-dropdown" id="pref-dropdown-' + uid + '">'
+      + '<button class="rate-pref-dropdown-trigger" type="button" aria-expanded="false" onclick="toggleRatePrefMenu(\'' + uid + '\', event)">'
+      + '<span>우대금리</span>'
+      + '<span class="rate-pref-dropdown-summary"><span id="pref-dropdown-summary-' + uid + '">선택 없음</span>' + icon('chevronDown', 16) + '</span>'
+      + '</button>'
+      + '<div class="rate-pref-dropdown-content">' + content + '</div>'
+      + '</div>';
+  }
+
+  function toggleRatePrefMenu(uid, event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    closeRateYearMenus();
+    const box = document.getElementById('pref-dropdown-' + uid);
+    if (!box) return;
+    const willOpen = !box.classList.contains('open');
+    document.querySelectorAll('.rate-pref-dropdown.open').forEach(item => item.classList.remove('open'));
+    box.classList.toggle('open', willOpen);
+    box.querySelector('.rate-pref-dropdown-trigger')?.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  }
+
   function selectSurcharge(card, uid) {
     const wrap = document.getElementById('surcharge-' + uid);
     if (!wrap) return;
@@ -2902,27 +2927,11 @@
         <div class="rate-calc-card rate-calc-card--conditions">
           <div class="rate-flow-head">
             <div>
-              <div class="rate-flow-title">월 납입금 계산 조건</div>
-              <div class="rate-flow-sub">대출기간과 우대금리를 따로 조정해서 적용금리를 확인해요.</div>
+              <div class="rate-flow-title">금리 조건</div>
+              <div class="rate-flow-sub">해당하는 우대 조건을 선택해 적용금리를 확인해요.</div>
             </div>
           </div>
-          <div class="rate-dropdown-box" id="yr-box-${uid}">
-            <span class="rate-dropdown-label">대출 기간</span>
-            <div class="rate-dropdown-right">
-              <span class="rate-dropdown-val" id="yr-val-${uid}">${defaultYear}년</span>
-              <span class="rate-dropdown-chevron">${chevronSvg}</span>
-            </div>
-            <input type="hidden" id="yr-${uid}" value="${defaultYear}">
-            <button class="rate-dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false" onclick="toggleRateYearMenu('${uid}', event)"></button>
-            <div class="rate-dropdown-menu" role="listbox" aria-label="대출 기간">
-              ${yearOptsHtml}
-            </div>
-          </div>
-          <div class="rate-option-label">
-            <span>우대금리</span>
-            <small>선택하면 적용금리와 월 납입액이 바뀌어요.</small>
-          </div>
-          ${prefListHtml(uid, product, household, house, region)}
+          ${prefDropdownHtml(uid, prefListHtml(uid, product, household, house, region))}
           ${isDidimdol ? surchargeHtml(uid) : ''}
           <div class="rate-summary" id="rs-${uid}">
             <div class="rate-summary-row">
@@ -2947,6 +2956,18 @@
               <div class="rate-flow-sub">상환방식과 대출금액을 바꾸며 첫 달 월 납입액을 확인해요.</div>
             </div>
           </div>
+          <div class="rate-dropdown-box rate-dropdown-box--result" id="yr-box-${uid}">
+            <span class="rate-dropdown-label">대출 기간</span>
+            <div class="rate-dropdown-right">
+              <span class="rate-dropdown-val" id="yr-val-${uid}">${defaultYear}년</span>
+              <span class="rate-dropdown-chevron">${chevronSvg}</span>
+            </div>
+            <input type="hidden" id="yr-${uid}" value="${defaultYear}">
+            <button class="rate-dropdown-toggle" type="button" aria-haspopup="listbox" aria-expanded="false" onclick="toggleRateYearMenu('${uid}', event)"></button>
+            <div class="rate-dropdown-menu" role="listbox" aria-label="대출 기간">
+              ${yearOptsHtml}
+            </div>
+          </div>
           ${loanAmountControlHtml(uid, principal, colorCls)}
           <div class="monthly-result-block">
             <div class="monthly-result-row">
@@ -2964,7 +2985,7 @@
             <button class="repay-method-tab" id="tab-increasing-${uid}" type="button" data-repay-method="increasing" data-repay-uid="${uid}" data-repay-product="${product}" data-repay-color="${colorCls}" data-repay-principal="${principal}">체증식</button>
           </div>
           <button class="sch-open-btn" onclick="openScheduleSheet('${uid}','${colorCls}')" style="color:${accentColor}">
-            전체 상환 스케줄 보기 →
+            상환 스케줄 보기 →
           </button>
         </div>
       </div>`;
@@ -3164,6 +3185,8 @@
 
     // 요약 갱신
     document.getElementById('rs-pref-' + uid).textContent = '-' + prefTotal.toFixed(2) + '%p';
+    const prefDropdownSummary = document.getElementById('pref-dropdown-summary-' + uid);
+    if (prefDropdownSummary) prefDropdownSummary.textContent = prefTotal > 0 ? '-' + prefTotal.toFixed(2) + '%p 적용' : '선택 없음';
     const surchargeEl = document.getElementById('rs-surcharge-' + uid);
     if (surchargeEl) surchargeEl.textContent = '+' + surcharge.toFixed(2) + '%p';
     document.getElementById('rs-final-' + uid).textContent = finalRate.toFixed(2) + '%';
@@ -3727,6 +3750,13 @@
       + '<button class="btn-restart" onclick="confirmRestart()">' + icon('rotateCcw', 16) + ' 처음부터 다시하기</button>';
   }
 
+  function productHeroMetricsHtml(rateHtml, limitHtml) {
+    return '<div class="product-hero-metrics">'
+      + '<div class="product-hero-metric"><span>적용 금리</span><strong>' + rateHtml + '</strong></div>'
+      + '<div class="product-hero-metric"><span>예상 한도</span><strong>' + limitHtml + '</strong></div>'
+      + '</div>';
+  }
+
   function buildNewbornHtml(o) {
     var newbornOk = o.newbornOk, didimdolOk = o.didimdolOk, bogeumjariOk = o.bogeumjariOk;
     var income = o.income, price = o.price, asset = o.asset;
@@ -3776,13 +3806,8 @@
     var paneNewborn = '';
     if (newbornOk) {
       paneNewborn = '<div class="tab-pane3' + (firstTab === 'newborn' ? ' active' : '') + '" id="pane3-newborn">'
-        + '<div class="newborn-hero"><div class="newborn-hero-badge">👶 신생아 특례 핵심 혜택</div><div class="newborn-hero-text">최저 1.8% 특례금리</div><div class="newborn-hero-sub">기본 5년 적용 · 추가 출산 시 1명당 5년 연장 (최장 15년)<br>시중 어디서도 볼 수 없는 파격적인 금리예요.</div></div>'
-        + '<div class="result-spacer"></div>'
-        + '<div class="group-label">상품 정보</div>'
-        + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
-        + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val" style="color:#ff6b9d">' + rateInfo.min + '~' + rateInfo.max + '%</span></div>'
-        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val" style="color:#ff6b9d"><span class="room-sync-newborn">' + formatLimit(nbDisplayLimit) + '</span></span></div>'
-        + '</div></div>'
+        + '<div class="newborn-hero"><div class="newborn-hero-badge">👶 신생아 특례 핵심 혜택</div><div class="newborn-hero-text">최저 1.8% 특례금리</div><div class="newborn-hero-sub">기본 5년 적용 · 추가 출산 시 1명당 5년 연장 (최장 15년)<br>시중 어디서도 볼 수 없는 파격적인 금리예요.</div>'
+        + productHeroMetricsHtml(rateInfo.min + '~' + rateInfo.max + '%', '<span class="room-sync-newborn">' + formatLimit(nbDisplayLimit) + '</span>') + '</div>'
         + '<div class="result-spacer-sm"></div>'
         + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30, income, household, region, nbDtiLimit, otherLoanInterest)
         + '<div class="result-spacer"></div>'
@@ -3809,13 +3834,8 @@
     var paneDidimdol = '';
     if (didimdolOk) {
       paneDidimdol = '<div class="tab-pane3' + (firstTab === 'didimdol' ? ' active' : '') + '" id="pane3-didimdol">'
-        + '<div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div></div>'
-        + '<div class="result-spacer"></div>'
-        + '<div class="group-label">상품 정보</div>'
-        + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
-        + '<div class="info-pill"><span class="info-pill-label">적용 금리</span><span class="info-pill-val blue">' + getDidimdolRateLabel(household, house) + '</span></div>'
-        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val blue"><span class="room-sync-didimdol">' + formatLimit(dDisplayLimit) + '</span></span></div>'
-        + '</div></div>'
+        + '<div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>'
+        + productHeroMetricsHtml(getDidimdolRateLabel(household, house), '<span class="room-sync-didimdol">' + formatLimit(dDisplayLimit) + '</span>') + '</div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)
         + '<div class="result-spacer"></div>'
@@ -3836,13 +3856,8 @@
     var paneBogeumjari = '';
     if (bogeumjariOk) {
       paneBogeumjari = '<div class="tab-pane3' + (firstTab === 'bogeumjari' ? ' active' : '') + '" id="pane3-bogeumjari">'
-        + '<div class="bogeumjari-hero"><div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div><div class="bogeumjari-hero-text">DSR 규제는 적용 제외예요</div><div class="bogeumjari-hero-sub">장기 고정금리로 비교적 안정적으로 이용할 수 있습니다.<br>다만 소득·기타부채 기준 DTI는 한도 계산에 반영됩니다.</div></div>'
-        + '<div class="result-spacer"></div>'
-        + '<div class="group-label">상품 정보</div>'
-        + '<div class="result-group" style="padding-top:0;padding-bottom:0"><div class="rate-limit-row">'
-        + '<div class="info-pill"><span class="info-pill-label">기본 금리</span><span class="info-pill-val green">' + getBogeumRateLabel() + '</span></div>'
-        + '<div class="info-pill"><span class="info-pill-label">예상 한도</span><span class="info-pill-val green" data-bogeum-info-limit>' + formatLimit(bFinalLimit) + '</span></div>'
-        + '</div></div>'
+        + '<div class="bogeumjari-hero"><div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div><div class="bogeumjari-hero-text">DSR 규제는 적용 제외예요</div><div class="bogeumjari-hero-sub">장기 고정금리로 비교적 안정적으로 이용할 수 있습니다.<br>다만 소득·기타부채 기준 DTI는 한도 계산에 반영됩니다.</div>'
+        + productHeroMetricsHtml(getBogeumRateLabel(), '<span data-bogeum-info-limit>' + formatLimit(bFinalLimit) + '</span>') + '</div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income, bDtiLimit, otherLoanInterest)
         + '<div class="result-spacer"></div>'
@@ -3873,7 +3888,6 @@
     }
 
     return '<div class="result-header-area"><div class="result-badge-wrap">'
-      + '<div class="result-icon" style="background:linear-gradient(135deg,#ff6b9d,#ff8c42)">' + icon('baby', 28) + '</div>'
       + '<div><div class="result-option-label" style="color:#ff6b9d">' + eligibleSummary + '</div><div class="result-title">' + eligibleTitle + '</div></div>'
       + '</div></div>'
       + tabsHtml
@@ -4769,21 +4783,7 @@
 
         <!-- 디딤돌 패널 -->
         <div class="tab-pane active" id="pane-didimdol">
-          <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div></div>
-          <div class="result-spacer"></div>
-          <div class="group-label">상품 정보</div>
-          <div class="result-group">
-            <div class="rate-limit-row">
-              <div class="info-pill">
-                <span class="info-pill-label">적용 금리</span>
-                <span class="info-pill-val blue">${getDidimdolRateLabel(household, house)}</span>
-              </div>
-              <div class="info-pill">
-                <span class="info-pill-label">예상 한도</span>
-                <span class="info-pill-val blue"><span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span></span>
-              </div>
-            </div>
-          </div>
+          <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>${productHeroMetricsHtml(getDidimdolRateLabel(household, house), `<span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span>`)}</div>
           <div class="result-spacer-sm"></div>
           ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)}
           <div class="result-spacer"></div>
@@ -4805,21 +4805,8 @@
   <div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div>
   <div class="bogeumjari-hero-text">DSR 규제는 적용 제외예요</div>
   <div class="bogeumjari-hero-sub">장기 고정금리로 비교적 안정적으로 이용할 수 있습니다.<br>다만 소득·기타부채 기준 DTI는 한도 계산에 반영됩니다.</div>
+  ${productHeroMetricsHtml(getBogeumRateLabel(), `<span data-bogeum-info-limit>${formatLimit(bFinalLimit)}</span>`)}
 </div>
-          <div class="result-spacer"></div>
-          <div class="group-label">상품 정보</div>
-          <div class="result-group">
-            <div class="rate-limit-row">
-              <div class="info-pill">
-                <span class="info-pill-label">기본 금리</span>
-                <span class="info-pill-val green">${getBogeumRateLabel()}</span>
-              </div>
-              <div class="info-pill">
-                <span class="info-pill-label">예상 한도</span>
-                <span class="info-pill-val green" data-bogeum-info-limit>${formatLimit(bFinalLimit)}</span>
-              </div>
-            </div>
-          </div>
           <div class="result-spacer-sm"></div>
           ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income, bDtiLimit, otherLoanInterest)}
           <div class="result-spacer"></div>
@@ -4858,21 +4845,7 @@
             </div>
           </div>
         </div>
-        <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div></div>
-        <div class="result-spacer"></div>
-        <div class="group-label">상품 정보</div>
-        <div class="result-group">
-          <div class="rate-limit-row">
-            <div class="info-pill">
-              <span class="info-pill-label">적용 금리</span>
-              <span class="info-pill-val blue">${getDidimdolRateLabel(household, house)}</span>
-            </div>
-            <div class="info-pill">
-              <span class="info-pill-label">예상 한도</span>
-              <span class="info-pill-val blue"><span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span></span>
-            </div>
-          </div>
-        </div>
+        <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>${productHeroMetricsHtml(getDidimdolRateLabel(household, house), `<span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span>`)}</div>
         <div class="result-spacer-sm"></div>
         ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)}
         <div class="result-spacer"></div>
@@ -4913,21 +4886,8 @@
   <div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div>
   <div class="bogeumjari-hero-text">DSR 규제는 적용 제외예요</div>
   <div class="bogeumjari-hero-sub">장기 고정금리로 비교적 안정적으로 이용할 수 있습니다.<br>다만 소득·기타부채 기준 DTI는 한도 계산에 반영됩니다.</div>
+  ${productHeroMetricsHtml(getBogeumRateLabel(), `<span data-bogeum-info-limit>${formatLimit(bFinalLimit)}</span>`)}
 </div>
-        <div class="result-spacer"></div>
-        <div class="group-label">상품 정보</div>
-        <div class="result-group">
-          <div class="rate-limit-row">
-            <div class="info-pill">
-              <span class="info-pill-label">기본 금리</span>
-              <span class="info-pill-val green">${getBogeumRateLabel()}</span>
-            </div>
-            <div class="info-pill">
-              <span class="info-pill-label">예상 한도</span>
-              <span class="info-pill-val green" data-bogeum-info-limit>${formatLimit(bFinalLimit)}</span>
-            </div>
-          </div>
-        </div>
         <div class="result-spacer-sm"></div>
         ${limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income, bDtiLimit, otherLoanInterest)}
         <div class="result-spacer"></div>
@@ -5036,12 +4996,12 @@
           const node = tmp.firstElementChild;
           const productPanes = Array.from(resultContent.querySelectorAll('.tab-pane, .tab-pane3'));
           const insertTargets = productPanes.length
-            ? productPanes.map(pane => pane.querySelector('.result-group')).filter(Boolean)
-            : [resultContent.querySelector('.result-group')].filter(Boolean);
+            ? productPanes.map(pane => pane.querySelector('.rate-calc-card--result')).filter(Boolean)
+            : [resultContent.querySelector('.rate-calc-card--result')].filter(Boolean);
           if (node && insertTargets.length) {
             insertTargets.forEach((target, index) => {
               const item = index === 0 ? node : node.cloneNode(true);
-              target.insertAdjacentElement('afterend', item);
+              target.insertAdjacentElement('beforeend', item);
             });
           } else if (node) {
             const restartBtn = resultContent.querySelector('.btn-restart');
@@ -5660,10 +5620,19 @@
     if (!event.target.closest('.rate-dropdown-box')) {
       closeRateYearMenus();
     }
+    if (!event.target.closest('.rate-pref-dropdown')) {
+      document.querySelectorAll('.rate-pref-dropdown.open').forEach(box => {
+        box.classList.remove('open');
+        box.querySelector('.rate-pref-dropdown-trigger')?.setAttribute('aria-expanded', 'false');
+      });
+    }
   });
 
   document.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape') closeRateYearMenus();
+    if (event.key === 'Escape') {
+      closeRateYearMenus();
+      document.querySelectorAll('.rate-pref-dropdown.open').forEach(box => box.classList.remove('open'));
+    }
   });
 
   setProgress(0);
