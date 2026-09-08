@@ -3779,9 +3779,10 @@
     if (newbornOk) eligibleLabels.push('신생아 특례');
     if (didimdolOk) eligibleLabels.push('디딤돌');
     if (bogeumjariOk) eligibleLabels.push('보금자리론');
-    var eligibleSummary = eligibleLabels.length > 1
-      ? eligibleLabels.join(' · ') + ' 해당'
-      : '신생아 특례 해당';
+    var eligibleBadges = '';
+    if (newbornOk) eligibleBadges += '<span class="result-eligibility-badge nb">신생아 디딤돌</span>';
+    if (didimdolOk) eligibleBadges += '<span class="result-eligibility-badge blue">디딤돌 대출</span>';
+    if (bogeumjariOk) eligibleBadges += '<span class="result-eligibility-badge green">보금자리론</span>';
     var eligibleTitle = eligibleLabels.length > 1
       ? eligibleLabels.length + '개 상품을 비교해 보세요'
       : '상품을 비교해 보세요';
@@ -3888,7 +3889,7 @@
     }
 
     return '<div class="result-header-area"><div class="result-badge-wrap">'
-      + '<div><div class="result-option-label" style="color:#ff6b9d">' + eligibleSummary + '</div><div class="result-title">' + eligibleTitle + '</div></div>'
+      + '<div><div class="result-eligibility-badges">' + eligibleBadges + '</div><div class="result-title">' + eligibleTitle + '</div></div>'
       + '</div></div>'
       + tabsHtml
       + paneNewborn + paneDidimdol + paneBogeumjari
@@ -4423,15 +4424,12 @@
   }
 
   function getOtherLoanSummaryText() {
-    const storedSnapshot = getStoredFundInputSnapshot();
-    const source = !isFundEditMode && storedSnapshot
-      ? storedSnapshot
-      : {
-          otherLoanNone: document.getElementById('otherLoanNone')?.checked,
-          otherLoanPrincipal: document.getElementById('otherLoanPrincipal')?.value,
-          otherLoanRate: document.getElementById('otherLoanRate')?.value,
-          otherLoanYears: document.getElementById('otherLoanYears')?.value,
-        };
+    const source = {
+      otherLoanNone: document.getElementById('otherLoanNone')?.checked,
+      otherLoanPrincipal: document.getElementById('otherLoanPrincipal')?.value,
+      otherLoanRate: document.getElementById('otherLoanRate')?.value,
+      otherLoanYears: document.getElementById('otherLoanYears')?.value,
+    };
     const noneChecked = source.otherLoanNone;
     const principal = parseFloat(source.otherLoanPrincipal) || 0;
     if (noneChecked || principal <= 0) return '없음';
@@ -4440,6 +4438,8 @@
     const details = [formatOptionalEok(principal)];
     if (Number.isFinite(rate) && rate >= 0) details.push(rate.toFixed(1) + '%');
     if (Number.isFinite(years) && years > 0) details.push(years + '년');
+    const annualInterest = calculateCurrentOtherLoanInterest();
+    if (annualInterest > 0) details.push(`DTI 연 이자 약 ${annualInterest.toLocaleString()}만원 반영`);
     return details.join(' · ');
   }
 
@@ -4762,7 +4762,7 @@
           <div class="result-badge-wrap">
             <div class="result-icon blue">${icon('sparkle', 28)}</div>
             <div>
-              <div class="result-option-label blue">두 상품 모두 해당</div>
+              <div class="result-eligibility-badges"><span class="result-eligibility-badge blue">디딤돌 대출</span><span class="result-eligibility-badge green">보금자리론</span></div>
               <div class="result-title">비교해 보세요</div>
             </div>
           </div>
@@ -4996,12 +4996,12 @@
           const node = tmp.firstElementChild;
           const productPanes = Array.from(resultContent.querySelectorAll('.tab-pane, .tab-pane3'));
           const insertTargets = productPanes.length
-            ? productPanes.map(pane => pane.querySelector('.rate-calc-card--result')).filter(Boolean)
-            : [resultContent.querySelector('.rate-calc-card--result')].filter(Boolean);
+            ? productPanes.map(pane => pane.querySelector('.rate-calc-section')).filter(Boolean)
+            : [resultContent.querySelector('.rate-calc-section')].filter(Boolean);
           if (node && insertTargets.length) {
             insertTargets.forEach((target, index) => {
               const item = index === 0 ? node : node.cloneNode(true);
-              target.insertAdjacentElement('beforeend', item);
+              target.insertAdjacentElement('afterend', item);
             });
           } else if (node) {
             const restartBtn = resultContent.querySelector('.btn-restart');

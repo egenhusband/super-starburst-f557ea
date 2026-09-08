@@ -582,7 +582,7 @@ function updateDashboardMapFilterUi() {
       : DASHBOARD_MAP_PRICE_OPTIONS_EOK.length - 1);
   }
   if (priceValue) priceValue.textContent = Number(maxAveragePrice) > 0 ? `${formatDashboardMapPrice(maxAveragePrice)} 이하` : '전체';
-  if (priceLimit) priceLimit.textContent = `${DASHBOARD_MAP_PRICE_MAX_EOK}억`;
+  if (priceLimit) priceLimit.textContent = '전체';
 }
 
 function applyDashboardMapFilters() {
@@ -654,12 +654,16 @@ function setDashboardMapMinimumScore(score) {
 }
 
 function resetDashboardMapFilters() {
-  dashboardApartmentMapState.filterDraft = {
+  const resetFilters = {
     grades: new Set(DASHBOARD_MAP_GRADE_ORDER),
     minScore: null,
     maxAveragePrice: null,
   };
-  updateDashboardMapFilterUi();
+  dashboardApartmentMapState.filters = cloneDashboardMapFilters(resetFilters);
+  dashboardApartmentMapState.filterDraft = cloneDashboardMapFilters(resetFilters);
+  dashboardApartmentMapState.scopeItems = null;
+  dashboardApartmentMapState.scopeLevel = null;
+  applyDashboardMapFilters();
 }
 
 function setDashboardMapMaximumAveragePrice(priceEok) {
@@ -669,7 +673,8 @@ function setDashboardMapMaximumAveragePrice(priceEok) {
     Math.round(Number(priceEok) || 0),
   ));
   const price = DASHBOARD_MAP_PRICE_OPTIONS_EOK[optionIndex];
-  draft.maxAveragePrice = Number.isFinite(price) && price > 0 ? Math.round(price * 10000) : null;
+  const isAllPrices = optionIndex === DASHBOARD_MAP_PRICE_OPTIONS_EOK.length - 1;
+  draft.maxAveragePrice = !isAllPrices && Number.isFinite(price) && price > 0 ? Math.round(price * 10000) : null;
   dashboardApartmentMapState.filterDraft = draft;
   updateDashboardMapFilterUi();
 }
@@ -678,6 +683,8 @@ function applyDashboardMapFilterDraft() {
   if (dashboardApartmentMapState.filterDraft) {
     dashboardApartmentMapState.filters = cloneDashboardMapFilters(dashboardApartmentMapState.filterDraft);
   }
+  dashboardApartmentMapState.scopeItems = null;
+  dashboardApartmentMapState.scopeLevel = null;
   closeDashboardMapFilterPanel();
   applyDashboardMapFilters();
 }
@@ -685,11 +692,14 @@ function applyDashboardMapFilterDraft() {
 function buildDashboardMapCtaHtml(ctx) {
   const target = Number(ctx?.targetPrice) || 0;
   if (target <= 0) return '';
-  return `<button class="map-result-cta" data-map-result-cta="true" data-map-target-price="${target}" type="button" onclick="openDashboardMapFromResultCta(this)">
-    <span class="map-result-cta-ico" aria-hidden="true">⌖</span>
-    <span class="map-result-cta-copy"><strong>이 가격대 단지 지도에서 보기</strong><small>입력한 주택가격 ${target.toFixed(1)}억 이하 · 최근 실거래가 기준</small></span>
-    <span class="map-result-cta-go" aria-hidden="true">→</span>
-  </button>`;
+  return `<section class="result-map-discovery-group" aria-label="맞춤 단지 찾기">
+    <span class="result-map-discovery-label">다음으로</span>
+    <button class="map-result-cta" data-map-result-cta="true" data-map-target-price="${target}" type="button" onclick="openDashboardMapFromResultCta(this)">
+      <span class="map-result-cta-ico" aria-hidden="true">🏠</span>
+      <span class="map-result-cta-copy"><strong>이 예산으로 살 수 있는 단지 찾기</strong><small>최근 실거래가 ${target.toFixed(1)}억 이하 단지만 지도에서 보여드려요</small></span>
+      <span class="map-result-cta-go" aria-hidden="true">→</span>
+    </button>
+  </section>`;
 }
 
 function openDashboardMapFromResultCta(element) {
@@ -890,7 +900,9 @@ function renderDashboardApartmentMap(items) {
     dashboardApartmentMapState.map.setCenter(center);
     dashboardApartmentMapState.map.setLevel(11);
   }
-  dashboardApartmentMapState.items = visible;
+  // Keep the full source collection so clearing a price filter can restore
+  // apartments that were hidden when the map was first rendered.
+  dashboardApartmentMapState.items = items;
   dashboardApartmentMapState.scopeItems = null;
   dashboardApartmentMapState.scopeLevel = null;
   renderDashboardMapOverlays(visible);
@@ -1547,7 +1559,7 @@ function initDashboard() {
           <div class="db-map-filter-group db-map-price-filter">
             <div class="db-map-price-filter-heading"><span>최근 실거래가 최대</span><strong id="dbMapMaxAveragePriceValue">전체</strong></div>
             <input id="dbMapMaxAveragePrice" class="db-map-price-range" type="range" min="0" max="42" step="1" value="42" oninput="setDashboardMapMaximumAveragePrice(this.value)" aria-label="최근 실거래가 최대 가격">
-            <div class="db-map-price-filter-scale"><span style="left:0">1억</span><span style="left:43%">10억</span><span style="left:67%">30억</span><span id="dbMapMaxAveragePriceLimit" style="left:100%">150억</span></div>
+            <div class="db-map-price-filter-scale"><span style="left:0">1억</span><span style="left:43%">10억</span><span style="left:67%">30억</span><span id="dbMapMaxAveragePriceLimit" style="left:100%">전체</span></div>
             <p>지도에 표시되는 최근 실거래가를 기준으로 적용해요.</p>
           </div>
           <div class="db-map-filter-actions"><button type="button" class="db-map-filter-apply" onclick="applyDashboardMapFilterDraft()">적용하기</button><button type="button" class="db-map-filter-reset" onclick="resetDashboardMapFilters()">초기화</button></div>
