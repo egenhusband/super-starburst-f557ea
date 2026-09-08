@@ -6722,17 +6722,23 @@
   letter-spacing: -0.02em;
 }
 .db-apt-grade-badge.grade-s-plus strong,
+.db-apt-grade-badge.grade-s-minus strong,
 .db-apt-grade-badge.grade-a-plus strong,
+.db-apt-grade-badge.grade-a-minus strong,
 .db-apt-grade-badge.grade-b-plus strong,
-.db-apt-grade-badge.grade-c-plus strong {
+.db-apt-grade-badge.grade-b-minus strong,
+.db-apt-grade-badge.grade-c-plus strong,
+.db-apt-grade-badge.grade-c-minus strong {
   font-size: 32px;
   letter-spacing: -0.04em;
 }
-.db-apt-grade-badge.grade-s {
+.db-apt-grade-badge.grade-s,
+.db-apt-grade-badge.grade-s-minus {
   background: rgba(92, 233, 176, 0.12);
   border-color: rgba(92, 233, 176, 0.3);
 }
-.db-apt-grade-badge.grade-s strong {
+.db-apt-grade-badge.grade-s strong,
+.db-apt-grade-badge.grade-s-minus strong {
   color: #8ef0c3;
 }
 .db-apt-grade-badge.grade-s-plus {
@@ -6749,11 +6755,13 @@
 .db-apt-grade-badge.grade-a-plus strong {
   color: #a4f0be;
 }
-.db-apt-grade-badge.grade-a {
+.db-apt-grade-badge.grade-a,
+.db-apt-grade-badge.grade-a-minus {
   background: rgba(85,180,124,0.12);
   border-color: rgba(85,180,124,0.28);
 }
-.db-apt-grade-badge.grade-a strong {
+.db-apt-grade-badge.grade-a strong,
+.db-apt-grade-badge.grade-a-minus strong {
   color: #8ce9b2;
 }
 .db-apt-grade-badge.grade-b-plus {
@@ -6763,11 +6771,13 @@
 .db-apt-grade-badge.grade-b-plus strong {
   color: #98d0ff;
 }
-.db-apt-grade-badge.grade-b {
+.db-apt-grade-badge.grade-b,
+.db-apt-grade-badge.grade-b-minus {
   background: rgba(87,168,255,0.12);
   border-color: rgba(87,168,255,0.26);
 }
-.db-apt-grade-badge.grade-b strong {
+.db-apt-grade-badge.grade-b strong,
+.db-apt-grade-badge.grade-b-minus strong {
   color: #84c2ff;
 }
 .db-apt-grade-badge.grade-c-plus {
@@ -6777,11 +6787,13 @@
 .db-apt-grade-badge.grade-c-plus strong {
   color: #ffd08e;
 }
-.db-apt-grade-badge.grade-c {
+.db-apt-grade-badge.grade-c,
+.db-apt-grade-badge.grade-c-minus {
   background: rgba(255,176,74,0.12);
   border-color: rgba(255,176,74,0.28);
 }
-.db-apt-grade-badge.grade-c strong {
+.db-apt-grade-badge.grade-c strong,
+.db-apt-grade-badge.grade-c-minus strong {
   color: #ffcf7f;
 }
 .db-apt-grade-badge.grade-pending strong {

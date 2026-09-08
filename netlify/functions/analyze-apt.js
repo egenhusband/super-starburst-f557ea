@@ -15,12 +15,16 @@ const JAMSIL_LIVING_DISTRICT = { key: 'jamsil', label: '잠실', stationNames: [
 const STATION_AREA_MAX_DISTANCE = 350;
 
 const LOCATION_GRADE_SCALE = [
-  { grade: 'C', min: 0 },
+  { grade: 'C-', min: 0 },
+  { grade: 'C', min: 0.5 },
   { grade: 'C+', min: 1 },
+  { grade: 'B-', min: 2 },
   { grade: 'B', min: 3 },
   { grade: 'B+', min: 6 },
+  { grade: 'A-', min: 8 },
   { grade: 'A', min: 9 },
   { grade: 'A+', min: 12 },
+  { grade: 'S-', min: 14 },
   { grade: 'S', min: 15 },
   { grade: 'S+', min: 18 },
 ];
@@ -354,7 +358,7 @@ function clampNumber(value, min, max) {
 }
 
 function gradeFromLocationScore(score) {
-  let grade = 'C';
+  let grade = 'C-';
   LOCATION_GRADE_SCALE.forEach(item => {
     if (score >= item.min) grade = item.grade;
   });
@@ -363,16 +367,20 @@ function gradeFromLocationScore(score) {
 
 function computePublicLocationScore(grade, clampedScore) {
   const gradeBands = {
-    C: [50, 58],
+    'C-': [50, 54],
+    C: [55, 58],
     'C+': [59, 63],
-    B: [64, 69],
+    'B-': [64, 66],
+    B: [67, 69],
     'B+': [70, 74],
-    A: [75, 82],
-    'A+': [83, 89],
+    'A-': [75, 78],
+    A: [79, 82],
+    'A+': [83, 87],
+    'S-': [88, 89],
     S: [90, 95],
     'S+': [96, 99],
   };
-  const band = gradeBands[grade] || gradeBands.C;
+  const band = gradeBands[grade] || gradeBands['C-'];
   const gradeFloor = (LOCATION_GRADE_SCALE.find(item => item.grade === grade)?.min) ?? 0;
   const nextFloor = LOCATION_GRADE_SCALE.find(item => item.min > gradeFloor)?.min ?? 18;
   const progress = nextFloor === gradeFloor
@@ -644,13 +652,24 @@ function computeInfraAdjustment(entry, schoolDistance) {
 function computeMarketPositionScore(entry) {
   const recentPercentile = entry?.capitalRecentPricePerPyeongPercentile;
   if (Number.isFinite(recentPercentile) && recentPercentile >= 0 && recentPercentile <= 1) {
-    const score = recentPercentile >= 0.95 ? 15
-      : recentPercentile >= 0.90 ? 12
-        : recentPercentile >= 0.80 ? 9
-          : recentPercentile >= 0.73 ? 6.5
-            : recentPercentile >= 0.60 ? 4.5
-              : recentPercentile >= 0.45 ? 1.5
-                : 0;
+    const anchors = [
+      [0.30, 0], [0.45, 1.5], [0.60, 4.5], [0.73, 6.5],
+      [0.80, 9], [0.90, 12], [0.95, 15], [1, 18],
+    ];
+    let score = 0;
+    for (let index = 1; index < anchors.length; index += 1) {
+      const [rightPercentile, rightScore] = anchors[index];
+      const [leftPercentile, leftScore] = anchors[index - 1];
+      if (recentPercentile <= rightPercentile) {
+        const progress = clampNumber(
+          (recentPercentile - leftPercentile) / (rightPercentile - leftPercentile),
+          0,
+          1,
+        );
+        score = leftScore + ((rightScore - leftScore) * progress);
+        break;
+      }
+    }
     return {
       score,
       source: 'recent-trade-pyeong-percentile',
@@ -719,6 +738,13 @@ function getCurrentGradeCeiling(grade) {
   const index = LOCATION_GRADE_SCALE.findIndex(item => item.grade === grade);
   const nextFloor = LOCATION_GRADE_SCALE[index + 1]?.min;
   return Number.isFinite(nextFloor) ? nextFloor - 0.01 : 18.99;
+}
+
+function getNextGradeCeiling(grade) {
+  const index = LOCATION_GRADE_SCALE.findIndex(item => item.grade === grade);
+  if (index < 0) return getCurrentGradeCeiling(grade);
+  const nextGrade = LOCATION_GRADE_SCALE[index + 1]?.grade;
+  return nextGrade ? getCurrentGradeCeiling(nextGrade) : getCurrentGradeCeiling(grade);
 }
 
 function computeSupportingLocationAdjustment(locationTier, transportAdjustment, infraAdjustment) {
@@ -843,7 +869,8 @@ function computeAptGrade(entry, insight, graph) {
   // 광역·생활권 상한은 시장 가격이 만든 등급을 최대 한 단계만 낮출 수 있다.
   // 역·학교·단지 규모는 같은 등급 안에서만 점수 순서를 바꾼다.
   const oneBandGuardrail = Math.max(guardrail.score, getPreviousGradeCeiling(marketGrade));
-  const maxScore = Math.min(getCurrentGradeCeiling(marketGrade), oneBandGuardrail);
+  // 역·학교·생활권 보정은 시장가격 등급에서 최대 한 세부 등급까지만 올릴 수 있다.
+  const maxScore = Math.min(getNextGradeCeiling(marketGrade), oneBandGuardrail);
   const clampedScore = clampNumber(rawScore, 0, maxScore);
   const grade = gradeFromLocationScore(clampedScore);
   const primaryTransportReason = transportAdjustment.items.find(item => item.key === 'jamsil')
@@ -894,7 +921,7 @@ function computeAptGrade(entry, insight, graph) {
         maxScore,
         tierMaxScore: guardrail.score,
         oneBandFloor: getPreviousGradeCeiling(marketGrade),
-        marketBandMaxScore: getCurrentGradeCeiling(marketGrade),
+        marketBandMaxScore: getNextGradeCeiling(marketGrade),
       },
       jamsilLivingAccess,
       locationScore: locationClampedScore,

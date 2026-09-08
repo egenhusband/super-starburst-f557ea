@@ -472,6 +472,30 @@ function aggregateRecentPyeongPrice(deals) {
   };
 }
 
+function aggregateRepresentativePyeongPrice(deals) {
+  const pricedDeals = deals
+    .filter(deal => deal.dealMonth && Number.isFinite(deal.pricePerPyeong) && deal.pricePerPyeong > 0)
+    .sort((a, b) => a.dealMonth.localeCompare(b.dealMonth));
+  if (!pricedDeals.length) return null;
+
+  const latestMonth = pricedDeals.at(-1).dealMonth;
+  const latestYear = Number(latestMonth.slice(0, 4));
+  const latestMonthIndex = Number(latestMonth.slice(4, 6)) - 1;
+  const cutoff = new Date(latestYear, latestMonthIndex - 11, 1);
+  const cutoffMonth = `${cutoff.getFullYear()}${String(cutoff.getMonth() + 1).padStart(2, '0')}`;
+  const recentDeals = pricedDeals.filter(deal => deal.dealMonth >= cutoffMonth);
+  const selectedDeals = recentDeals.length >= 2 ? recentDeals : pricedDeals;
+
+  return {
+    fromMonth: selectedDeals[0].dealMonth,
+    toMonth: selectedDeals.at(-1).dealMonth,
+    avg: average(selectedDeals.map(deal => deal.pricePerPyeong)),
+    median: median(selectedDeals.map(deal => deal.pricePerPyeong)),
+    tradeCount: selectedDeals.length,
+    basis: recentDeals.length >= 2 ? 'rolling-12-months' : 'rolling-24-month-fallback',
+  };
+}
+
 async function writeAreaPriceFiles(root, allDeals, codeMapItems) {
   const outputDir = path.join(root, AREA_PRICES_DIR);
   const tempOutputDir = `${outputDir}.tmp`;
@@ -517,6 +541,7 @@ async function writeAreaPriceFiles(root, allDeals, codeMapItems) {
       umdName: deal.umdName,
       updatedAt: new Date().toISOString().slice(0, 10),
       recentPyeongPrice: aggregateRecentPyeongPrice(deals),
+      representativePyeongPrice: aggregateRepresentativePyeongPrice(deals),
       byArea,
     };
 

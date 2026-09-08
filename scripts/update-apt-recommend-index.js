@@ -64,25 +64,35 @@ function median(values) {
   return nums[Math.floor(nums.length / 2)];
 }
 
-function getRepresentativeRecentPyeongPrice(byArea, fallbackRecentPrice = null) {
+function getRepresentativeRecentPyeongPrice(byArea, representativePrice = null, fallbackRecentPrice = null) {
+  const preferredMedian = toFiniteNumber(representativePrice?.median);
+  const preferredTradeCount = Number(representativePrice?.tradeCount || 0);
+  if (preferredMedian !== null && preferredMedian > 0 && preferredTradeCount >= 2) {
+    return preferredMedian;
+  }
+
+  const complexRecentMedian = toFiniteNumber(fallbackRecentPrice?.median);
+  const complexRecentTradeCount = Number(fallbackRecentPrice?.tradeCount || 0);
+  if (complexRecentMedian !== null && complexRecentMedian > 0 && complexRecentTradeCount >= 2) {
+    return complexRecentMedian;
+  }
+
   const entries = Object.entries(byArea || {})
     .map(([area, value]) => ({
       size: Number.parseInt(area, 10),
-      recent: value?.recentPyeongPrice || null,
-      tradeCount: Number(value?.recentPyeongPrice?.tradeCount || 0),
+      median: toFiniteNumber(value?.medianPricePerPyeong),
+      tradeCount: Number(value?.tradeCount || 0),
     }))
     .filter(item => Number.isFinite(item.size)
-      && Number.isFinite(Number(item.recent?.median))
+      && item.median !== null
+      && item.median > 0
       && item.tradeCount >= 1);
-  if (!entries.length) return toFiniteNumber(fallbackRecentPrice?.median);
+  if (!entries.length) return complexRecentMedian;
 
-  const preferred = entries
-    .filter(item => item.size >= 59 && item.size <= 84)
-    .sort((a, b) => Math.abs(a.size - 72) - Math.abs(b.size - 72) || b.size - a.size)[0];
-  const selected = preferred || entries
-    .slice()
-    .sort((a, b) => b.tradeCount - a.tradeCount || b.size - a.size)[0];
-  return toFiniteNumber(selected?.recent?.median) ?? toFiniteNumber(fallbackRecentPrice?.median);
+  const weighted = entries
+    .flatMap(item => Array.from({ length: item.tradeCount }, () => item.median))
+    .sort((a, b) => a - b);
+  return median(weighted) ?? complexRecentMedian;
 }
 
 function parseTransitWalkDistance(rawValue) {
@@ -212,7 +222,7 @@ function main() {
       stationMetaDistance: station.stationMetaDistance ?? parseTransitWalkDistance(house.subwayDistance),
       schoolName: school.schoolName || '',
       schoolDistance: school.schoolDistance ?? null,
-      recentPricePerPyeong: getRepresentativeRecentPyeongPrice(byArea, cand.recentPyeongPrice),
+      recentPricePerPyeong: getRepresentativeRecentPyeongPrice(byArea, cand.representativePyeongPrice, cand.recentPyeongPrice),
       capitalRecentPricePerPyeongPercentile: capitalRecentPricePerPyeongPercentileByKapt.get(kaptCode) ?? null,
       capitalMedianPricePerPyeong,
       capitalOfficialPricePerPyeongPercentile,
@@ -294,6 +304,7 @@ function main() {
       regionKey: REGION_KEY_BY_SIDO[c.as1],
       sigunguName,
       byArea,
+      representativePyeongPrice: areaPayload.representativePyeongPrice || null,
       recentPyeongPrice: areaPayload.recentPyeongPrice || null,
     });
   }
@@ -312,7 +323,7 @@ function main() {
   const recentPyeongPrices = candidates
     .map(candidate => ({
       kaptCode: candidate.kaptCode,
-      price: getRepresentativeRecentPyeongPrice(candidate.byArea, candidate.recentPyeongPrice),
+      price: getRepresentativeRecentPyeongPrice(candidate.byArea, candidate.representativePyeongPrice, candidate.recentPyeongPrice),
     }))
     .filter(item => item.price !== null && item.price > 0)
     .sort((a, b) => a.price - b.price);
@@ -428,7 +439,7 @@ function main() {
       source: output.meta.source,
       scope: output.meta.scope,
       count: gradeItems.length,
-      version: 'location-grade-v3-market-price',
+      version: 'location-grade-v4-complex-median-12-bands',
     },
     items: gradeItems,
   };

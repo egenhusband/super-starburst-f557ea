@@ -111,7 +111,7 @@ let aptTradesPromise = null;
 let selectedDealCityByRegion = {};
 let kakaoMapsSdkPromise = null;
 let dashboardApartmentMapPromise = null;
-const DASHBOARD_MAP_GRADE_ORDER = ['S', 'A+', 'A', 'B+', 'B', 'C+', 'C'];
+const DASHBOARD_MAP_GRADE_ORDER = ['S+', 'S', 'S-', 'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-'];
 const DASHBOARD_FUTURE_RAIL_URL = '/data/capital-future-rail.json?v=20260905route-anchors2';
 const DASHBOARD_RAIL_MAX_LEVEL = 6;
 let dashboardApartmentMapState = {
