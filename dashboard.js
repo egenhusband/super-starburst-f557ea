@@ -114,6 +114,9 @@ let dashboardApartmentMapPromise = null;
 const DASHBOARD_MAP_GRADE_ORDER = ['S+', 'S', 'S-', 'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-'];
 const DASHBOARD_FUTURE_RAIL_URL = '/data/capital-future-rail.json?v=20260905route-anchors2';
 const DASHBOARD_RAIL_MAX_LEVEL = 6;
+const DASHBOARD_PRICE_FLOW_URL = '/data/capital-price-flow.json?v=20260910a';
+const DASHBOARD_PRICE_FLOW_MIN_LEVEL = 7;
+const DASHBOARD_PRICE_FLOW_MAX_LEVEL = 12;
 let dashboardApartmentMapState = {
   map: null,
   clusterer: null,
@@ -131,8 +134,14 @@ let dashboardApartmentMapState = {
   railRenderSeq: 0,
   railEnabled: true,
   railRenderedMode: null,
+  priceFlowPolylines: [],
+  priceFlowOverlays: [],
+  priceFlowEnabled: false,
+  priceFlowRenderSeq: 0,
+  priceFlowRenderedMode: null,
 };
 let dashboardRailDataPromise = null;
+let dashboardPriceFlowDataPromise = null;
 let dashboardMapRegionFilter = 'capital';
 let topComplexInsightSeq = 0;
 const DASHBOARD_MAP_PRICE_OPTIONS_EOK = [
@@ -483,6 +492,135 @@ async function renderDashboardRailLayer() {
     }
   } catch (_) {
     if (renderSeq === dashboardApartmentMapState.railRenderSeq) clearDashboardRailLayer();
+  }
+}
+
+function clearDashboardPriceFlowLayer() {
+  dashboardApartmentMapState.priceFlowPolylines.forEach(line => line.setMap(null));
+  dashboardApartmentMapState.priceFlowOverlays.forEach(overlay => overlay.setMap(null));
+  dashboardApartmentMapState.priceFlowPolylines = [];
+  dashboardApartmentMapState.priceFlowOverlays = [];
+  dashboardApartmentMapState.priceFlowRenderedMode = null;
+  document.querySelector('.db-apartment-map-wrap')?.classList.remove('is-price-flow-on');
+  const legend = document.getElementById('dbMapPriceFlowLegend');
+  legend?.classList.remove('is-visible');
+  legend?.setAttribute('aria-hidden', 'true');
+}
+
+function toggleDashboardPriceFlowLayer() {
+  dashboardApartmentMapState.priceFlowEnabled = !dashboardApartmentMapState.priceFlowEnabled;
+  const toggle = document.getElementById('dbMapPriceFlowToggle');
+  toggle?.classList.toggle('is-off', !dashboardApartmentMapState.priceFlowEnabled);
+  toggle?.setAttribute('aria-pressed', String(dashboardApartmentMapState.priceFlowEnabled));
+  const state = toggle?.querySelector('span');
+  if (state) state.textContent = dashboardApartmentMapState.priceFlowEnabled ? 'ON' : 'OFF';
+  if (dashboardApartmentMapState.priceFlowEnabled) renderDashboardPriceFlowLayer();
+  else clearDashboardPriceFlowLayer();
+}
+
+function loadDashboardPriceFlowData() {
+  if (dashboardPriceFlowDataPromise) return dashboardPriceFlowDataPromise;
+  dashboardPriceFlowDataPromise = fetch(DASHBOARD_PRICE_FLOW_URL).then(response => {
+    if (!response.ok) throw new Error('가격 확산 흐름 데이터를 불러오지 못했어요.');
+    return response.json();
+  }).catch(error => {
+    dashboardPriceFlowDataPromise = null;
+    throw error;
+  });
+  return dashboardPriceFlowDataPromise;
+}
+
+function getDashboardPriceFlowAngle(from, to) {
+  const averageLat = ((Number(from.lat) + Number(to.lat)) / 2) * (Math.PI / 180);
+  const dx = (Number(to.lng) - Number(from.lng)) * Math.cos(averageLat);
+  const dy = Number(to.lat) - Number(from.lat);
+  return Math.atan2(-dy, dx) * (180 / Math.PI);
+}
+
+function drawDashboardPriceFlow(kakao, map, payload, mode) {
+  const maxPriority = mode === 'overview' ? 2 : 3;
+  const bounds = map.getBounds();
+  const nodes = new Map((payload?.nodes || [])
+    .filter(node => Number(node.priority || 3) <= maxPriority)
+    .map(node => [node.id, node]));
+
+  (payload?.edges || []).forEach((edge, edgeIndex) => {
+    const from = nodes.get(edge.from);
+    const to = nodes.get(edge.to);
+    if (!from || !to) return;
+    const fromPosition = new kakao.maps.LatLng(Number(from.lat), Number(from.lng));
+    const toPosition = new kakao.maps.LatLng(Number(to.lat), Number(to.lng));
+    if (!bounds.contain(fromPosition) && !bounds.contain(toPosition)) return;
+
+    const line = new kakao.maps.Polyline({
+      path: [fromPosition, toPosition],
+      strokeWeight: edge.emphasis ? 2.2 : 1.5,
+      strokeColor: edge.emphasis ? '#ef4444' : '#1677b8',
+      strokeOpacity: edge.emphasis ? 0.62 : 0.48,
+      strokeStyle: 'solid',
+    });
+    line.setMap(map);
+    dashboardApartmentMapState.priceFlowPolylines.push(line);
+
+    const angle = getDashboardPriceFlowAngle(from, to);
+    [0.34, 0.58, 0.82].forEach((ratio, arrowIndex) => {
+      const position = new kakao.maps.LatLng(
+        Number(from.lat) + ((Number(to.lat) - Number(from.lat)) * ratio),
+        Number(from.lng) + ((Number(to.lng) - Number(from.lng)) * ratio),
+      );
+      const arrow = new kakao.maps.CustomOverlay({
+        position,
+        content: `<span class="db-price-flow-arrow${edge.emphasis ? ' is-core' : ''}" style="--flow-angle:${angle.toFixed(1)}deg;--flow-delay:-${((edgeIndex % 4) * 0.16 + arrowIndex * 0.28).toFixed(2)}s"><i>›</i></span>`,
+        xAnchor: 0.5,
+        yAnchor: 0.5,
+        zIndex: 1,
+      });
+      arrow.setMap(map);
+      dashboardApartmentMapState.priceFlowOverlays.push(arrow);
+    });
+  });
+
+  nodes.forEach(node => {
+    const position = new kakao.maps.LatLng(Number(node.lat), Number(node.lng));
+    if (!bounds.contain(position)) return;
+    const overlay = new kakao.maps.CustomOverlay({
+      position,
+      content: `<span class="db-price-flow-node${node.kind === 'core' ? ' is-core' : ''}"><strong>${escapeHtml(node.label)}</strong></span>`,
+      xAnchor: 0.5,
+      yAnchor: 0.5,
+      zIndex: 1,
+    });
+    overlay.setMap(map);
+    dashboardApartmentMapState.priceFlowOverlays.push(overlay);
+  });
+}
+
+async function renderDashboardPriceFlowLayer() {
+  const map = dashboardApartmentMapState.map;
+  const kakao = window.kakao;
+  const level = Number(map?.getLevel());
+  const renderSeq = ++dashboardApartmentMapState.priceFlowRenderSeq;
+  if (!dashboardApartmentMapState.priceFlowEnabled || !map || !kakao?.maps
+    || level < DASHBOARD_PRICE_FLOW_MIN_LEVEL || level > DASHBOARD_PRICE_FLOW_MAX_LEVEL) {
+    clearDashboardPriceFlowLayer();
+    return;
+  }
+  const mode = level >= 11 ? 'overview' : 'detail';
+  try {
+    const payload = await loadDashboardPriceFlowData();
+    if (renderSeq !== dashboardApartmentMapState.priceFlowRenderSeq) return;
+    clearDashboardPriceFlowLayer();
+    if (!dashboardApartmentMapState.priceFlowEnabled || level !== Number(map.getLevel())) return;
+    drawDashboardPriceFlow(kakao, map, payload, mode);
+    dashboardApartmentMapState.priceFlowRenderedMode = mode;
+    if (dashboardApartmentMapState.priceFlowOverlays.length) {
+      document.querySelector('.db-apartment-map-wrap')?.classList.add('is-price-flow-on');
+      const legend = document.getElementById('dbMapPriceFlowLegend');
+      legend?.classList.add('is-visible');
+      legend?.setAttribute('aria-hidden', 'false');
+    }
+  } catch (_) {
+    clearDashboardPriceFlowLayer();
   }
 }
 
@@ -852,6 +990,7 @@ function renderDashboardMapOverlays(items) {
     return overlay;
   });
   renderDashboardRailLayer();
+  renderDashboardPriceFlowLayer();
 }
 
 function renderDashboardApartmentMap(items) {
@@ -1523,6 +1662,11 @@ function initDashboard() {
       </div>
       <div class="db-apartment-map-wrap">
         <div id="dbApartmentMap" class="db-apartment-map" aria-label="수도권 아파트 단지 지도"></div>
+        <button id="dbMapPriceFlowToggle" class="db-map-price-flow-toggle is-off" type="button" aria-pressed="false" onclick="toggleDashboardPriceFlowLayer()">가격 확산 흐름 <span>OFF</span></button>
+        <div id="dbMapPriceFlowLegend" class="db-map-price-flow-legend" aria-hidden="true">
+          <span><i class="is-core"></i>핵심지</span><span><i></i>확산 지역</span>
+          <small>수도권 시장 흐름을 단순화한 참고 지도예요</small>
+        </div>
         <button id="dbMapRailToggle" class="db-map-rail-toggle" type="button" aria-pressed="true" onclick="toggleDashboardRailLayer()">철도 호재 <span>ON</span></button>
         <div id="dbMapRailLegend" class="db-map-rail-legend" aria-hidden="true">
           <span title="공사 중이거나 기본계획이 승인된 노선만 표시해요"><i class="is-construction"></i>공사 중</span>
