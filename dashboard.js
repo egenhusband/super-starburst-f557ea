@@ -538,13 +538,14 @@ function getDashboardPriceFlowAngle(from, to) {
 }
 
 function drawDashboardPriceFlow(kakao, map, payload, mode) {
-  const maxPriority = mode === 'overview' ? 2 : 3;
+  const maxPriority = mode === 'overview' ? 1 : 3;
   const bounds = map.getBounds();
   const nodes = new Map((payload?.nodes || [])
     .filter(node => Number(node.priority || 3) <= maxPriority)
     .map(node => [node.id, node]));
 
   (payload?.edges || []).forEach((edge, edgeIndex) => {
+    if (mode !== 'overview' && edge.overviewOnly) return;
     const from = nodes.get(edge.from);
     const to = nodes.get(edge.to);
     if (!from || !to) return;
