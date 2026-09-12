@@ -114,9 +114,10 @@ let dashboardApartmentMapPromise = null;
 const DASHBOARD_MAP_GRADE_ORDER = ['S', 'A+', 'A', 'B+', 'B', 'C+', 'C'];
 const DASHBOARD_FUTURE_RAIL_URL = '/data/capital-future-rail.json?v=20260905route-anchors2';
 const DASHBOARD_RAIL_MAX_LEVEL = 6;
-const DASHBOARD_PRICE_FLOW_URL = '/data/capital-price-flow.json?v=20260910a';
+const DASHBOARD_PRICE_FLOW_URL = '/data/capital-price-flow.json?v=20260912a';
 const DASHBOARD_PRICE_FLOW_MIN_LEVEL = 7;
 const DASHBOARD_PRICE_FLOW_MAX_LEVEL = 12;
+const DASHBOARD_PRICE_FLOW_COLORS = ['#ef4444', '#f97316', '#1686c9', '#0d9488'];
 let dashboardApartmentMapState = {
   map: null,
   clusterer: null,
@@ -537,9 +538,37 @@ function getDashboardPriceFlowAngle(from, to) {
   return Math.atan2(-dy, dx) * (180 / Math.PI);
 }
 
+function getDashboardPriceFlowStages(payload) {
+  const stages = new Map();
+  const nodes = payload?.nodes || [];
+  const edges = (payload?.edges || []).filter(edge => !edge.overviewOnly);
+  nodes.forEach(node => {
+    if (node.kind === 'core') stages.set(node.id, 0);
+  });
+  for (let pass = 0; pass < nodes.length; pass += 1) {
+    let changed = false;
+    edges.forEach(edge => {
+      const fromStage = stages.get(edge.from);
+      if (!Number.isFinite(fromStage)) return;
+      const nextStage = Math.min(3, fromStage + 1);
+      const currentStage = stages.get(edge.to);
+      if (!Number.isFinite(currentStage) || nextStage < currentStage) {
+        stages.set(edge.to, nextStage);
+        changed = true;
+      }
+    });
+    if (!changed) break;
+  }
+  nodes.forEach(node => {
+    if (!stages.has(node.id)) stages.set(node.id, 3);
+  });
+  return stages;
+}
+
 function drawDashboardPriceFlow(kakao, map, payload, mode) {
   const maxPriority = mode === 'overview' ? 1 : 3;
   const bounds = map.getBounds();
+  const stages = getDashboardPriceFlowStages(payload);
   const nodes = new Map((payload?.nodes || [])
     .filter(node => Number(node.priority || 3) <= maxPriority)
     .map(node => [node.id, node]));
@@ -552,12 +581,14 @@ function drawDashboardPriceFlow(kakao, map, payload, mode) {
     const fromPosition = new kakao.maps.LatLng(Number(from.lat), Number(from.lng));
     const toPosition = new kakao.maps.LatLng(Number(to.lat), Number(to.lng));
     if (!bounds.contain(fromPosition) && !bounds.contain(toPosition)) return;
+    const flowStage = stages.get(to.id) || 0;
+    const flowColor = DASHBOARD_PRICE_FLOW_COLORS[flowStage];
 
     const line = new kakao.maps.Polyline({
       path: [fromPosition, toPosition],
-      strokeWeight: edge.emphasis ? 2.2 : 1.5,
-      strokeColor: edge.emphasis ? '#ef4444' : '#1677b8',
-      strokeOpacity: edge.emphasis ? 0.62 : 0.48,
+      strokeWeight: flowStage <= 1 ? 2.2 : 1.5,
+      strokeColor: flowColor,
+      strokeOpacity: flowStage <= 1 ? 0.66 : 0.5,
       strokeStyle: 'solid',
     });
     line.setMap(map);
@@ -571,7 +602,7 @@ function drawDashboardPriceFlow(kakao, map, payload, mode) {
       );
       const arrow = new kakao.maps.CustomOverlay({
         position,
-        content: `<span class="db-price-flow-arrow${edge.emphasis ? ' is-core' : ''}" style="--flow-angle:${angle.toFixed(1)}deg;--flow-delay:-${((edgeIndex % 4) * 0.16 + arrowIndex * 0.28).toFixed(2)}s"><i>›</i></span>`,
+        content: `<span class="db-price-flow-arrow" style="--flow-color:${flowColor};--flow-angle:${angle.toFixed(1)}deg;--flow-delay:-${((edgeIndex % 4) * 0.16 + arrowIndex * 0.28).toFixed(2)}s"><i>›</i></span>`,
         xAnchor: 0.5,
         yAnchor: 0.5,
         zIndex: 1,
@@ -584,9 +615,10 @@ function drawDashboardPriceFlow(kakao, map, payload, mode) {
   nodes.forEach(node => {
     const position = new kakao.maps.LatLng(Number(node.lat), Number(node.lng));
     if (!bounds.contain(position)) return;
+    const flowStage = stages.get(node.id) || 0;
     const overlay = new kakao.maps.CustomOverlay({
       position,
-      content: `<span class="db-price-flow-node${node.kind === 'core' ? ' is-core' : ''}"><strong>${escapeHtml(node.label)}</strong></span>`,
+      content: `<span class="db-price-flow-node${flowStage === 0 ? ' is-core' : ''}" style="--flow-color:${DASHBOARD_PRICE_FLOW_COLORS[flowStage]}"><strong>${escapeHtml(node.label)}</strong></span>`,
       xAnchor: 0.5,
       yAnchor: 0.5,
       zIndex: 1,
@@ -1665,7 +1697,9 @@ function initDashboard() {
         <div id="dbApartmentMap" class="db-apartment-map" aria-label="수도권 아파트 단지 지도"></div>
         <button id="dbMapPriceFlowToggle" class="db-map-price-flow-toggle is-off" type="button" aria-pressed="false" onclick="toggleDashboardPriceFlowLayer()">가격 확산 흐름 <span>OFF</span></button>
         <div id="dbMapPriceFlowLegend" class="db-map-price-flow-legend" aria-hidden="true">
-          <span><i class="is-core"></i>핵심지</span><span><i></i>확산 지역</span>
+          <div class="db-map-price-flow-legend-stages">
+            <span><i class="is-core"></i>핵심지</span><span><i class="is-first"></i>1차</span><span><i class="is-second"></i>2차</span><span><i class="is-third"></i>3차+</span>
+          </div>
           <small>수도권 시장 흐름을 단순화한 참고 지도예요</small>
         </div>
         <button id="dbMapRailToggle" class="db-map-rail-toggle" type="button" aria-pressed="true" onclick="toggleDashboardRailLayer()">철도 호재 <span>ON</span></button>
