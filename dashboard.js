@@ -616,9 +616,10 @@ function drawDashboardPriceFlow(kakao, map, payload, mode) {
     const position = new kakao.maps.LatLng(Number(node.lat), Number(node.lng));
     if (!bounds.contain(position)) return;
     const flowStage = stages.get(node.id) || 0;
+    const labelParts = String(node.label || '').split('·').filter(Boolean);
     const overlay = new kakao.maps.CustomOverlay({
       position,
-      content: `<span class="db-price-flow-node${flowStage === 0 ? ' is-core' : ''}" style="--flow-color:${DASHBOARD_PRICE_FLOW_COLORS[flowStage]}"><strong>${escapeHtml(node.label)}</strong></span>`,
+      content: `<span class="db-price-flow-node${flowStage === 0 ? ' is-core' : ''}${labelParts.length > 1 ? ' is-split' : ''}" style="--flow-color:${DASHBOARD_PRICE_FLOW_COLORS[flowStage]}"><strong>${labelParts.map(part => `<span>${escapeHtml(part)}</span>`).join('')}</strong></span>`,
       xAnchor: 0.5,
       yAnchor: 0.5,
       zIndex: 1,
