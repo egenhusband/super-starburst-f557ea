@@ -114,7 +114,7 @@ let dashboardApartmentMapPromise = null;
 const DASHBOARD_MAP_GRADE_ORDER = ['S+', 'S', 'S-', 'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-'];
 const DASHBOARD_FUTURE_RAIL_URL = '/data/capital-future-rail.json?v=20260905route-anchors2';
 const DASHBOARD_RAIL_MAX_LEVEL = 6;
-const DASHBOARD_PRICE_FLOW_URL = '/data/capital-price-flow.json?v=20260912a';
+const DASHBOARD_PRICE_FLOW_URL = '/data/capital-price-flow.json?v=20260912b';
 const DASHBOARD_PRICE_FLOW_MIN_LEVEL = 7;
 const DASHBOARD_PRICE_FLOW_MAX_LEVEL = 12;
 const DASHBOARD_PRICE_FLOW_COLORS = ['#ef4444', '#f97316', '#1686c9', '#0d9488'];
