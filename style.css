@@ -6200,14 +6200,13 @@
 .db-map-price-flow-toggle.is-off span { color: rgba(255,255,255,.38); }
 .db-map-price-flow-legend {
   position: absolute;
-  top: 108px;
-  left: 12px;
-  z-index: 2;
-  display: flex;
-  max-width: calc(100% - 24px);
-  align-items: center;
-  gap: 7px;
-  padding: 5px 8px;
+  right: 32px;
+  bottom: 112px;
+  z-index: 4;
+  display: grid;
+  width: min(248px, calc(100% - 64px));
+  gap: 4px;
+  padding: 7px 9px;
   border: 1px solid rgba(255,255,255,.1);
   border-radius: 9px;
   background: rgba(20,20,21,.76);
@@ -6222,10 +6221,14 @@
   -webkit-backdrop-filter: blur(8px);
 }
 .db-map-price-flow-legend.is-visible { opacity: 1; transform: translateY(0); }
+.db-map-price-flow-legend-stages { display: flex; align-items: center; justify-content: space-between; gap: 7px; }
 .db-map-price-flow-legend span { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
-.db-map-price-flow-legend i { width: 6px; height: 6px; border-radius: 50%; background: #1677b8; }
+.db-map-price-flow-legend i { width: 6px; height: 6px; border-radius: 50%; background: #1686c9; }
 .db-map-price-flow-legend i.is-core { background: #ef4444; }
-.db-map-price-flow-legend small { overflow: hidden; color: rgba(255,255,255,.42); font-size: 7px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+.db-map-price-flow-legend i.is-first { background: #f97316; }
+.db-map-price-flow-legend i.is-second { background: #1686c9; }
+.db-map-price-flow-legend i.is-third { background: #0d9488; }
+.db-map-price-flow-legend small { color: rgba(255,255,255,.42); font-size: 7px; font-weight: 550; line-height: 1.25; white-space: nowrap; }
 .db-price-flow-node {
   display: grid;
   min-width: 36px;
@@ -6234,22 +6237,21 @@
   place-items: center;
   border: 1.5px solid rgba(255,255,255,.9);
   border-radius: 50%;
-  background: #1677b8;
+  background: var(--flow-color, #1686c9);
   box-shadow: 0 3px 10px rgba(0,0,0,.24);
   color: #fff;
   pointer-events: none;
 }
-.db-price-flow-node.is-core { min-width: 40px; min-height: 40px; background: #ef4444; }
+.db-price-flow-node.is-core { min-width: 40px; min-height: 40px; }
 .db-price-flow-node strong { font-size: 8px; font-weight: 800; line-height: 1.05; letter-spacing: -.25px; text-align: center; white-space: nowrap; }
 .db-price-flow-arrow {
   display: block;
   width: 13px;
   height: 13px;
-  color: #1677b8;
+  color: var(--flow-color, #1686c9);
   pointer-events: none;
   transform: rotate(var(--flow-angle));
 }
-.db-price-flow-arrow.is-core { color: #ef4444; }
 .db-price-flow-arrow i {
   display: block;
   font-size: 17px;
