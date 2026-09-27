@@ -287,6 +287,10 @@ function normalizeIncomeProfile(input) {
 
 function calculateFundLoan(input) {
   const income = Number(input.income || 0);
+  const applicantIncome = input.applicantIncome === null || input.applicantIncome === undefined || input.applicantIncome === ''
+    ? null : Number(input.applicantIncome);
+  const spouseIncome = input.spouseIncome === null || input.spouseIncome === undefined || input.spouseIncome === ''
+    ? null : Number(input.spouseIncome);
   const price = Number(input.price || 0);
   const asset = Number(input.asset || 0);
   const otherLoanInterest = Number(input.otherLoanInterest || 0);
@@ -296,6 +300,15 @@ function calculateFundLoan(input) {
   const region = input.region || '';
   const isNewborn = children === '신생아';
   const incomeProfile = normalizeIncomeProfile(input);
+  const marriageIncomePolicyActive = Date.now() >= new Date('2026-10-01T00:00:00+09:00').getTime();
+  const hasCoupleIncome = household === '신혼'
+    && Number.isFinite(applicantIncome)
+    && applicantIncome >= 0
+    && Number.isFinite(spouseIncome)
+    && spouseIncome >= 0;
+  const passesIndividualIncome = limit => marriageIncomePolicyActive
+    && hasCoupleIncome
+    && Math.min(applicantIncome, spouseIncome) <= limit;
 
   const nbHouseOk = house === '무주택' || house === '생애최초' || house === '1주택(대환)';
   const nbIncomeOk = income <= 20000;
@@ -317,7 +330,8 @@ function calculateFundLoan(input) {
   let dIncomeLimit = 6000;
   if (house === '생애최초' || children === '2명이상' || isNewborn) dIncomeLimit = 7000;
   if (household === '신혼') dIncomeLimit = 8500;
-  const dIncomeOk = income <= dIncomeLimit;
+  const dIncomeOk = income <= dIncomeLimit || passesIndividualIncome(6000);
+  const dIncomePassedByIndividual = income > dIncomeLimit && passesIndividualIncome(6000);
   let dPriceLimit = 5;
   if (household === '신혼' || children === '2명이상' || isNewborn) dPriceLimit = 6;
   const dPriceOk = price <= dPriceLimit;
@@ -338,7 +352,8 @@ function calculateFundLoan(input) {
   if (household === '신혼') bIncomeLimit = 8500;
   if (children === '1명') bIncomeLimit = Math.max(bIncomeLimit, 9000);
   if (children === '2명이상') bIncomeLimit = 10000;
-  const bIncomeOk = income <= bIncomeLimit;
+  const bIncomeOk = income <= bIncomeLimit || passesIndividualIncome(7000);
+  const bIncomePassedByIndividual = income > bIncomeLimit && passesIndividualIncome(7000);
   const bPriceOk = price <= 6;
   const bogeumjariOk = bHouseOk && bIncomeOk && bPriceOk;
 
@@ -365,7 +380,7 @@ function calculateFundLoan(input) {
   return {
     ok: true,
     loanType: 'fund',
-    inputs: { income, price, asset, otherLoanInterest, household, house, children, region, incomeType: incomeProfile.incomeType, businessPeriod: incomeProfile.businessPeriod },
+    inputs: { income, applicantIncome, spouseIncome, price, asset, otherLoanInterest, household, house, children, region, incomeType: incomeProfile.incomeType, businessPeriod: incomeProfile.businessPeriod },
     incomeProfile,
     eligibility: {
       isNewborn,
@@ -381,11 +396,13 @@ function calculateFundLoan(input) {
       dIncomeOk,
       dPriceOk,
       dIncomeLimit,
+      dIncomePassedByIndividual,
       dPriceLimit,
       bHouseOk,
       bIncomeOk,
       bPriceOk,
       bIncomeLimit,
+      bIncomePassedByIndividual,
     },
     products: {
       newborn: productResponse('newborn', newbornOk, {

@@ -8,6 +8,7 @@
   let pendingFundEditFeedback = false;
   let pendingRecentCalculation = null;
   const answers = { household: null, house: null, children: null, region: null, incomeType: 'salary', businessPeriod: null };
+  const MARRIAGE_INCOME_POLICY_EFFECTIVE_DATE = '2026-10-01T00:00:00+09:00';
   let regionSelection = { province: '', city: '', detail: '', locationLabel: '', uncertain: false };
 
   const REGION_PROVINCES = [
@@ -230,6 +231,8 @@
       incomeType: answers.incomeType || 'salary',
       businessPeriod: answers.businessPeriod,
       income: document.getElementById('income')?.value || '',
+      applicantIncome: document.getElementById('applicantIncome')?.value || '',
+      spouseIncome: document.getElementById('spouseIncome')?.value || '',
       price: document.getElementById('price')?.value || '',
       asset: document.getElementById('asset')?.value || '',
       otherLoanNone: Boolean(document.getElementById('otherLoanNone')?.checked),
@@ -345,6 +348,11 @@
       const element = document.getElementById(id);
       if (element) element.value = input[inputKey] ?? '';
     });
+    ['applicantIncome', 'spouseIncome'].forEach(id => {
+      const element = document.getElementById(id);
+      if (element) element.value = input[id] ?? '';
+    });
+    updateIncomeHouseholdUi();
     const none = document.getElementById('otherLoanNone');
     if (none) none.checked = Boolean(input.otherLoanNone);
     toggleOtherLoanNone();
@@ -422,7 +430,11 @@
       document.querySelectorAll(`[data-group="${group}"]`).forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
       answers[group] = card.dataset.val;
-      if (group === 'incomeType') updateIncomeTypeUi();
+      if (group === 'incomeType') {
+        updateIncomeTypeUi();
+        updateIncomeHouseholdUi();
+      }
+      if (group === 'household') updateIncomeHouseholdUi();
       if (group === 'businessPeriod') updateBusinessPeriodNote();
       updateNextBtn();
     });
@@ -445,7 +457,9 @@
     const title = document.getElementById('incomeFieldTitle');
     const help = document.getElementById('incomeFieldHelp');
     const businessFields = document.getElementById('businessIncomeFields');
-    if (title) title.textContent = isBusiness ? '사업소득 포함 합산소득' : '직장인 세전 연봉 합산';
+    if (title) title.textContent = answers.household === '신혼'
+      ? '부부 각각의 세전 연소득'
+      : (isBusiness ? '사업소득 포함 합산소득' : '직장인 세전 연봉 합산');
     if (help) help.innerHTML = isBusiness
       ? '부부 중 한 명이라도 사업자·프리랜서 소득이 있으면 선택해주세요.<br>직장인 세전 연봉과 사업자 소득금액을 합산해 입력하면 돼요.'
       : '부부 모두 직장인이면 세전 연봉을 합산해 입력해주세요.<br>원천징수영수증이나 급여명세로 확인되는 금액 기준이에요.';
@@ -453,14 +467,52 @@
     updateBusinessPeriodNote();
   }
 
+  function getCoupleIncomeValues() {
+    const applicantIncome = Number(document.getElementById('applicantIncome')?.value);
+    const spouseIncome = Number(document.getElementById('spouseIncome')?.value);
+    return {
+      applicantIncome: Number.isFinite(applicantIncome) ? applicantIncome : null,
+      spouseIncome: Number.isFinite(spouseIncome) ? spouseIncome : null,
+    };
+  }
+
+  function syncCoupleIncomeTotal() {
+    if (answers.household !== '신혼') return;
+    const values = getCoupleIncomeValues();
+    const hasBoth = values.applicantIncome !== null && values.spouseIncome !== null;
+    const total = hasBoth ? values.applicantIncome + values.spouseIncome : 0;
+    const income = document.getElementById('income');
+    const totalLabel = document.getElementById('coupleIncomeTotal');
+    if (income) income.value = hasBoth ? String(total) : '';
+    if (totalLabel) totalLabel.textContent = `${total.toLocaleString()}만원`;
+    updateNextBtn();
+  }
+
+  function updateIncomeHouseholdUi() {
+    const isNewlywed = answers.household === '신혼';
+    const singleField = document.getElementById('incomeSingleField');
+    const coupleFields = document.getElementById('coupleIncomeFields');
+    const title = document.getElementById('incomeFieldTitle');
+    const help = document.getElementById('incomeFieldHelp');
+    if (singleField) singleField.hidden = isNewlywed;
+    if (coupleFields) coupleFields.hidden = !isNewlywed;
+    if (title && isNewlywed) title.textContent = '부부 각각의 세전 연소득';
+    if (help && isNewlywed) help.innerHTML = answers.incomeType === 'business'
+      ? '각자 직장인 세전 연봉과 사업소득금액을 합산해 입력해주세요.<br>실제 인정소득은 금융기관의 증빙 심사에 따라 달라질 수 있어요.'
+      : '각자의 원천징수영수증이나 급여명세에서 확인되는 세전 연봉을 입력해주세요.';
+    if (isNewlywed) syncCoupleIncomeTotal();
+    else updateIncomeTypeUi();
+  }
+
   window.updateIncomeTypeUi = updateIncomeTypeUi;
   window.updateBusinessPeriodNote = updateBusinessPeriodNote;
+  window.updateIncomeHouseholdUi = updateIncomeHouseholdUi;
   updateIncomeTypeUi();
   initializeRegionSelector();
 
-  ['income','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
+  ['income','applicantIncome','spouseIncome','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('input', updateNextBtn);
+    if (el) el.addEventListener('input', id === 'applicantIncome' || id === 'spouseIncome' ? syncCoupleIncomeTotal : updateNextBtn);
   });
 
   function canProceed() {
@@ -469,7 +521,12 @@
     if (current === 2) return !!answers.house;
     if (current === 3) return !!answers.children;
     if (current === 4) return !!answers.region;
-    if (current === 5) return document.getElementById('income').value !== '' && (answers.incomeType !== 'business' || !!answers.businessPeriod);
+    if (current === 5) {
+      const incomeReady = answers.household === '신혼'
+        ? document.getElementById('applicantIncome')?.value !== '' && document.getElementById('spouseIncome')?.value !== ''
+        : document.getElementById('income').value !== '';
+      return incomeReady && (answers.incomeType !== 'business' || !!answers.businessPeriod);
+    }
     if (current === 6) return document.getElementById('price').value !== '';
     if (current === 7) return document.getElementById('asset').value !== '';
     if (current === 8) {
@@ -533,8 +590,11 @@
   }
 
   function readFundInputValues() {
+    const coupleIncome = getCoupleIncomeValues();
     return {
       income: parseFloat(document.getElementById('income')?.value),
+      applicantIncome: coupleIncome.applicantIncome,
+      spouseIncome: coupleIncome.spouseIncome,
       price: parseFloat(document.getElementById('price')?.value),
       asset: parseFloat(document.getElementById('asset')?.value),
       otherLoanInterest: calculateCurrentOtherLoanInterest(),
@@ -542,7 +602,11 @@
   }
 
   function validateFundInputsForResult() {
-    const { income, price, asset } = readFundInputValues();
+    const { income, applicantIncome, spouseIncome, price, asset } = readFundInputValues();
+    if (answers.household === '신혼' && (applicantIncome === null || applicantIncome < 0 || spouseIncome === null || spouseIncome < 0)) {
+      document.getElementById('incomeErr').textContent = '본인과 배우자의 연소득을 각각 입력해주세요';
+      return null;
+    }
     if (isNaN(income) || income < 0) { document.getElementById('incomeErr').textContent = '올바른 소득을 입력해주세요'; return null; }
     if (isNaN(price)  || price  < 0) { document.getElementById('priceErr').textContent  = '올바른 금액을 입력해주세요'; return null; }
     if (isNaN(asset)  || asset  < 0) { document.getElementById('assetErr').textContent  = '올바른 금액을 입력해주세요'; return null; }
@@ -4335,9 +4399,12 @@
   const calcLoanResultCache = new Map();
 
   function getCalcLoanPayload(income, price, asset, otherLoanInterest) {
+    const coupleIncome = getCoupleIncomeValues();
     return {
       loanType: 'fund',
       income,
+      applicantIncome: coupleIncome.applicantIncome,
+      spouseIncome: coupleIncome.spouseIncome,
       price,
       asset,
       otherLoanInterest: otherLoanInterest || 0,
@@ -4446,6 +4513,12 @@
   function getIncomeSummaryText() {
     const incomeValue = parseFloat(document.getElementById('income')?.value) || 0;
     const amountText = incomeValue > 0 ? incomeValue.toLocaleString() + '만원' : '미입력';
+    if (answers.household === '신혼') {
+      const coupleIncome = getCoupleIncomeValues();
+      const applicantText = coupleIncome.applicantIncome === null ? '미입력' : `${coupleIncome.applicantIncome.toLocaleString()}만원`;
+      const spouseText = coupleIncome.spouseIncome === null ? '미입력' : `${coupleIncome.spouseIncome.toLocaleString()}만원`;
+      return `본인 ${applicantText} · 배우자 ${spouseText} · 합산 ${amountText}`;
+    }
     if (answers.incomeType === 'business') {
       return '사업소득 포함 · ' + businessPeriodLabel(answers.businessPeriod) + ' · ' + amountText;
     }
@@ -4640,6 +4713,14 @@
 
     // 신생아 여부
     const isNewborn = children === '신생아';
+    const coupleIncome = getCoupleIncomeValues();
+    const marriageIncomePolicyActive = Date.now() >= new Date(MARRIAGE_INCOME_POLICY_EFFECTIVE_DATE).getTime();
+    const hasCoupleIncome = household === '신혼'
+      && coupleIncome.applicantIncome !== null
+      && coupleIncome.spouseIncome !== null;
+    const passesIndividualIncome = limit => marriageIncomePolicyActive
+      && hasCoupleIncome
+      && Math.min(coupleIncome.applicantIncome, coupleIncome.spouseIncome) <= limit;
 
     // 신생아 특례 자격
     let nbHouseOk  = house === '무주택' || house === '생애최초' || house === '1주택(대환)';
@@ -4663,7 +4744,8 @@
     let dIncomeLimit = 6000;
     if (house === '생애최초' || children === '2명이상' || isNewborn) dIncomeLimit = 7000;
     if (household === '신혼') dIncomeLimit = 8500;
-    let dIncomeOk = income <= dIncomeLimit;
+    let dIncomeOk = income <= dIncomeLimit || passesIndividualIncome(6000);
+    let dIncomePassedByIndividual = income > dIncomeLimit && passesIndividualIncome(6000);
     let dPriceLimit = 5;
     if (household === '신혼' || children === '2명이상' || isNewborn) dPriceLimit = 6;
     let dPriceOk  = price <= dPriceLimit;
@@ -4685,7 +4767,8 @@
     if (household === '신혼') bIncomeLimit = 8500;
     if (children === '1명') bIncomeLimit = Math.max(bIncomeLimit, 9000);
     if (children === '2명이상') bIncomeLimit = 10000;
-    let bIncomeOk = income <= bIncomeLimit;
+    let bIncomeOk = income <= bIncomeLimit || passesIndividualIncome(7000);
+    let bIncomePassedByIndividual = income > bIncomeLimit && passesIndividualIncome(7000);
     let bPriceOk = price <= 6;
     let bogeumjariOk = bHouseOk && bIncomeOk && bPriceOk;
 
@@ -4712,11 +4795,13 @@
       dHouseOk = Boolean(eligibility.dHouseOk);
       dAssetOk = Boolean(eligibility.dAssetOk);
       dIncomeOk = Boolean(eligibility.dIncomeOk);
+      dIncomePassedByIndividual = Boolean(eligibility.dIncomePassedByIndividual);
       dPriceOk = Boolean(eligibility.dPriceOk);
       dIncomeLimit = readServerNumber(eligibility.dIncomeLimit, dIncomeLimit);
       dPriceLimit = readServerNumber(eligibility.dPriceLimit, dPriceLimit);
       bHouseOk = Boolean(eligibility.bHouseOk);
       bIncomeOk = Boolean(eligibility.bIncomeOk);
+      bIncomePassedByIndividual = Boolean(eligibility.bIncomePassedByIndividual);
       bPriceOk = Boolean(eligibility.bPriceOk);
       bIncomeLimit = readServerNumber(eligibility.bIncomeLimit, bIncomeLimit);
       nbRate = legacy.nbRate || nbRate;
@@ -4734,6 +4819,13 @@
       bFinalLimit = readServerNumber(legacy.bFinalLimit, bFinalLimit);
       bDtiLimit = readServerNumber(legacy.bDtiLimit, bDtiLimit);
     }
+
+    const dIncomePassText = dIncomePassedByIndividual
+      ? `부부 중 1인 연소득 ${Math.min(coupleIncome.applicantIncome, coupleIncome.spouseIncome).toLocaleString()}만 ≤ 6,000만`
+      : `부부합산 소득 ${income.toLocaleString()}만 ≤ ${dIncomeLimit.toLocaleString()}만`;
+    const bIncomePassText = bIncomePassedByIndividual
+      ? `부부 중 1인 연소득 ${Math.min(coupleIncome.applicantIncome, coupleIncome.spouseIncome).toLocaleString()}만 ≤ 7,000만`
+      : `부부합산 소득 ${income.toLocaleString()}만 ≤ ${bIncomeLimit.toLocaleString()}만`;
 
     let html = '';
 
@@ -4792,7 +4884,7 @@
             <div class="tags">
                 <span class="tag pass">✓ 주택상황 (${house})</span>
                 <span class="tag pass">✓ 순자산 ${asset}억 ≤ 5.11억</span>
-                <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${dIncomeLimit.toLocaleString()}만</span>
+                <span class="tag pass">✓ ${dIncomePassText}</span>
                 <span class="tag pass">✓ 주택가격 ${price}억 ≤ ${dPriceLimit}억</span>
             </div>
           </div>
@@ -4815,7 +4907,7 @@
             <div class="tags">
                 <span class="tag pass">✓ 주택상황 (${house})</span>
                 <span class="tag pass">✓ 주택가격 ${price}억 ≤ 6억</span>
-                <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${bIncomeLimit.toLocaleString()}만</span>
+                <span class="tag pass">✓ ${bIncomePassText}</span>
             </div>
           </div>
         </div>
@@ -4854,7 +4946,7 @@
           <div class="tags">
               <span class="tag pass">✓ 주택상황 (${house})</span>
               <span class="tag pass">✓ 순자산 ${asset}억 ≤ 5.11억</span>
-              <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${dIncomeLimit.toLocaleString()}만</span>
+              <span class="tag pass">✓ ${dIncomePassText}</span>
               <span class="tag pass">✓ 주택가격 ${price}억 ≤ ${dPriceLimit}억</span>
           </div>
         </div>
@@ -4900,7 +4992,7 @@
           <div class="tags">
             <span class="tag pass">✓ 주택상황 (${house})</span>
             <span class="tag pass">✓ 주택가격 ${price}억 ≤ 6억</span>
-            <span class="tag pass">✓ 소득 ${income.toLocaleString()}만 ≤ ${bIncomeLimit.toLocaleString()}만</span>
+            <span class="tag pass">✓ ${bIncomePassText}</span>
           </div>
         </div>
         <div class="result-spacer"></div>
@@ -5317,10 +5409,11 @@
     if (cityField) cityField.hidden = true;
     if (detailField) detailField.hidden = true;
     if (regionResult) regionResult.hidden = true;
-    ['income','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
+    ['income','applicantIncome','spouseIncome','price','asset','otherLoanPrincipal','otherLoanRate','otherLoanYears'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = '';
     });
+    updateIncomeHouseholdUi();
     var noneChk = document.getElementById('otherLoanNone');
     if (noneChk) { noneChk.checked = false; }
     var noneLabel = document.getElementById('otherLoanNoneLabel');
