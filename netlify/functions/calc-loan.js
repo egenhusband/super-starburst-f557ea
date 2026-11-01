@@ -1,48 +1,11 @@
-const BOGEUM_RATE_SCHEDULE = [
-  {
-    effectiveFrom: '2026-04-01',
-    label: '2026년 4월 1일 기준',
-    rates: { 10: 4.45, 15: 4.55, 20: 4.60, 30: 4.65, 40: 4.70, 50: 4.75 },
-  },
-  {
-    effectiveFrom: '2026-05-01',
-    label: '2026년 5월 1일 기준',
-    rates: { 10: 4.60, 15: 4.70, 20: 4.75, 30: 4.80, 40: 4.85, 50: 4.90 },
-  },
-];
-
-const DIDIMDOL_RATES_GENERAL = [
-  { maxIncome: 2000, rates: { 10: 2.85, 15: 2.95, 20: 3.05, 30: 3.10 } },
-  { maxIncome: 4000, rates: { 10: 3.20, 15: 3.30, 20: 3.40, 30: 3.45 } },
-  { maxIncome: 7000, rates: { 10: 3.55, 15: 3.65, 20: 3.75, 30: 3.80 } },
-  { maxIncome: 8500, rates: { 10: 3.90, 15: 4.00, 20: 4.10, 30: 4.15 } },
-];
-
-const DIDIMDOL_RATES_NEWLYWED = [
-  { maxIncome: 2000, rates: { 10: 2.55, 15: 2.65, 20: 2.75, 30: 2.80 } },
-  { maxIncome: 4000, rates: { 10: 2.90, 15: 3.00, 20: 3.10, 30: 3.15 } },
-  { maxIncome: 7000, rates: { 10: 3.25, 15: 3.35, 20: 3.45, 30: 3.50 } },
-  { maxIncome: 8500, rates: { 10: 3.60, 15: 3.70, 20: 3.80, 30: 3.85 } },
-];
-
-const NEWBORN_RATE_TABLE = [
-  { label: '~2천만원', r10: 1.80, r20: 2.00, r30: 2.05, maxIncome: 2000 },
-  { label: '2천~4천만원', r10: 2.15, r20: 2.35, r30: 2.40, maxIncome: 4000 },
-  { label: '4천~6천만원', r10: 2.40, r20: 2.60, r30: 2.65, maxIncome: 6000 },
-  { label: '6천~8.5천만원', r10: 2.65, r20: 2.85, r30: 2.90, maxIncome: 8500 },
-  { label: '8.5천~1억원', r10: 2.90, r20: 3.10, r30: 3.20, maxIncome: 10000 },
-  { label: '1억~1.3억원', r10: 3.20, r20: 3.40, r30: 3.50, maxIncome: 13000 },
-  { label: '(맞벌이)1.3~1.5억', r10: 3.50, r20: 3.70, r30: 3.80, maxIncome: 15000 },
-  { label: '(맞벌이)1.5~1.7억', r10: 3.85, r20: 4.05, r30: 4.15, maxIncome: 17000 },
-  { label: '(맞벌이)1.7~2억', r10: 4.20, r20: 4.40, r30: 4.50, maxIncome: Infinity },
-];
-
-const ROOM_DEDUCTION_AMOUNTS = {
-  seoul: 0.55,
-  metro: 0.48,
-  city: 0.28,
-  other: 0.25,
-};
+// 금리표는 저장소 루트의 loan-rates.js 한 곳에서 관리합니다 (화면 calculator.js와 공용).
+const {
+  ROOM_DEDUCTION_AMOUNTS,
+  getBogeumBaseRate,
+  getBogeumRegulationSurcharge,
+  getDidimdolBaseRate,
+  getNewbornRate,
+} = require('../../loan-rates.js');
 
 function jsonResponse(statusCode, body) {
   return {
@@ -55,40 +18,6 @@ function jsonResponse(statusCode, body) {
     },
     body: JSON.stringify(body),
   };
-}
-
-function getCurrentBogeumRateSet(now = new Date()) {
-  const todayKey = Number(String(now.getFullYear())
-    + String(now.getMonth() + 1).padStart(2, '0')
-    + String(now.getDate()).padStart(2, '0'));
-  let active = BOGEUM_RATE_SCHEDULE[0];
-  BOGEUM_RATE_SCHEDULE.forEach(entry => {
-    const effectiveKey = Number(entry.effectiveFrom.replace(/-/g, ''));
-    if (todayKey >= effectiveKey) active = entry;
-  });
-  return active;
-}
-
-function getBogeumBaseRate(years, now = new Date()) {
-  const rateSet = getCurrentBogeumRateSet(now);
-  return rateSet.rates[years] || rateSet.rates[30];
-}
-
-function getBogeumRegulationSurcharge(region) {
-  return region === '규제지역' ? 0.1 : 0;
-}
-
-function getDidimdolBaseRate(income, household, years) {
-  const table = household === '신혼' ? DIDIMDOL_RATES_NEWLYWED : DIDIMDOL_RATES_GENERAL;
-  const row = table.find(item => income <= item.maxIncome) || table[table.length - 1];
-  return row.rates[years] || row.rates[30];
-}
-
-function getNewbornRate(income, years) {
-  const row = NEWBORN_RATE_TABLE.find(item => income <= item.maxIncome) || NEWBORN_RATE_TABLE[NEWBORN_RATE_TABLE.length - 1];
-  const y = years || 30;
-  const rate = y <= 10 ? row.r10 : y <= 20 ? row.r20 : row.r30;
-  return { min: row.r10, max: row.r30, max30: row.r30, rate, label: row.label };
 }
 
 function calcIncreasingAvgAnnual(principal, annualRate, years) {
