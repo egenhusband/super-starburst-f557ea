@@ -2356,6 +2356,7 @@
   }
 
   function updateResultFloatingSummary() {
+    syncResultConclusionCards();
     const summary = document.getElementById('resultFloatingSummary');
     if (!summary) return;
     const pane = getActiveResultPane();
@@ -2414,6 +2415,196 @@
     summary.hidden = false;
   }
 
+
+  // ══ 결과 화면 요약 레이아웃 ══
+  // 렌더된 결과 DOM은 그대로 두고(모든 id·data 속성·갱신 함수 유지), 상단에 결론 카드를 붙이고
+  // 상세 영역은 같은 부모 안에서 <details>로 감싸 접어 둔다. 값은 기존 요소에서 읽어 온다.
+  const RESULT_PRODUCT_NAMES = { blue: '디딤돌 대출', green: '보금자리론', nb: '신생아 디딤돌' };
+  const RESULT_PRODUCT_ACCENTS = { blue: 'var(--accent)', green: 'var(--green)', nb: '#ff6b9d' };
+
+  function formatManwonShort(won) {
+    const manwon = Math.round((Number(won) || 0) / 10000);
+    return manwon > 0 ? manwon.toLocaleString() + '만원' : '—';
+  }
+
+  function getResultFlowContainer(flow) {
+    return flow.closest('.tab-pane, .tab-pane3') || flow.parentElement;
+  }
+
+  function wrapInResultFold(parent, nodes, foldKey, title) {
+    const movable = nodes.filter(Boolean);
+    if (!parent || !movable.length) return null;
+    const fold = document.createElement('details');
+    fold.className = 'result-fold';
+    fold.dataset.fold = foldKey;
+    fold.innerHTML = '<summary class="result-fold-summary">'
+      + '<span class="result-fold-copy"><span class="result-fold-title">' + title + '</span>'
+      + '<span class="result-fold-sub" data-fold-sub></span></span>'
+      + '<span class="result-fold-chevron">' + icon('chevronDown', 16) + '</span></summary>'
+      + '<div class="result-fold-body"></div>';
+    parent.insertBefore(fold, movable[0]);
+    const body = fold.querySelector('.result-fold-body');
+    movable.forEach(node => body.appendChild(node));
+    return fold;
+  }
+
+  function readResultFlowValues(flow) {
+    const rateSection = flow.querySelector('.rate-calc-section[data-uid]');
+    if (!rateSection) return null;
+    const uid = rateSection.dataset.uid;
+    const color = rateSection.dataset.color || 'blue';
+    const card = getRateLimitCard(rateSection);
+    const range = document.getElementById('loan-amount-' + uid);
+    const monthlyEl = document.getElementById('mc-amt-' + uid);
+    const maxEok = Number(range?.dataset.maxEok || range?.max || 0);
+    const selectedWon = Number(monthlyEl?.dataset.principal || 0);
+    const selectedEok = selectedWon > 0 ? selectedWon / 100000000 : 0;
+    const priceEok = Number(card?.dataset.limitPrice || card?.dataset.bogeumPrice || card?.dataset.didimdolPrice || card?.dataset.newbornPrice || 0);
+    const acquisition = getAcquisitionTaxForResultCard(card, priceEok);
+    const requiredEok = Math.max(0, priceEok - selectedEok)
+      + getResultPurchaseCosts(priceEok, acquisition).total / 100000000;
+    const yearsText = document.getElementById('yr-val-' + uid)?.textContent?.trim() || '';
+    const methodText = rateSection.querySelector('.repay-method-tab[class*="active"]')?.textContent?.trim() || '';
+    return {
+      uid, color, card, rateSection,
+      name: RESULT_PRODUCT_NAMES[color] || '대출',
+      finalRate: document.getElementById('rs-final-' + uid)?.textContent?.trim() || '—',
+      prefText: document.getElementById('rs-pref-' + uid)?.textContent?.trim() || '',
+      surchargeText: document.getElementById('rs-surcharge-' + uid)?.textContent?.trim() || '',
+      maxEok, selectedEok, priceEok, requiredEok,
+      monthlyWon: Number(monthlyEl?.dataset.motionTarget || 0),
+      yearsText, methodText,
+      limitNote: card?.querySelector('.limit-applied-note')?.textContent?.trim() || '',
+    };
+  }
+
+  function resultConclusionCardHtml(color) {
+    return `<div class="result-conclusion" data-result-conclusion style="--conclusion-accent:${RESULT_PRODUCT_ACCENTS[color] || 'var(--accent)'}">
+      <div class="result-conclusion-head">
+        <span class="result-conclusion-badge">${RESULT_PRODUCT_NAMES[color] || '대출'}</span>
+        <span class="result-conclusion-caption">예상 대출 한도</span>
+      </div>
+      <div class="result-conclusion-amount" data-conclusion-limit>—</div>
+      <div class="result-conclusion-grid">
+        <div><span>적용 금리</span><strong data-conclusion-rate>—</strong></div>
+        <div><span>첫 달 납입액</span><strong data-conclusion-monthly>—</strong></div>
+        <div><span>필요 자금</span><strong data-conclusion-required>—</strong></div>
+      </div>
+      <div class="result-conclusion-note" data-conclusion-note hidden></div>
+      <div class="result-conclusion-compare" data-conclusion-compare hidden></div>
+    </div>`;
+  }
+
+  function enhanceResultLayout(root) {
+    const scope = root || document.getElementById('resultContent');
+    if (!scope) return;
+    scope.querySelectorAll('.loan-result-flow').forEach(flow => {
+      if (flow.dataset.summaryLayout === '1') return;
+      const rateSection = flow.querySelector('.rate-calc-section[data-uid]');
+      if (!rateSection) return;
+      flow.dataset.summaryLayout = '1';
+      const color = rateSection.dataset.color || 'blue';
+      const container = getResultFlowContainer(flow);
+      container.classList.add('has-result-conclusion');
+      const hero = container.querySelector('.didimdol-hero, .bogeumjari-hero, .newborn-hero');
+      const anchor = hero && hero.parentElement === container ? hero : flow;
+      anchor.insertAdjacentHTML('beforebegin', resultConclusionCardHtml(color));
+      container.querySelector('[data-result-conclusion]').dataset.flowUid = rateSection.dataset.uid;
+
+      // 1) 한도 계산 근거: 한도 카드 안의 내용(사업자 소득 안내 버튼 제외)을 접는다.
+      const limitCard = getRateLimitCard(rateSection);
+      if (limitCard) {
+        const nodes = Array.from(limitCard.children).filter(node => !node.classList.contains('income-profile-trigger'));
+        wrapInResultFold(limitCard, nodes, 'limit', '한도 계산 근거');
+        limitCard.classList.add('is-folded-card');
+      }
+      // 2) 금리 조건: 우대·가산금리 카드 전체를 접는다.
+      const conditionsCard = rateSection.querySelector('.rate-calc-card--conditions');
+      if (conditionsCard) wrapInResultFold(conditionsCard, Array.from(conditionsCard.children), 'rate', '금리 조건 바꿔보기');
+      // 3) 대출금액·기간·상환방식: 부대비용 요약과 단지 찾기 버튼은 펼친 채로 둔다.
+      const resultCard = rateSection.querySelector('.rate-calc-card--result');
+      if (resultCard) {
+        const nodes = Array.from(resultCard.children).filter(node =>
+          !node.matches('[data-result-tax-summary], .map-result-cta'));
+        wrapInResultFold(resultCard, nodes, 'amount', '대출금액 · 기간 · 상환방식 바꿔보기');
+      }
+    });
+    syncResultConclusionCards();
+    observeResultConclusionVisibility(scope);
+  }
+
+  // 결론 카드가 화면에 보이는 동안에는 같은 숫자를 보여주는 하단 요약 바를 숨긴다.
+  var resultConclusionObserver = null;
+  function observeResultConclusionVisibility(scope) {
+    if (resultConclusionObserver) resultConclusionObserver.disconnect();
+    if (typeof IntersectionObserver !== 'function') return;
+    const visible = new Set();
+    resultConclusionObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && entry.target.offsetParent !== null) visible.add(entry.target);
+        else visible.delete(entry.target);
+      });
+      document.body.classList.toggle('result-conclusion-in-view', visible.size > 0);
+    }, { threshold: 0.35 });
+    scope.querySelectorAll('[data-result-conclusion]').forEach(card => resultConclusionObserver.observe(card));
+  }
+
+  function syncResultConclusionCards() {
+    const cards = Array.from(document.querySelectorAll('[data-result-conclusion]'));
+    if (!cards.length) return;
+    const flows = Array.from(document.querySelectorAll('.loan-result-flow[data-summary-layout="1"]'));
+    const valuesByUid = new Map();
+    flows.forEach(flow => {
+      const values = readResultFlowValues(flow);
+      if (values) valuesByUid.set(values.uid, { ...values, flow });
+    });
+
+    cards.forEach(cardEl => {
+      const values = valuesByUid.get(cardEl.dataset.flowUid);
+      if (!values) return;
+      const setText = (sel, text) => { const el = cardEl.querySelector(sel); if (el) el.textContent = text; };
+      setText('[data-conclusion-limit]', values.maxEok > 0 ? formatLimit(values.maxEok) : '—');
+      setText('[data-conclusion-rate]', values.finalRate);
+      setText('[data-conclusion-monthly]', values.monthlyWon > 0 ? formatManwonShort(values.monthlyWon) : '—');
+      setText('[data-conclusion-required]', values.priceEok > 0 ? formatLimit(values.requiredEok) : '—');
+      const note = cardEl.querySelector('[data-conclusion-note]');
+      if (note) {
+        const partial = values.selectedEok > 0 && values.maxEok > 0 && values.selectedEok < values.maxEok - 0.0001;
+        note.hidden = !partial;
+        note.textContent = partial ? `납입액·필요 자금은 선택한 대출금 ${formatLimit(values.selectedEok)} 기준이에요.` : '';
+      }
+
+      // 다른 상품 한 줄 비교 (탭이 있을 때만)
+      const compare = cardEl.querySelector('[data-conclusion-compare]');
+      const others = Array.from(valuesByUid.values()).filter(other => other.uid !== values.uid);
+      if (compare) {
+        compare.hidden = !others.length;
+        compare.innerHTML = others.map(other => {
+          const pane = other.flow.closest('.tab-pane, .tab-pane3');
+          const tabKey = pane ? pane.id.replace(/^pane3?-/, '') : '';
+          const handler = pane?.classList.contains('tab-pane3') ? 'switchTab3' : 'switchTab';
+          return `<button type="button" class="result-conclusion-compare-row" onclick="${handler}('${tabKey}');resetResultScroll()">
+            <span class="result-conclusion-compare-name">${other.name}</span>
+            <span class="result-conclusion-compare-val">${other.maxEok > 0 ? formatLimit(other.maxEok) : '—'} · ${other.finalRate} · 월 ${formatManwonShort(other.monthlyWon)}</span>
+            <span class="result-conclusion-compare-go">${icon('chevronRight', 14)}</span>
+          </button>`;
+        }).join('');
+      }
+
+      // 접힌 영역 요약 문구
+      const flowFolds = values.flow;
+      const setSub = (key, text) => { const el = flowFolds.querySelector(`.result-fold[data-fold="${key}"] [data-fold-sub]`); if (el) el.textContent = text; };
+      setSub('limit', values.limitNote || 'LTV · 상품 한도 · DTI · 방공제');
+      const rateParts = [`최종 ${values.finalRate}`];
+      if (values.prefText && !/^-?0\.00/.test(values.prefText.replace(/[^0-9.\-]/g, ''))) rateParts.push(`우대 ${values.prefText}`);
+      if (values.surchargeText && /[1-9]/.test(values.surchargeText)) rateParts.push(`가산 ${values.surchargeText}`);
+      setSub('rate', rateParts.join(' · '));
+      setSub('amount', [values.selectedEok > 0 ? formatLimit(values.selectedEok) : '', values.yearsText, values.methodText].filter(Boolean).join(' · '));
+    });
+  }
+
+  window.resetResultScroll = resetResultScroll;
+
   function mountResultFloatingSummary() {
     document.getElementById('resultFloatingSummary')?.remove();
     const app = document.querySelector('.app');
@@ -2422,6 +2613,8 @@
   }
 
   function unmountResultFloatingSummary() {
+    document.body.classList.remove('result-conclusion-in-view');
+    if (resultConclusionObserver) { resultConclusionObserver.disconnect(); resultConclusionObserver = null; }
     document.getElementById('resultFloatingSummary')?.remove();
   }
 
@@ -5053,6 +5246,8 @@
         }
       }
     } catch (e) { /* CTA 실패는 결과 표시에 영향 없음 */ }
+
+    try { enhanceResultLayout(resultContent); } catch (e) { console.warn('[result] summary layout skipped:', e); }
 
     resetResultScroll();
     resultContent.querySelectorAll('[data-motion-target]').forEach(function(el) {
