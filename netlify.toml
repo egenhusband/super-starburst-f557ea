@@ -10,3 +10,9 @@
   from = "/api/calc-loan"
   to = "/.netlify/functions/calc-loan"
   status = 200
+
+# 정적 데이터: 항상 서버에 재검증(ETag)하되, 바뀌지 않았으면 304로 다시 받지 않는다.
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

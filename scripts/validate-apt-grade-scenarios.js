@@ -134,6 +134,7 @@ const scenarios = [
   ['구리 인창주공6', 'A47174523'],
   ['산성역 포레스티아', 'A10024631'],
   ['구리 대림한숲', 'A47103203'],
+  ['구리 금호베스트빌2차', 'A47103005'],
   ['암사 강동현대홈타운', 'A13485301'],
   ['이매동신3단지', 'A46379708'],
   ['목동 구축 소형', 'A10020839'],
@@ -147,6 +148,7 @@ const inchangJugong = summaries.find(item => item.label === '구리 인창주공
 const forestia = summaries.find(item => item.label === '산성역 포레스티아');
 const dandaePrugio = summaries.find(item => item.label === '성남단대푸르지오');
 const daelimHansup = summaries.find(item => item.label === '구리 대림한숲');
+const guriKumhoBestvill = summaries.find(item => item.label === '구리 금호베스트빌2차');
 const misaLunarium = summaries.find(item => item.label === '하남 미사강변루나리움');
 const amsaHyundai = summaries.find(item => item.label === '암사 강동현대홈타운');
 const imaedongDongshin3 = summaries.find(item => item.label === '이매동신3단지');
@@ -174,19 +176,22 @@ if (misaLunarium?.tier !== 'T3_PLUS' || misaLunarium?.finalGrade !== 'A') {
 if (!(Number(misaLunarium?.clampedScore) > Number(daelimHansup?.clampedScore))) {
   throw new Error('미사강변루나리움은 구리 대림한숲보다 높은 입지 점수를 받아야 합니다.');
 }
-if (dandaePrugio?.finalGrade !== 'B+') {
-  throw new Error('성남단대푸르지오는 가격 중심 기준에서 B+ 등급이어야 합니다.');
+if (dandaePrugio?.finalGrade !== 'A-') {
+  throw new Error('성남단대푸르지오는 세분화된 가격 중심 기준에서 A- 등급이어야 합니다.');
 }
-if (amsaHyundai?.finalGrade !== 'A+' || !(Number(amsaHyundai?.clampedScore) > Number(dandaePrugio?.clampedScore))) {
+if (amsaHyundai?.canonicalMapAndDetailGrade?.grade !== 'A+'
+  || !(Number(amsaHyundai?.canonicalMapAndDetailGrade?.displayScore)
+    > Number(dandaePrugio?.canonicalMapAndDetailGrade?.displayScore))) {
   throw new Error('암사 강동현대홈타운은 단대푸르지오보다 높은 A+ 등급이어야 합니다.');
 }
 const canonicalExpectations = [
-  [dandaePrugio, 'B+'],
+  [dandaePrugio, 'A-'],
   [misaLunarium, 'A'],
   [daelimHansup, 'B+'],
   [inchangJugong, 'B'],
-  [amsaHyundai, 'A'],
-  [pangyo, 'A+'],
+  [amsaHyundai, 'A+'],
+  [pangyo, 'S-'],
+  [guriKumhoBestvill, 'B+'],
 ];
 canonicalExpectations.forEach(([scenario, grade]) => {
   if (scenario?.canonicalMapAndDetailGrade?.grade !== grade) {
