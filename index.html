@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>주택 기금대출 추천</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="style.css?v=20260927couple-income">
-<script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async></script>
+  <link rel="stylesheet" href="style.css?v=20261101split">
 </head>
 <body>
 <div class="app">
@@ -302,7 +301,7 @@
         <div class="income-field-title" id="incomeFieldTitle">직장인 세전 연봉 합산</div>
         <div id="incomeSingleField">
           <div class="number-field">
-            <input type="number" id="income" placeholder="0" min="0" inputmode="numeric">
+            <input type="number" id="income" placeholder="예: 6000" min="0" inputmode="numeric" data-amount="manwon">
             <span class="number-unit">만원 / 년</span>
           </div>
         </div>
@@ -310,19 +309,19 @@
           <label class="couple-income-field">
             <span>본인 연소득</span>
             <div class="number-field">
-              <input type="number" id="applicantIncome" placeholder="0" min="0" inputmode="numeric">
+              <input type="number" id="applicantIncome" placeholder="예: 5000" min="0" inputmode="numeric" data-amount="manwon">
               <span class="number-unit">만원</span>
             </div>
           </label>
           <label class="couple-income-field">
             <span>배우자 연소득</span>
             <div class="number-field">
-              <input type="number" id="spouseIncome" placeholder="0" min="0" inputmode="numeric">
+              <input type="number" id="spouseIncome" placeholder="없으면 0" min="0" inputmode="numeric" data-amount="manwon">
               <span class="number-unit">만원</span>
             </div>
           </label>
           <div class="couple-income-total">부부합산 연소득 <strong id="coupleIncomeTotal">0만원</strong></div>
-          <div class="income-policy-note">
+          <div class="income-policy-note" id="coupleIncomePolicyNote">
             2026년 10월부터 신혼부부는 기존 합산소득 기준과 부부 중 1인의 연소득 기준을 함께 비교해요. 더 정확한 판정을 위해 각각 입력해주세요.
           </div>
         </div>
@@ -366,8 +365,8 @@
       </div>
       <div class="number-input-wrap">
         <div class="number-field">
-          <input type="number" id="price" placeholder="0.0" step="0.1" min="0" inputmode="decimal">
-          <span class="number-unit">억원</span>
+          <input type="number" id="price" placeholder="예: 85000" step="1" min="0" inputmode="numeric" data-amount="eok">
+          <span class="number-unit">만원</span>
         </div>
         <div class="err-msg" id="priceErr"></div>
       </div>
@@ -381,8 +380,8 @@
       </div>
       <div class="number-input-wrap">
         <div class="number-field">
-          <input type="number" id="asset" placeholder="0.0" step="0.1" min="0" inputmode="decimal">
-          <span class="number-unit">억원</span>
+          <input type="number" id="asset" placeholder="예: 20000" step="1" min="0" inputmode="numeric" data-amount="eok">
+          <span class="number-unit">만원</span>
         </div>
         <div class="err-msg" id="assetErr"></div>
       </div>
@@ -396,8 +395,8 @@
       </div>
       <div class="number-input-wrap" id="otherLoanInputWrap">
         <div class="number-field">
-          <input type="number" id="otherLoanPrincipal" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="updateNextBtn()">
-          <span class="number-unit">억원 (대출금액)</span>
+          <input type="number" id="otherLoanPrincipal" placeholder="예: 3000" step="1" min="0" inputmode="numeric" data-amount="eok" oninput="updateNextBtn()">
+          <span class="number-unit">만원 (대출금액)</span>
         </div>
         <div class="number-field number-field-spaced">
           <input type="number" id="otherLoanRate" placeholder="0.0" step="0.1" min="0" inputmode="decimal" oninput="updateNextBtn()">
@@ -614,9 +613,11 @@
 <script src="icons.js?v=20260518a"></script>
 <script src="tax.js?v=20260908purchase-cost-defaults"></script>
 <script src="kakao-auth.js?v=20260907paywall-return"></script>
-<script src="calculator.js?v=20260927couple-income"></script>
+<script src="amount-input.js?v=20261101"></script>
+<script src="loan-rates.js?v=20261101"></script>
+<script src="calculator.js?v=20261101split"></script>
 <script src="dashboard.js?v=20260912flow-directions"></script>
-<script src="dashboard-apt-search.js?v=20260907paywall-return"></script>
+<script src="dashboard-apt-search.js?v=20260908grade-bands"></script>
 <script>
   (function () {
     const params = new URLSearchParams(window.location.search);
@@ -739,8 +740,8 @@
       <div id="aptLoanAreaSelector"></div>
       <label class="apt-loan-price-label" for="aptLoanPriceInput">주택가격</label>
       <div class="apt-loan-price-field">
-        <input id="aptLoanPriceInput" type="number" min="0" step="0.1" inputmode="decimal" placeholder="예: 8.5" oninput="updateAptLoanSheetState()">
-        <span>억원</span>
+        <input id="aptLoanPriceInput" type="number" min="0" step="1" inputmode="numeric" placeholder="예: 85000" data-amount="eok" oninput="updateAptLoanSheetState()">
+        <span>만원</span>
       </div>
       <div class="apt-loan-type-row" role="group" aria-label="대출 유형">
         <button class="apt-loan-type active" type="button" data-loan-type="fund" onclick="setAptLoanType('fund')">

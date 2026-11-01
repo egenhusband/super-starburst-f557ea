@@ -6,7 +6,7 @@ const DASHBOARD_APT_STATION_META_URL = '/data/apt-station-meta.json?v=20260518a'
 const DASHBOARD_APT_OFFICIAL_PRICE_META_URL = '/data/apt-official-price-meta.json?v=20260517a';
 const DASHBOARD_APT_CONVENIENCE_META_URL = '/data/apt-convenience-meta.json?v=20260518a';
 const DASHBOARD_APT_RECOMMEND_INDEX_URL = '/data/apt-recommend-index.json?v=20260830recommend2';
-const DASHBOARD_APT_GRADE_INDEX_URL = '/data/apt-grade-index.json?v=20260830grade3';
+const DASHBOARD_APT_GRADE_INDEX_URL = '/data/apt-grade-index.json?v=20260908grade4';
 const DASHBOARD_APT_ANALYZE_URL = '/api/analyze-apt';
 const DASHBOARD_APT_SEARCH_CACHE_KEY = 'dashboard_apt_search_index_v23';
 const DASHBOARD_APT_SEARCH_CACHE_TTL = 6 * 60 * 60 * 1000;
@@ -52,7 +52,7 @@ async function fetchAptAreaPrices(kaptCode) {
   if (dashboardAptAreaPricesCache.has(kaptCode)) return dashboardAptAreaPricesCache.get(kaptCode);
 
   try {
-    const res = await fetch(`${DASHBOARD_APT_AREA_PRICES_BASE_URL}/${kaptCode}.json`, { cache: 'no-store' });
+    const res = await fetch(`${DASHBOARD_APT_AREA_PRICES_BASE_URL}/${kaptCode}.json`, { cache: 'no-cache' });
     if (!res.ok) {
       dashboardAptAreaPricesCache.set(kaptCode, null);
       return null;
@@ -364,6 +364,7 @@ function formatGradeClassName(grade) {
   const normalized = String(grade || '')
     .toLowerCase()
     .replace(/\+/g, '-plus')
+    .replace(/-$/g, '-minus')
     .replace(/[^a-z-]/g, '');
   return normalized || 'pending';
 }
@@ -373,17 +374,21 @@ function getDashboardAptPublicScore(grade, clampedScore, displayScore) {
   if (Number.isFinite(readyScore) && readyScore > 0) return Math.round(readyScore);
 
   const gradeBands = {
-    C: [50, 58],
+    'C-': [50, 54],
+    C: [55, 58],
     'C+': [59, 63],
-    B: [64, 69],
+    'B-': [64, 66],
+    B: [67, 69],
     'B+': [70, 74],
-    A: [75, 82],
-    'A+': [83, 89],
+    'A-': [75, 78],
+    A: [79, 82],
+    'A+': [83, 87],
+    'S-': [88, 89],
     S: [90, 95],
     'S+': [96, 99],
   };
-  const gradeFloors = { C: 0, 'C+': 1, B: 3, 'B+': 6, A: 9, 'A+': 12, S: 15, 'S+': 18 };
-  const nextFloors = { C: 1, 'C+': 3, B: 6, 'B+': 9, A: 12, 'A+': 15, S: 18, 'S+': 18 };
+  const gradeFloors = { 'C-': 0, C: 0.5, 'C+': 1, 'B-': 2, B: 3, 'B+': 6, 'A-': 8, A: 9, 'A+': 12, 'S-': 14, S: 15, 'S+': 18 };
+  const nextFloors = { 'C-': 0.5, C: 1, 'C+': 2, 'B-': 3, B: 6, 'B+': 8, 'A-': 9, A: 12, 'A+': 14, 'S-': 15, S: 18, 'S+': 18 };
   const band = gradeBands[grade];
   const score = Number(clampedScore);
   if (!band || !Number.isFinite(score)) return null;
@@ -687,14 +692,14 @@ async function fetchDashboardAptSearchIndex() {
   if (cached?.entries?.length) return cached.entries;
 
   const [schoolMetaRes, stationMetaRes, officialPriceRes, convenienceMetaRes, recommendationRes, gradeIndexRes, codeMapRes, householdsRes, trades] = await Promise.all([
-    fetch(DASHBOARD_APT_SCHOOL_META_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_STATION_META_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_OFFICIAL_PRICE_META_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_CONVENIENCE_META_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_RECOMMEND_INDEX_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_GRADE_INDEX_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_CODE_MAP_URL, { cache: 'no-store' }),
-    fetch(DASHBOARD_APT_HOUSEHOLDS_URL, { cache: 'no-store' }),
+    fetch(DASHBOARD_APT_SCHOOL_META_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_STATION_META_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_OFFICIAL_PRICE_META_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_CONVENIENCE_META_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_RECOMMEND_INDEX_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_GRADE_INDEX_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_CODE_MAP_URL, { cache: 'no-cache' }),
+    fetch(DASHBOARD_APT_HOUSEHOLDS_URL, { cache: 'no-cache' }),
     preloadAptTrades(),
   ]);
 

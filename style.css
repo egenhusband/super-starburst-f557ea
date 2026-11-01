@@ -6888,17 +6888,23 @@
   letter-spacing: -0.02em;
 }
 .db-apt-grade-badge.grade-s-plus strong,
+.db-apt-grade-badge.grade-s-minus strong,
 .db-apt-grade-badge.grade-a-plus strong,
+.db-apt-grade-badge.grade-a-minus strong,
 .db-apt-grade-badge.grade-b-plus strong,
-.db-apt-grade-badge.grade-c-plus strong {
+.db-apt-grade-badge.grade-b-minus strong,
+.db-apt-grade-badge.grade-c-plus strong,
+.db-apt-grade-badge.grade-c-minus strong {
   font-size: 32px;
   letter-spacing: -0.04em;
 }
-.db-apt-grade-badge.grade-s {
+.db-apt-grade-badge.grade-s,
+.db-apt-grade-badge.grade-s-minus {
   background: rgba(92, 233, 176, 0.12);
   border-color: rgba(92, 233, 176, 0.3);
 }
-.db-apt-grade-badge.grade-s strong {
+.db-apt-grade-badge.grade-s strong,
+.db-apt-grade-badge.grade-s-minus strong {
   color: #8ef0c3;
 }
 .db-apt-grade-badge.grade-s-plus {
@@ -6915,11 +6921,13 @@
 .db-apt-grade-badge.grade-a-plus strong {
   color: #a4f0be;
 }
-.db-apt-grade-badge.grade-a {
+.db-apt-grade-badge.grade-a,
+.db-apt-grade-badge.grade-a-minus {
   background: rgba(85,180,124,0.12);
   border-color: rgba(85,180,124,0.28);
 }
-.db-apt-grade-badge.grade-a strong {
+.db-apt-grade-badge.grade-a strong,
+.db-apt-grade-badge.grade-a-minus strong {
   color: #8ce9b2;
 }
 .db-apt-grade-badge.grade-b-plus {
@@ -6929,11 +6937,13 @@
 .db-apt-grade-badge.grade-b-plus strong {
   color: #98d0ff;
 }
-.db-apt-grade-badge.grade-b {
+.db-apt-grade-badge.grade-b,
+.db-apt-grade-badge.grade-b-minus {
   background: rgba(87,168,255,0.12);
   border-color: rgba(87,168,255,0.26);
 }
-.db-apt-grade-badge.grade-b strong {
+.db-apt-grade-badge.grade-b strong,
+.db-apt-grade-badge.grade-b-minus strong {
   color: #84c2ff;
 }
 .db-apt-grade-badge.grade-c-plus {
@@ -6943,11 +6953,13 @@
 .db-apt-grade-badge.grade-c-plus strong {
   color: #ffd08e;
 }
-.db-apt-grade-badge.grade-c {
+.db-apt-grade-badge.grade-c,
+.db-apt-grade-badge.grade-c-minus {
   background: rgba(255,176,74,0.12);
   border-color: rgba(255,176,74,0.28);
 }
-.db-apt-grade-badge.grade-c strong {
+.db-apt-grade-badge.grade-c strong,
+.db-apt-grade-badge.grade-c-minus strong {
   color: #ffcf7f;
 }
 .db-apt-grade-badge.grade-pending strong {
@@ -7945,4 +7957,121 @@
 .apt-loan-area-btn:active {
   transform: scale(var(--scale-button-active));
   transition-duration: var(--motion-button-active);
+}
+
+/* 금액 입력칸 아래 "8억 5천만원" 표기 (amount-input.js) */
+.amount-hint {
+  display: none;
+  margin: 6px 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--accent);
+  text-align: right;
+}
+.amount-hint.is-visible { display: block; }
+.amount-hint::before { content: '= '; color: var(--label3); font-weight: 400; }
+.bank-form-row { flex-wrap: wrap; }
+.bank-form-row > .amount-hint {
+  flex-basis: 100%;
+  margin: -4px 4px 0 74px;
+  text-align: left;
+}
+.bank-input { min-width: 0; }
+
+/* ══ 결과 화면 요약 레이아웃 (enhanceResultLayout) ══ */
+.has-result-conclusion > .didimdol-hero,
+.has-result-conclusion > .bogeumjari-hero,
+.has-result-conclusion > .newborn-hero,
+.has-result-conclusion > .didimdol-hero + .result-spacer-sm,
+.has-result-conclusion > .bogeumjari-hero + .result-spacer-sm,
+.has-result-conclusion > .newborn-hero + .result-spacer-sm { display: none; }
+
+.result-conclusion {
+  position: relative;
+  margin: 4px 0 14px;
+  padding: 20px 18px 16px;
+  border-radius: 20px;
+  background: var(--bg3);
+  border: 1px solid color-mix(in srgb, var(--conclusion-accent) 35%, transparent);
+  overflow: hidden;
+}
+.result-conclusion::before {
+  content: '';
+  position: absolute; inset: 0 0 auto 0; height: 3px;
+  background: var(--conclusion-accent);
+}
+.result-conclusion-head { display: flex; align-items: center; gap: 8px; }
+.result-conclusion-badge {
+  font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  color: var(--conclusion-accent);
+  background: color-mix(in srgb, var(--conclusion-accent) 16%, transparent);
+}
+.result-conclusion-caption { font-size: 13px; color: var(--label2); }
+.result-conclusion-amount {
+  margin-top: 8px;
+  font-size: 34px; font-weight: 800; letter-spacing: -0.8px; line-height: 1.15;
+  color: var(--conclusion-accent);
+}
+.result-conclusion-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px solid var(--separator);
+}
+.result-conclusion-grid > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.result-conclusion-grid > div + div { padding-left: 12px; border-left: 1px solid var(--separator); }
+.result-conclusion-grid span { font-size: 12px; color: var(--label3); }
+.result-conclusion-grid strong { font-size: 15px; font-weight: 700; color: var(--label1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result-conclusion-note { margin-top: 10px; font-size: 12px; color: var(--label3); }
+.result-conclusion-compare { margin-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.result-conclusion-compare-row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 12px; border-radius: 12px; border: 0; cursor: pointer;
+  background: var(--bg2); color: var(--label1); text-align: left;
+  font-family: inherit;
+}
+.result-conclusion-compare-name { font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.result-conclusion-compare-val { flex: 1; min-width: 0; font-size: 12.5px; color: var(--label2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result-conclusion-compare-go { display: flex; color: var(--label3); }
+
+/* 접힌 상세 영역 */
+.result-fold { border-radius: 14px; }
+.result-fold-summary {
+  display: flex; align-items: center; gap: 10px;
+  list-style: none; cursor: pointer; padding: 2px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.result-fold-summary::-webkit-details-marker { display: none; }
+.result-fold-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.result-fold-title { font-size: 14.5px; font-weight: 700; color: var(--label1); }
+.result-fold-sub { font-size: 12.5px; color: var(--label2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.result-fold-sub:empty { display: none; }
+.result-fold-chevron { display: flex; color: var(--label3); transition: transform 0.2s ease; }
+.result-fold[open] > .result-fold-summary .result-fold-chevron { transform: rotate(180deg); }
+.result-fold-body { padding-top: 14px; }
+.limit-detail-card.is-folded-card { padding: 16px 18px; }
+.rate-calc-card--result > .result-fold + [data-result-tax-summary] { margin-top: 14px; }
+.result-floating-summary { transition: opacity 0.2s ease, translate 0.2s ease; }
+body.result-conclusion-in-view .result-floating-summary {
+  animation: none;
+  opacity: 0;
+  translate: 0 16px;
+  pointer-events: none;
+}
+.result-conclusion-grid { grid-template-columns: 0.85fr 0.95fr 1.3fr; }
+/* 대출금액·기간·상환방식 접기와 부대비용 요약을 별도 카드로 분리 */
+.rate-calc-card--result.is-split-card {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.rate-calc-card--result.is-split-card > .result-fold {
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-3) 76%, transparent);
+  border: 1px solid rgba(255,255,255,0.07);
+  padding: 14px;
+}
+.rate-calc-card--result.is-split-card > [data-result-tax-summary] {
+  margin-top: 12px;
+  border-radius: 18px;
 }
