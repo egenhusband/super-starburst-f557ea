@@ -434,7 +434,7 @@
         updateIncomeTypeUi();
         updateIncomeHouseholdUi();
       }
-      if (group === 'household') updateIncomeHouseholdUi();
+      if (group === 'household' || group === 'children') updateIncomeHouseholdUi();
       if (group === 'businessPeriod') updateBusinessPeriodNote();
       updateNextBtn();
     });
@@ -457,7 +457,7 @@
     const title = document.getElementById('incomeFieldTitle');
     const help = document.getElementById('incomeFieldHelp');
     const businessFields = document.getElementById('businessIncomeFields');
-    if (title) title.textContent = answers.household === '신혼'
+    if (title) title.textContent = usesCoupleIncome()
       ? '부부 각각의 세전 연소득'
       : (isBusiness ? '사업소득 포함 합산소득' : '직장인 세전 연봉 합산');
     if (help) help.innerHTML = isBusiness
@@ -467,9 +467,20 @@
     updateBusinessPeriodNote();
   }
 
+  // 신혼부부(2026.10 개별소득 기준)와 신생아 특례(외벌이 1.3억 / 맞벌이 2억)는 부부 소득을 각각 받는다.
+  function usesCoupleIncome() {
+    return answers.household === '신혼' || answers.children === '신생아';
+  }
+
+  function readOptionalNumberInput(id) {
+    const raw = document.getElementById(id)?.value;
+    if (raw === undefined || raw === null || String(raw).trim() === '') return NaN;
+    return Number(raw);
+  }
+
   function getCoupleIncomeValues() {
-    const applicantIncome = Number(document.getElementById('applicantIncome')?.value);
-    const spouseIncome = Number(document.getElementById('spouseIncome')?.value);
+    const applicantIncome = readOptionalNumberInput('applicantIncome');
+    const spouseIncome = readOptionalNumberInput('spouseIncome');
     return {
       applicantIncome: Number.isFinite(applicantIncome) ? applicantIncome : null,
       spouseIncome: Number.isFinite(spouseIncome) ? spouseIncome : null,
@@ -477,7 +488,7 @@
   }
 
   function syncCoupleIncomeTotal() {
-    if (answers.household !== '신혼') return;
+    if (!usesCoupleIncome()) return;
     const values = getCoupleIncomeValues();
     const hasBoth = values.applicantIncome !== null && values.spouseIncome !== null;
     const total = hasBoth ? values.applicantIncome + values.spouseIncome : 0;
@@ -489,7 +500,11 @@
   }
 
   function updateIncomeHouseholdUi() {
-    const isNewlywed = answers.household === '신혼';
+    const isNewlywed = usesCoupleIncome();
+    const policyNote = document.getElementById('coupleIncomePolicyNote');
+    if (policyNote) policyNote.textContent = answers.household === '신혼'
+      ? '2026년 10월부터 신혼부부는 기존 합산소득 기준과 부부 중 1인의 연소득 기준을 함께 비교해요. 더 정확한 판정을 위해 각각 입력해주세요.'
+      : '신생아 특례는 외벌이 1.3억, 맞벌이 2억까지 소득 기준이 달라요. 배우자 소득이 없으면 0을 입력해주세요.';
     const singleField = document.getElementById('incomeSingleField');
     const coupleFields = document.getElementById('coupleIncomeFields');
     const title = document.getElementById('incomeFieldTitle');
@@ -522,7 +537,7 @@
     if (current === 3) return !!answers.children;
     if (current === 4) return !!answers.region;
     if (current === 5) {
-      const incomeReady = answers.household === '신혼'
+      const incomeReady = usesCoupleIncome()
         ? document.getElementById('applicantIncome')?.value !== '' && document.getElementById('spouseIncome')?.value !== ''
         : document.getElementById('income').value !== '';
       return incomeReady && (answers.incomeType !== 'business' || !!answers.businessPeriod);
@@ -590,7 +605,7 @@
   }
 
   function readFundInputValues() {
-    const coupleIncome = getCoupleIncomeValues();
+    const coupleIncome = usesCoupleIncome() ? getCoupleIncomeValues() : { applicantIncome: null, spouseIncome: null };
     return {
       income: parseFloat(document.getElementById('income')?.value),
       applicantIncome: coupleIncome.applicantIncome,
@@ -603,7 +618,7 @@
 
   function validateFundInputsForResult() {
     const { income, applicantIncome, spouseIncome, price, asset } = readFundInputValues();
-    if (answers.household === '신혼' && (applicantIncome === null || applicantIncome < 0 || spouseIncome === null || spouseIncome < 0)) {
+    if (usesCoupleIncome() && (applicantIncome === null || applicantIncome < 0 || spouseIncome === null || spouseIncome < 0)) {
       document.getElementById('incomeErr').textContent = '본인과 배우자의 연소득을 각각 입력해주세요';
       return null;
     }
@@ -899,15 +914,15 @@
         <div class="bank-form-row">
           <label class="bank-form-label">주택가격</label>
           <div class="bank-input-wrap">
-            <input class="bank-input" id="bankPrice" type="number" min="0" step="0.1" placeholder="예: 5" oninput="updateBankCalc()">
-            <span class="bank-unit">억원</span>
+            <input class="bank-input" id="bankPrice" type="number" min="0" step="1" inputmode="numeric" placeholder="예: 50000" data-amount="eok" oninput="updateBankCalc()">
+            <span class="bank-unit">만원</span>
           </div>
         </div>
 
         <div class="bank-form-row">
           <label class="bank-form-label">연소득</label>
           <div class="bank-input-wrap">
-            <input class="bank-input" id="bankIncome" type="number" min="0" step="100" placeholder="예: 5000" oninput="updateBankCalc()">
+            <input class="bank-input" id="bankIncome" type="number" min="0" step="100" inputmode="numeric" placeholder="예: 5000" data-amount="manwon" oninput="updateBankCalc()">
             <span class="bank-unit">만원</span>
           </div>
         </div>
@@ -916,9 +931,9 @@
         <div class="bank-form-row">
           <label class="bank-form-label">대출금액</label>
           <div class="bank-input-wrap">
-            <input class="bank-input" id="bankLoan" type="number" min="0" step="0.1" placeholder="예: 3" oninput="updateBankCalc()">
+            <input class="bank-input" id="bankLoan" type="number" min="0" step="1" inputmode="numeric" placeholder="예: 30000" data-amount="eok" oninput="updateBankCalc()">
             <span class="bank-ltv-badge" id="bankLtvBadge"></span>
-            <span class="bank-unit">억원</span>
+            <span class="bank-unit">만원</span>
           </div>
         </div>
         <div id="bankLoanMsg" style="font-size:11px;color:var(--red);padding:0 2px;min-height:14px;margin-top:-4px"></div>
@@ -1118,15 +1133,17 @@
   }
 
   // ── DSR 스트레스 가산금리 ──
-  // 고정금리 선택 시 0%, 수도권/규제지역 1.50%, 지방 0.75%
+  // 2025.10.16~ 수도권·규제지역 주담대 3.0%, 지방(비규제) 1.5%의 50% 반영(0.75%).
+  // 고정형(혼합형·주기형)은 금리유형별로 일부만 반영 — 혼합형 약 80%·주기형 약 40%의 평균(60%)으로 추정.
+  // 근거: 금융위 10·15 가계부채 대책, 은행연합회 2026년 하반기 운영기준
+  const DSR_STRESS_RATE_METRO = 3.0;
+  const DSR_STRESS_RATE_LOCAL = 0.75;
+  const DSR_STRESS_FIXED_RATIO = 0.6;
   function getDsrStressRate() {
-    // 고정금리만 선택 시 평균 0.8% 적용 (혼합형 1.2% / 주기형 0.6% 평균)
+    const base = bankRegion === 'M' ? DSR_STRESS_RATE_METRO : DSR_STRESS_RATE_LOCAL;
     const onlyFixed = bankFilter.rate.includes('F') && !bankFilter.rate.includes('C');
-    if (onlyFixed) return 0.8;
-    // 수도권 or 규제지역 → 3단계 1.50%
-    if (bankRegion === 'M') return 1.50;
-    // 지방 → 2단계 0.75%
-    return 0.75;
+    if (onlyFixed) return Math.round(base * DSR_STRESS_FIXED_RATIO * 100) / 100;
+    return base;
   }
 
   // DSR 40% 기준 최대 월납입 → 최대 대출 가능 원금 역산
@@ -2021,7 +2038,7 @@
   }
 
   function getTaxRegulatedArea(region) {
-    return region === '투기과열' || region === '조정대상';
+    return region === '규제지역' || region === '투기과열' || region === '조정대상';
   }
 
   // Quotes belong to the purchase, not to a specific loan product.
@@ -2047,6 +2064,7 @@
       priceEok,
       homeCount: getTaxHomeCountFromHouse(house),
       isRegulatedArea: getTaxRegulatedArea(region),
+      isFirstHome: house === '생애최초',
       isOver85: false,
     });
     const capitalEok = Math.max(0, priceEok - loanEok);
@@ -2071,7 +2089,7 @@
           <div><span>법무사 · 등기 기본 예산</span><strong data-purchase-registration>${formatTaxWon(costs.registration)}</strong></div>
           <div><span>이사 · 기타 기본 예산</span><strong data-purchase-other>${formatTaxWon(costs.other)}</strong></div>
         </div>
-        <p>주택가격 − 선택 대출금 + 부대비용이에요. 취득세는 전용 85㎡ 이하·감면 미적용 기준이며, 법무사·등기 50만원과 이사·기타 100만원을 기본 예산으로 포함했어요.</p>
+        <p>주택가격 − 선택 대출금 + 부대비용이에요. 취득세는 전용 85㎡ 이하 기준${acquisition.firstHomeRelief > 0 ? `이고 생애최초 감면 ${formatTaxWon(acquisition.firstHomeRelief)}을 반영했으며` : '이며'}, 법무사·등기 50만원과 이사·기타 100만원을 기본 예산으로 포함했어요.</p>
         <button type="button" class="purchase-cost-edit" onclick="openResultTaxInfoSheet(this)">부대비용 확인 · 견적 입력</button>
       </div>`;
   }
@@ -2126,6 +2144,7 @@
       priceEok,
       homeCount: getTaxHomeCountFromHouse(house),
       isRegulatedArea: getTaxRegulatedArea(region),
+      isFirstHome: house === '생애최초',
       isOver85: false,
     });
   }
@@ -3563,7 +3582,7 @@
                   ${icon('info', 12)}
                 </button>
               </div>
-              <span class="breakdown-val${dtiAppliedCls}" ${(colorCls === 'green' || colorCls === 'blue') ? 'data-limit-dti' : ''} ${colorCls === 'green' ? 'data-bogeum-limit-dti' : ''} ${colorCls === 'blue' ? 'data-didimdol-limit-dti' : ''}>${Number.isFinite(safeDtiLimit) ? formatLimit(safeDtiLimit) : '미반영'}</span>
+              <span class="breakdown-val${dtiAppliedCls}" ${(colorCls === 'green' || colorCls === 'blue') ? 'data-limit-dti' : ''} ${colorCls === 'green' ? 'data-bogeum-limit-dti' : ''} ${colorCls === 'blue' ? 'data-didimdol-limit-dti' : ''}>${formatDtiLimitText(safeDtiLimit, ltvLimit, maxLimit)}</span>
             </div>` : ''}
           </div>
           <div class="limit-applied-note" ${(colorCls === 'green' || colorCls === 'blue') ? 'data-limit-note' : ''} ${colorCls === 'green' ? 'data-bogeum-limit-note' : ''} ${colorCls === 'blue' ? 'data-didimdol-limit-note' : ''}>${reasonText}</div>
@@ -3589,7 +3608,7 @@
       '규제지역 여부 및 생애최초 여부에 따라 LTV가 달라질 수 있으며, 실제 규제 적용과 다를 수 있습니다.',
       'DSR 시뮬레이션은 무대출 상황 기준의 참고용 결과입니다. 최종 대출 가능 여부 및 한도는 금융사 심사로 결정되며, 기존 대출이 있을 경우 실제 한도는 더 낮거나 심사가 불가할 수 있습니다.',
       'DSR 시뮬레이션은 모든 대출이 없는 무대출 상황을 가정합니다. 기존 주담대·신용대출·2금융권 대출이 있다면 실제 대출 가능 금액은 더 적거나 심사가 불가할 수 있으며, 반드시 수탁 은행 상담이 필요합니다.',
-      '고정금리는 혼합형(5년 고정, 약 1.2%)·주기형(5년 이상 고정, 약 0.6%) 유형에 따라 스트레스 금리 가산 범위가 다르며, 실제 금융사 심사 조건과 다를 수 있습니다. 참고용으로만 사용해 주세요.',
+      'DSR 스트레스 금리는 수도권·규제지역 3.0%, 지방 0.75%를 적용했어요. 고정금리는 혼합형·주기형 유형에 따라 스트레스 금리가 일부만 반영되며(여기서는 약 60%로 추정), 실제 금융사 심사 조건과 다를 수 있습니다. 참고용으로만 사용해 주세요.',
     ];
     return `
       <div class="group-label">꼭 확인해 주세요</div>
@@ -3649,7 +3668,7 @@
       + icon('info', 12)
       + '</button>'
       + '</div>'
-      + '<span class="breakdown-val' + dtiAppliedCls + '" data-limit-dti data-newborn-limit-dti>' + (Number.isFinite(safeDtiLimit) ? formatLimit(safeDtiLimit) : '미반영') + '</span>'
+      + '<span class="breakdown-val' + dtiAppliedCls + '" data-limit-dti data-newborn-limit-dti>' + formatDtiLimitText(safeDtiLimit, ltvLimit, maxLimit) + '</span>'
       + '</div>'
       + '</div>'
       + '<div class="limit-applied-note" data-limit-note data-newborn-limit-note>' + reasonText + '</div>'
@@ -3685,12 +3704,25 @@
       + '</table></div>';
   }
 
+  // DTI 한도가 LTV·상품 한도보다 크면 실제로 쓰이지 않는 큰 숫자라 '여유 있음'으로 보여준다.
+  function formatDtiLimitText(dtiLimit, ltvLimit, maxLimit) {
+    if (!Number.isFinite(dtiLimit)) return '미반영';
+    const binding = Math.min(Number(ltvLimit) || Infinity, Number(maxLimit) || Infinity);
+    if (Number.isFinite(binding) && dtiLimit > binding) return '여유 있음';
+    return formatLimit(dtiLimit);
+  }
+
+  let lastNbIncomeLimit = 20000;
+  function nbIncomeLimitLabel() {
+    return lastNbIncomeLimit === 13000 ? '13,000만 (외벌이 1.3억)' : '20,000만 (맞벌이 2억)';
+  }
+
   function buildNewbornFailHtml(income, asset, price, house, nbHouseOk, nbIncomeOk, nbAssetOk, nbPriceOk, tagsOnly,
                                  dHouseOk, dAssetOk, dIncomeOk, dPriceOk, dIncomeLimit, dPriceLimit,
                                  bHouseOk, bIncomeOk, bPriceOk, bIncomeLimit) {
     var failNb = [];
     if (!nbHouseOk)  failNb.push('주택상황 (' + house + ') — 무주택·생애최초·1주택(대환 목적)만 해당');
-    if (!nbIncomeOk) failNb.push('소득 ' + income.toLocaleString() + '만 > 20,000만 (2억)');
+    if (!nbIncomeOk) failNb.push('소득 ' + income.toLocaleString() + '만 > ' + nbIncomeLimitLabel());
     if (!nbAssetOk)  failNb.push('순자산 ' + asset + '억 > 5.11억');
     if (!nbPriceOk)  failNb.push('주택가격 ' + price + '억 > 9억');
     var failTags = failNb.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
@@ -3784,7 +3816,7 @@
     var paneNewborn = '';
     if (newbornOk) {
       paneNewborn = '<div class="tab-pane3' + (firstTab === 'newborn' ? ' active' : '') + '" id="pane3-newborn">'
-        + '<div class="newborn-hero"><div class="newborn-hero-badge">👶 신생아 특례 핵심 혜택</div><div class="newborn-hero-text">최저 1.8% 특례금리</div><div class="newborn-hero-sub">기본 5년 적용 · 추가 출산 시 1명당 5년 연장 (최장 15년)<br>시중 어디서도 볼 수 없는 파격적인 금리예요.</div>'
+        + '<div class="newborn-hero"><div class="newborn-hero-badge">👶 신생아 특례 핵심 혜택</div><div class="newborn-hero-text">내 소득구간 특례금리 ' + rateInfo.min + '~' + rateInfo.max + '%</div><div class="newborn-hero-sub">' + rateInfo.label + ' 구간 기준 · 특례금리 기본 5년 적용<br>추가 출산 시 1명당 5년 연장 (최장 15년)</div>'
         + productHeroMetricsHtml(rateInfo.min + '~' + rateInfo.max + '%', '<span class="room-sync-newborn">' + formatLimit(nbDisplayLimit) + '</span>') + '</div>'
         + '<div class="result-spacer-sm"></div>'
         + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30, income, household, region, nbDtiLimit, otherLoanInterest)
@@ -3792,7 +3824,7 @@
         + '<div class="group-label">충족 조건</div>'
         + '<div class="result-group"><div class="tag-section"><div class="tags">'
         + '<span class="tag pass">✓ 주택상황 (' + house + ')</span>'
-        + '<span class="tag pass">✓ 소득 ' + income.toLocaleString() + '만 ≤ 20,000만</span>'
+        + '<span class="tag pass">✓ 소득 ' + income.toLocaleString() + '만 ≤ ' + nbIncomeLimitLabel() + '</span>'
         + '<span class="tag pass">✓ 순자산 ' + asset + '억 ≤ 5.11억</span>'
         + '<span class="tag pass">✓ 주택가격 ' + price + '억 ≤ 9억</span>'
         + '</div></div></div>'
@@ -3812,7 +3844,7 @@
     var paneDidimdol = '';
     if (didimdolOk) {
       paneDidimdol = '<div class="tab-pane3' + (firstTab === 'didimdol' ? ' active' : '') + '" id="pane3-didimdol">'
-        + '<div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>'
+        + '<div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 주담대보다 낮은 정책 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>'
         + productHeroMetricsHtml(getDidimdolRateLabel(household, house), '<span class="room-sync-didimdol">' + formatLimit(dDisplayLimit) + '</span>') + '</div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)
@@ -3856,7 +3888,7 @@
     if (!newbornOk) {
       var failNbTags = [];
       if (!nbHouseOk)  failNbTags.push('주택상황 (' + house + ') — 무주택·생애최초·1주택(대환 목적)만 해당');
-      if (!nbIncomeOk) failNbTags.push('소득 ' + income.toLocaleString() + '만 > 20,000만 (2억)');
+      if (!nbIncomeOk) failNbTags.push('소득 ' + income.toLocaleString() + '만 > ' + nbIncomeLimitLabel());
       if (!nbAssetOk)  failNbTags.push('순자산 ' + asset + '억 > 5.11억');
       if (!nbPriceOk)  failNbTags.push('주택가격 ' + price + '억 > 9억');
       var nbFailTagsHtml = failNbTags.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
@@ -3991,7 +4023,7 @@
     if (ltvEl) ltvEl.className = 'breakdown-val' + (appliedValue === ltvLimit ? ' applied green' : '');
     if (maxEl) maxEl.className = 'breakdown-val' + (appliedValue === maxLimit ? ' applied green' : '');
     if (dtiEl) {
-      dtiEl.textContent = Number.isFinite(dtiLimit) ? formatLimit(dtiLimit) : '미반영';
+      dtiEl.textContent = formatDtiLimitText(dtiLimit, ltvLimit, maxLimit);
       dtiEl.className = 'breakdown-val' + (Number.isFinite(dtiLimit) && appliedValue === dtiLimit ? ' applied green' : '');
     }
     if (noteEl) {
@@ -4040,7 +4072,7 @@
     if (ltvEl) ltvEl.className = 'breakdown-val' + (appliedValue === ltvLimit ? ' applied' : '');
     if (maxEl) maxEl.className = 'breakdown-val' + (appliedValue === maxLimit ? ' applied' : '');
     if (dtiEl) {
-      dtiEl.textContent = Number.isFinite(dtiLimit) ? formatLimit(dtiLimit) : '미반영';
+      dtiEl.textContent = formatDtiLimitText(dtiLimit, ltvLimit, maxLimit);
       dtiEl.className = 'breakdown-val' + (Number.isFinite(dtiLimit) && appliedValue === dtiLimit ? ' applied' : '');
     }
     if (noteEl) {
@@ -4106,7 +4138,7 @@
     if (ltvEl) ltvEl.className = 'breakdown-val' + (appliedValue === ltvLimit ? ' applied nb' : '');
     if (maxEl) maxEl.className = 'breakdown-val' + (appliedValue === maxLimit ? ' applied nb' : '');
     if (dtiEl) {
-      dtiEl.textContent = Number.isFinite(dtiLimit) ? formatLimit(dtiLimit) : '미반영';
+      dtiEl.textContent = formatDtiLimitText(dtiLimit, ltvLimit, maxLimit);
       dtiEl.className = 'breakdown-val' + (Number.isFinite(dtiLimit) && appliedValue === dtiLimit ? ' applied nb' : '');
     }
     if (noteEl) {
@@ -4426,7 +4458,7 @@
   function getIncomeSummaryText() {
     const incomeValue = parseFloat(document.getElementById('income')?.value) || 0;
     const amountText = incomeValue > 0 ? incomeValue.toLocaleString() + '만원' : '미입력';
-    if (answers.household === '신혼') {
+    if (usesCoupleIncome()) {
       const coupleIncome = getCoupleIncomeValues();
       const applicantText = coupleIncome.applicantIncome === null ? '미입력' : `${coupleIncome.applicantIncome.toLocaleString()}만원`;
       const spouseText = coupleIncome.spouseIncome === null ? '미입력' : `${coupleIncome.spouseIncome.toLocaleString()}만원`;
@@ -4637,7 +4669,10 @@
 
     // 신생아 특례 자격
     let nbHouseOk  = house === '무주택' || house === '생애최초' || house === '1주택(대환)';
-    let nbIncomeOk = income <= 20000;
+    // 신생아 특례 소득: 외벌이 1.3억, 맞벌이(부부 모두 소득) 2억
+    const nbHasEarnerSplit = isNewborn && coupleIncome.applicantIncome !== null && coupleIncome.spouseIncome !== null;
+    let nbIncomeLimit = nbHasEarnerSplit && !(coupleIncome.applicantIncome > 0 && coupleIncome.spouseIncome > 0) ? 13000 : 20000;
+    let nbIncomeOk = income <= nbIncomeLimit;
     let nbAssetOk  = asset <= 5.11;
     let nbPriceOk  = price <= 9;
     let newbornOk  = isNewborn && nbHouseOk && nbIncomeOk && nbAssetOk && nbPriceOk;
@@ -4703,6 +4738,7 @@
       bogeumjariOk = Boolean(eligibility.bogeumjariOk);
       nbHouseOk = Boolean(eligibility.nbHouseOk);
       nbIncomeOk = Boolean(eligibility.nbIncomeOk);
+      nbIncomeLimit = readServerNumber(eligibility.nbIncomeLimit, nbIncomeLimit);
       nbAssetOk = Boolean(eligibility.nbAssetOk);
       nbPriceOk = Boolean(eligibility.nbPriceOk);
       dHouseOk = Boolean(eligibility.dHouseOk);
@@ -4733,6 +4769,7 @@
       bDtiLimit = readServerNumber(legacy.bDtiLimit, bDtiLimit);
     }
 
+    lastNbIncomeLimit = nbIncomeLimit;
     const dIncomePassText = dIncomePassedByIndividual
       ? `부부 중 1인 연소득 ${Math.min(coupleIncome.applicantIncome, coupleIncome.spouseIncome).toLocaleString()}만 ≤ 6,000만`
       : `부부합산 소득 ${income.toLocaleString()}만 ≤ ${dIncomeLimit.toLocaleString()}만`;
@@ -4788,7 +4825,7 @@
 
         <!-- 디딤돌 패널 -->
         <div class="tab-pane active" id="pane-didimdol">
-          <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>${productHeroMetricsHtml(getDidimdolRateLabel(household, house), `<span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span>`)}</div>
+          <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 주담대보다 낮은 정책 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>${productHeroMetricsHtml(getDidimdolRateLabel(household, house), `<span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span>`)}</div>
           <div class="result-spacer-sm"></div>
           ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)}
           <div class="result-spacer"></div>
@@ -4850,7 +4887,7 @@
             </div>
           </div>
         </div>
-        <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 어디에서도 볼 수 없는 파격적인 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>${productHeroMetricsHtml(getDidimdolRateLabel(household, house), `<span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span>`)}</div>
+        <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 주담대보다 낮은 정책 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>${productHeroMetricsHtml(getDidimdolRateLabel(household, house), `<span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span>`)}</div>
         <div class="result-spacer-sm"></div>
         ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)}
         <div class="result-spacer"></div>
@@ -5163,7 +5200,7 @@
     const faqs = [
       {
         q: '최대 얼마까지 빌릴 수 있나요?',
-        a: '최대 4억 원 이내입니다. (단, 2025년 6월 27일 이전 계약 건은 기존처럼 5억 원까지 가능합니다.)<br><br>LTV(주택담보대출비율)는 기본 70%이며, 생애최초 주택구입자도 70%가 적용됩니다. 규제지역은 일반 60%, 생애최초 70%가 적용됩니다.<br><br>LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 보다 자세한 사항은 기금e든든에서 확인이 필요합니다.'
+        a: '최대 4억 원 이내입니다. (단, 2025년 6월 27일 이전 계약 건은 기존처럼 5억 원까지 가능합니다.)<br><br>LTV(주택담보대출비율)는 기본 70%이며, 생애최초 주택구입자도 70%가 적용됩니다. 수도권·규제지역에서도 70%가 적용되고, 비수도권 생애최초는 80%까지 가능합니다.<br><br>LTV 계산은 생애최초와 규제지역을 반영해 자동 계산되며, 보다 자세한 사항은 기금e든든에서 확인이 필요합니다.'
       },
       {
         q: '소득과 자산 기준은 어떻게 되나요?',
@@ -5187,7 +5224,7 @@
       },
       {
         q: '중도상환수수료가 있나요?',
-        a: '3년 이내 상환 시 최대 <strong>1.2%</strong>의 수수료가 발생합니다.'
+        a: '대출 실행 후 3년 이내 상환 시 경과 일수에 따라 최대 <strong>0.6%</strong>의 수수료가 발생합니다. 다만 <strong>2026년 12월 31일까지</strong> 상환하는 원금은 수수료가 면제돼요.'
       }
     ];
     const items = faqs.map(function(f, i) {
@@ -5221,7 +5258,7 @@
       },
       {
         q: '조기 상환 수수료가 있나요?',
-        a: `네, 있어요. 대출 실행 후 <strong>3년 이내</strong>에 원금을 갚으면 경과 일수에 따라 <strong>최대 0.6%</strong>의 중도상환수수료가 부과돼요. 3년이 지난 뒤에는 수수료 없이 자유롭게 상환할 수 있어요.`
+        a: `네, 있어요. 대출 실행 후 <strong>3년 이내</strong>에 원금을 갚으면 경과 일수에 따라 <strong>최대 0.6%</strong>의 중도상환수수료가 부과돼요. 3년이 지난 뒤에는 수수료 없이 자유롭게 상환할 수 있어요.<br><br>디딤돌·신생아 특례 같은 주택도시기금 대출은 <strong>2026년 12월 31일까지</strong> 상환하는 원금에 대해 수수료가 면제돼요.`
       },
       {
         q: '계약 전에 정확한 대출 금액을 알 수 있나요?',

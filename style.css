@@ -7958,3 +7958,23 @@
   transform: scale(var(--scale-button-active));
   transition-duration: var(--motion-button-active);
 }
+
+/* 금액 입력칸 아래 "8억 5천만원" 표기 (amount-input.js) */
+.amount-hint {
+  display: none;
+  margin: 6px 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--accent);
+  text-align: right;
+}
+.amount-hint.is-visible { display: block; }
+.amount-hint::before { content: '= '; color: var(--label3); font-weight: 400; }
+.bank-form-row { flex-wrap: wrap; }
+.bank-form-row > .amount-hint {
+  flex-basis: 100%;
+  margin: -4px 4px 0 74px;
+  text-align: left;
+}
+.bank-input { min-width: 0; }

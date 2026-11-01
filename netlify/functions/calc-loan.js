@@ -240,7 +240,12 @@ function calculateFundLoan(input) {
     && Math.min(applicantIncome, spouseIncome) <= limit;
 
   const nbHouseOk = house === '무주택' || house === '생애최초' || house === '1주택(대환)';
-  const nbIncomeOk = income <= 20000;
+  // 신생아 특례 소득: 외벌이 1.3억, 맞벌이(부부 모두 소득) 2억. 부부 소득을 따로 받지 않은 경우(이전 저장값)는 2억 기준.
+  const nbHasEarnerSplit = isNewborn
+    && Number.isFinite(applicantIncome) && applicantIncome >= 0
+    && Number.isFinite(spouseIncome) && spouseIncome >= 0;
+  const nbIncomeLimit = nbHasEarnerSplit && !(applicantIncome > 0 && spouseIncome > 0) ? 13000 : 20000;
+  const nbIncomeOk = income <= nbIncomeLimit;
   const nbAssetOk = asset <= 5.11;
   const nbPriceOk = price <= 9;
   const newbornOk = isNewborn && nbHouseOk && nbIncomeOk && nbAssetOk && nbPriceOk;
@@ -297,7 +302,7 @@ function calculateFundLoan(input) {
 
   const failNb = [];
   if (!nbHouseOk) failNb.push(`주택상황 (${house}) — 무주택·생애최초·1주택(대환 목적)만 해당`);
-  if (!nbIncomeOk) failNb.push(`소득 ${income.toLocaleString()}만 > 20,000만 (2억)`);
+  if (!nbIncomeOk) failNb.push(`소득 ${income.toLocaleString()}만 > ${nbIncomeLimit === 13000 ? '13,000만 (외벌이 1.3억)' : '20,000만 (맞벌이 2억)'}`);
   if (!nbAssetOk) failNb.push(`순자산 ${asset}억 > 5.11억`);
   if (!nbPriceOk) failNb.push(`주택가격 ${price}억 > 9억`);
   const failD = failDReasons(dHouseOk, dAssetOk, dIncomeOk, dPriceOk, asset, income, dIncomeLimit, price, dPriceLimit, house);
@@ -318,6 +323,7 @@ function calculateFundLoan(input) {
       bogeumjariOk,
       nbHouseOk,
       nbIncomeOk,
+      nbIncomeLimit,
       nbAssetOk,
       nbPriceOk,
       dHouseOk,
@@ -400,6 +406,7 @@ function calculateFundLoan(input) {
       nbDtiLimit,
       nbHouseOk,
       nbIncomeOk,
+      nbIncomeLimit,
       nbAssetOk,
       nbPriceOk,
       dLtvLimit,

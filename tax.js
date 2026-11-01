@@ -12,6 +12,9 @@
   const DEFAULT_REGISTRATION_COST_WON = 500000;
   const DEFAULT_MOVING_COST_WON = 1000000;
 
+  const FIRST_HOME_RELIEF_MAX_WON = 2000000;
+  const FIRST_HOME_RELIEF_MAX_PRICE_EOK = 12;
+
   function toNumber(value, fallback = 0) {
     const num = Number(value);
     return Number.isFinite(num) ? num : fallback;
@@ -55,14 +58,20 @@
     const taxableWon = priceEok * WON_PER_EOK;
     const isOver85 = options.isOver85 === true;
     const profile = getAcquisitionProfile(options);
-    const acquisitionTax = roundWon(taxableWon * profile.rate);
+    const grossAcquisitionTax = roundWon(taxableWon * profile.rate);
+    // 생애최초 주택 취득세 감면(지방세특례제한법 §36의3): 12억 이하, 최대 200만원
+    const firstHomeRelief = options.isFirstHome === true && priceEok <= FIRST_HOME_RELIEF_MAX_PRICE_EOK && profile.label === '일반세율'
+      ? Math.min(grossAcquisitionTax, FIRST_HOME_RELIEF_MAX_WON) : 0;
+    const acquisitionTax = grossAcquisitionTax - firstHomeRelief;
     const localEducationTax = roundWon(taxableWon * profile.educationRate);
     const ruralSpecialTax = isOver85 ? roundWon(taxableWon * profile.ruralRate) : 0;
     const total = acquisitionTax + localEducationTax + ruralSpecialTax;
 
     return {
       priceEok,
-      basisLabel: `${profile.label}${isOver85 ? ' · 전용 85㎡ 초과' : ' · 전용 85㎡ 이하'}`,
+      basisLabel: `${profile.label}${isOver85 ? ' · 전용 85㎡ 초과' : ' · 전용 85㎡ 이하'}${firstHomeRelief > 0 ? ' · 생애최초 감면' : ''}`,
+      grossAcquisitionTax,
+      firstHomeRelief,
       acquisitionTax,
       localEducationTax,
       ruralSpecialTax,
