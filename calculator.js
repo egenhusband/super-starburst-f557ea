@@ -2527,6 +2527,8 @@
         const nodes = Array.from(resultCard.children).filter(node =>
           !node.matches('[data-result-tax-summary], .map-result-cta'));
         wrapInResultFold(resultCard, nodes, 'amount', '대출금액 · 기간 · 상환방식 바꿔보기');
+        // 접힌 영역과 부대비용 요약이 한 카드처럼 보이지 않도록 카드 배경을 둘로 나눈다(DOM 위치는 그대로).
+        resultCard.classList.add('is-split-card');
       }
     });
     syncResultConclusionCards();
