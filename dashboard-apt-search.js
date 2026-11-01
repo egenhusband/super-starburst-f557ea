@@ -52,7 +52,7 @@ async function fetchAptAreaPrices(kaptCode) {
   if (dashboardAptAreaPricesCache.has(kaptCode)) return dashboardAptAreaPricesCache.get(kaptCode);
 
   try {
-    const res = await fetch(`${DASHBOARD_APT_AREA_PRICES_BASE_URL}/${kaptCode}.json`, { cache: 'no-store' });
+    const res = await fetch(`${DASHBOARD_APT_AREA_PRICES_BASE_URL}/${kaptCode}.json`, { cache: 'no-cache' });
     if (!res.ok) {
       dashboardAptAreaPricesCache.set(kaptCode, null);
       return null;
@@ -692,14 +692,14 @@ async function fetchDashboardAptSearchIndex() {
   if (cached?.entries?.length) return cached.entries;
 
   const [schoolMetaRes, stationMetaRes, officialPriceRes, convenienceMetaRes, recommendationRes, gradeIndexRes, codeMapRes, householdsRes, trades] = await Promise.all([
-    fetch(DASHBOARD_APT_SCHOOL_META_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_STATION_META_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_OFFICIAL_PRICE_META_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_CONVENIENCE_META_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_RECOMMEND_INDEX_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_GRADE_INDEX_URL, { cache: 'no-store' }).catch(() => null),
-    fetch(DASHBOARD_APT_CODE_MAP_URL, { cache: 'no-store' }),
-    fetch(DASHBOARD_APT_HOUSEHOLDS_URL, { cache: 'no-store' }),
+    fetch(DASHBOARD_APT_SCHOOL_META_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_STATION_META_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_OFFICIAL_PRICE_META_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_CONVENIENCE_META_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_RECOMMEND_INDEX_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_GRADE_INDEX_URL, { cache: 'no-cache' }).catch(() => null),
+    fetch(DASHBOARD_APT_CODE_MAP_URL, { cache: 'no-cache' }),
+    fetch(DASHBOARD_APT_HOUSEHOLDS_URL, { cache: 'no-cache' }),
     preloadAptTrades(),
   ]);
 

@@ -173,8 +173,19 @@ function getCache(key, ttl = CACHE_TTL) {
   } catch { return null; }
 }
 
+// localStorage는 도메인당 약 5MB라 대용량 데이터는 저장하지 않는다.
+// (대용량 JSON은 브라우저 HTTP 캐시 + ETag 재검증으로 재사용됨)
+const LOCAL_CACHE_MAX_CHARS = 1_000_000;
+
 function setCache(key, data) {
-  try { localStorage.setItem('db_' + key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+  try {
+    const raw = JSON.stringify({ ts: Date.now(), data });
+    if (raw.length > LOCAL_CACHE_MAX_CHARS) {
+      localStorage.removeItem('db_' + key);
+      return;
+    }
+    localStorage.setItem('db_' + key, raw);
+  } catch {}
 }
 
 function getMarketBundleCache() {
@@ -251,8 +262,8 @@ async function loadTopComplexMetaIndex() {
   if (topComplexMetaPromise) return topComplexMetaPromise;
 
   topComplexMetaPromise = Promise.all([
-    fetch(TOP_COMPLEX_HOUSEHOLDS_URL, { cache: 'no-store' }),
-    fetch(TOP_COMPLEX_SCHOOL_META_URL, { cache: 'no-store' }),
+    fetch(TOP_COMPLEX_HOUSEHOLDS_URL, { cache: 'no-cache' }),
+    fetch(TOP_COMPLEX_SCHOOL_META_URL, { cache: 'no-cache' }),
   ]).then(async ([householdsRes, schoolsRes]) => {
     if (!householdsRes.ok || !schoolsRes.ok) throw new Error('TOP1 단지 메타 데이터를 불러오지 못했어요.');
     const [households, schools] = await Promise.all([householdsRes.json(), schoolsRes.json()]);
@@ -1556,7 +1567,7 @@ async function fetchAptTradesSummary() {
     return cached;
   }
 
-  const res = await fetch(`${APT_TRADES_DATA_URL}?v=${APT_TRADES_DATA_VERSION}`, { cache: 'no-store' });
+  const res = await fetch(`${APT_TRADES_DATA_URL}?v=${APT_TRADES_DATA_VERSION}`, { cache: 'no-cache' });
   if (!res.ok) throw new Error('실거래 데이터를 불러오지 못했어요.');
   const data = await res.json();
   setAptTradesCache(data);
