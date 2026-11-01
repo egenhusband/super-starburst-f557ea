@@ -8059,3 +8059,19 @@ body.result-conclusion-in-view .result-floating-summary {
   pointer-events: none;
 }
 .result-conclusion-grid { grid-template-columns: 0.85fr 0.95fr 1.3fr; }
+/* 대출금액·기간·상환방식 접기와 부대비용 요약을 별도 카드로 분리 */
+.rate-calc-card--result.is-split-card {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.rate-calc-card--result.is-split-card > .result-fold {
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-3) 76%, transparent);
+  border: 1px solid rgba(255,255,255,0.07);
+  padding: 14px;
+}
+.rate-calc-card--result.is-split-card > [data-result-tax-summary] {
+  margin-top: 12px;
+  border-radius: 18px;
+}
