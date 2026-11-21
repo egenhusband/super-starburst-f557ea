@@ -229,7 +229,7 @@ function calculateFundLoan(input) {
   const region = input.region || '';
   const isNewborn = children === '신생아';
   const incomeProfile = normalizeIncomeProfile(input);
-  const marriageIncomePolicyActive = Date.now() >= new Date('2026-10-01T00:00:00+09:00').getTime();
+  const marriageIncomePolicyActive = Date.now() >= new Date('2026-10-19T00:00:00+09:00') // 신혼 1인 소득 기준: 2026.10.19 신규 신청분부터.getTime();
   const hasCoupleIncome = household === '신혼'
     && Number.isFinite(applicantIncome)
     && applicantIncome >= 0

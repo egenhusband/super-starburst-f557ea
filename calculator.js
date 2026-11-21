@@ -8,7 +8,8 @@
   let pendingFundEditFeedback = false;
   let pendingRecentCalculation = null;
   const answers = { household: null, house: null, children: null, region: null, incomeType: 'salary', businessPeriod: null };
-  const MARRIAGE_INCOME_POLICY_EFFECTIVE_DATE = '2026-10-01T00:00:00+09:00';
+  // 신혼부부 '부부 중 1인 소득' 기준(8·13 대책) — 보금자리론·디딤돌 2026.10.19 신규 신청분부터
+  const MARRIAGE_INCOME_POLICY_EFFECTIVE_DATE = '2026-10-19T00:00:00+09:00';
   let regionSelection = { province: '', city: '', detail: '', locationLabel: '', uncertain: false };
 
   const REGION_PROVINCES = [
@@ -1136,9 +1137,13 @@
   // 2025.10.16~ 수도권·규제지역 주담대 3.0%, 지방(비규제) 1.5%의 50% 반영(0.75%).
   // 고정형(혼합형·주기형)은 금리유형별로 일부만 반영 — 혼합형 약 80%·주기형 약 40%의 평균(60%)으로 추정.
   // 근거: 금융위 10·15 가계부채 대책, 은행연합회 2026년 하반기 운영기준
+  // ⚠️ 지방 2단계(0.75%) 유예는 2026.12.31까지. 2027년 운영기준 발표되면 DSR_STRESS_RATE_LOCAL 재확인.
   const DSR_STRESS_RATE_METRO = 3.0;
   const DSR_STRESS_RATE_LOCAL = 0.75;
   const DSR_STRESS_FIXED_RATIO = 0.6;
+  // DSR 시뮬레이션용 참고 금리 — 한국은행 예금은행 주담대 신규취급액 가중평균(2026년 9월 4.88%) 반올림.
+  // 매월 말 한은 '금융기관 가중평균금리' 발표 시 갱신.
+  const BANK_DSR_REFERENCE_RATE = 4.9;
   function getDsrStressRate() {
     const base = bankRegion === 'M' ? DSR_STRESS_RATE_METRO : DSR_STRESS_RATE_LOCAL;
     const onlyFixed = bankFilter.rate.includes('F') && !bankFilter.rate.includes('C');
@@ -1279,7 +1284,7 @@
 
     if (dsrMsg && income > 0 && actualLoanVal > 1) {
       const stressRate = getDsrStressRate();
-      const avgRate    = 5.0; // 참고용 평균금리 (전월 평균 기준 추정)
+      const avgRate    = BANK_DSR_REFERENCE_RATE;
       const loanYears  = years > 0 ? years : 30;
       const dsrMax     = calcDsrMaxLoan(income, avgRate, loanYears);
       const dsrMaxLoan = Math.min(dsrMax, maxLoan); // LTV와 DSR 중 낮은 값
