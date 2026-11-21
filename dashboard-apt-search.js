@@ -807,6 +807,7 @@ function renderDashboardAptSearchBar() {
       <button class="db-apt-search-trigger" type="button" onclick="showAptSearchScreen()">
         <span class="db-apt-search-trigger-placeholder">${escapeHtml(getDashboardAptRegionLabel())} 단지명 또는 지역명으로 검색</span>
       </button>
+      <button id="dbMapCommuteButton" class="db-map-filter-trigger db-map-commute-trigger" type="button" onclick="openDashboardMapCommuteFilter()" aria-controls="dbMapFilterPanel">출퇴근</button>
       <button id="dbMapFilterButton" class="db-map-filter-trigger" type="button" onclick="toggleDashboardMapFilterPanel()" aria-expanded="false" aria-controls="dbMapFilterPanel">필터</button>
     </div>
   `;

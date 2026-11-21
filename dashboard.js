@@ -127,7 +127,7 @@ let dashboardApartmentMapState = {
   items: [],
   scopeItems: null,
   scopeLevel: null,
-  filters: { grades: new Set(DASHBOARD_MAP_GRADE_ORDER), minScore: null, maxAveragePrice: null },
+  filters: { grades: new Set(DASHBOARD_MAP_GRADE_ORDER), minScore: null, maxAveragePrice: null, ...(typeof getMapInsightsDefaultFilters === 'function' ? getMapInsightsDefaultFilters() : {}) },
   filterDraft: null,
   railPolylines: [],
   railStationDots: [],
@@ -687,7 +687,8 @@ function getDashboardMapFilteredItems(items = []) {
     const displayedPrice = getDashboardMapRepresentativePrice(item);
     const priceMatches = !Number.isFinite(maxAveragePrice) || maxAveragePrice <= 0
       || (Number.isFinite(displayedPrice) && displayedPrice > 0 && displayedPrice <= maxAveragePrice);
-    return gradeMatches && scoreMatches && priceMatches;
+    const insightsMatch = typeof mapInsightsItemPasses === 'function' ? mapInsightsItemPasses(item, filters) : true;
+    return gradeMatches && scoreMatches && priceMatches && insightsMatch;
   });
 }
 
@@ -701,11 +702,12 @@ function getDashboardMapVisibleItems(items = dashboardApartmentMapState.items) {
 }
 
 function cloneDashboardMapFilters(filters) {
-  return {
+  const cloned = {
     grades: new Set(filters.grades),
     minScore: Number(filters.minScore) || null,
     maxAveragePrice: Number(filters.maxAveragePrice) || null,
   };
+  return typeof copyMapInsightsFilters === 'function' ? copyMapInsightsFilters(cloned, filters) : cloned;
 }
 
 function getDashboardMapFilterSummary(filters = dashboardApartmentMapState.filters) {
@@ -715,6 +717,7 @@ function getDashboardMapFilterSummary(filters = dashboardApartmentMapState.filte
   const parts = [gradeText];
   if (Number(minScore) > 0) parts.push(`${minScore}점+`);
   if (Number(maxAveragePrice) > 0) parts.push(`${formatDashboardMapPrice(maxAveragePrice)} 이하`);
+  if (typeof mapInsightsSummaryParts === 'function') parts.push(...mapInsightsSummaryParts(filters));
   return parts.join(' · ');
 }
 
@@ -738,11 +741,13 @@ function updateDashboardMapFilterUi() {
   const { grades, minScore, maxAveragePrice } = editingFilters;
   const hasAppliedPriceFilter = Number(appliedFilters.maxAveragePrice) > 0;
   if (trigger) {
-    trigger.classList.toggle('is-filtered', appliedFilters.grades.size !== DASHBOARD_MAP_GRADE_ORDER.length || Number(appliedFilters.minScore) > 0 || hasAppliedPriceFilter);
+    const hasInsightsFilter = typeof mapInsightsIsFiltered === 'function' && mapInsightsIsFiltered(appliedFilters);
+    trigger.classList.toggle('is-filtered', appliedFilters.grades.size !== DASHBOARD_MAP_GRADE_ORDER.length || Number(appliedFilters.minScore) > 0 || hasAppliedPriceFilter || hasInsightsFilter);
     trigger.textContent = '필터';
   }
   if (summary) summary.textContent = getDashboardMapFilterSummary(editingFilters);
   if (!panel) return;
+  if (typeof mapInsightsUpdateFilterUi === 'function') mapInsightsUpdateFilterUi(editingFilters);
 
   panel.querySelectorAll('[data-map-grade]').forEach(button => {
     const grade = button.dataset.mapGrade;
@@ -841,6 +846,9 @@ function resetDashboardMapFilters() {
     grades: new Set(DASHBOARD_MAP_GRADE_ORDER),
     minScore: null,
     maxAveragePrice: null,
+    policyMax: null,
+    commuteDest: dashboardApartmentMapState.filters.commuteDest || null, // 출근지는 저장값 유지, 시간 제한만 해제
+    commuteMax: null,
   };
   dashboardApartmentMapState.filters = cloneDashboardMapFilters(resetFilters);
   dashboardApartmentMapState.filterDraft = cloneDashboardMapFilters(resetFilters);
@@ -974,6 +982,7 @@ function createDashboardMapOverlay(kakao, item, mode) {
         <span class="db-map-apartment-price">${formatDashboardMapPrice(getDashboardMapRepresentativePrice(item))}</span>
         ${item.grade ? `<span class="db-map-apartment-grade">${escapeHtml(item.grade)}${Number(item.displayScore) ? ` ${Number(item.displayScore)}` : ''}</span>` : ''}
       </span>`}`;
+    if (typeof decorateMapApartmentOverlay === 'function') decorateMapApartmentOverlay(overlay, item);
     overlay.addEventListener('click', event => {
       event.stopPropagation();
       closeDashboardMapFilterPanel();
@@ -982,7 +991,7 @@ function createDashboardMapOverlay(kakao, item, mode) {
       openDashboardMapApartment(item);
     });
   } else {
-    overlay.innerHTML = `<strong>${escapeHtml(item.label)}</strong><span>단지 ${Number(item.count || 0).toLocaleString()}개</span>`;
+    overlay.innerHTML = `<strong>${escapeHtml(item.label)}</strong><span>단지 ${Number(item.count || 0).toLocaleString()}개</span>${typeof buildMapAreaOverlayExtraHtml === 'function' ? buildMapAreaOverlayExtraHtml(item) : ''}`;
     overlay.addEventListener('click', event => {
       event.stopPropagation();
       const nextLevel = mode === 'region' ? 10 : mode === 'city' ? 8 : mode === 'district' ? 7 : 3;
@@ -1108,6 +1117,7 @@ function openDashboardMapApartment(item) {
       <span>${Number(item.householdCount || 0).toLocaleString()}세대</span>
       <span>최근 ${price} · ${escapeHtml(latestDate)}</span>
     </div>
+    ${typeof buildMapApartmentSheetExtraHtml === 'function' ? buildMapApartmentSheetExtraHtml(item) : ''}
     <button class="db-map-sheet-action" type="button" onclick="openDashboardMapApartmentDetail('${escapeHtml(item.kaptCode || '')}')">입지 분석 보기 <span>→</span></button>
   `;
   sheet.classList.add('is-visible');
@@ -1154,6 +1164,10 @@ function initDashboardApartmentMap() {
       dashboardApartmentMapState.items = items;
       renderDashboardApartmentMap(items);
       setDashboardApartmentMapLoading(false);
+      // 저장된 출근지가 있으면 노선 데이터를 불러와 단지에 출근 시간을 표시한다
+      if (dashboardApartmentMapState.filters.commuteDest && typeof loadMapCommuteGraph === 'function') {
+        loadMapCommuteGraph().then(() => applyDashboardMapFilters()).catch(() => {});
+      }
     })
     .catch(() => {
       setDashboardApartmentMapLoading(false);
@@ -1720,6 +1734,7 @@ function initDashboard() {
           <span title="역 위치가 확정되지 않은 사업은 노선 축만 표시해요"><i class="is-planning"></i>계획·설계</span>
           <span><b class="is-new-station"></b>신설 예정역</span>
         </div>
+        ${typeof buildMapPolicyControlsHtml === 'function' ? buildMapPolicyControlsHtml() : ''}
         <div id="dbApartmentMapLoading" class="db-map-loading" role="status" aria-live="polite" aria-hidden="true">
           <span class="db-map-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
           <span>단지 정보를 불러오는 중</span>
@@ -1744,6 +1759,7 @@ function initDashboard() {
               <button type="button" data-map-min-score="80" class="db-map-filter-chip" onclick="setDashboardMapMinimumScore(80)">80점+</button>
             </div>
           </div>
+          ${typeof buildMapInsightsFilterGroupsHtml === 'function' ? buildMapInsightsFilterGroupsHtml() : ''}
           <div class="db-map-filter-group db-map-price-filter">
             <div class="db-map-price-filter-heading"><span>최근 실거래가 최대</span><strong id="dbMapMaxAveragePriceValue">전체</strong></div>
             <input id="dbMapMaxAveragePrice" class="db-map-price-range" type="range" min="0" max="42" step="1" value="42" oninput="setDashboardMapMaximumAveragePrice(this.value)" aria-label="최근 실거래가 최대 가격">

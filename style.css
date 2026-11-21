@@ -8075,3 +8075,95 @@ body.result-conclusion-in-view .result-floating-summary {
   margin-top: 12px;
   border-radius: 18px;
 }
+
+/* ── 지도: 정책대출 가격선 · 직주근접 (map-insights.js) ── */
+.db-map-policy-toggle {
+  position: absolute;
+  left: 32px;
+  bottom: 48px;
+  z-index: 4;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px;
+  background: rgba(20,20,21,.82);
+  color: rgba(255,255,255,.86);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 720;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.db-map-policy-toggle span { margin-left: 3px; color: #2dd4bf; }
+.db-map-policy-toggle.is-off { color: rgba(255,255,255,.5); }
+.db-map-policy-toggle.is-off span { color: rgba(255,255,255,.38); }
+.db-map-policy-legend {
+  position: absolute;
+  left: 32px;
+  bottom: 80px;
+  z-index: 4;
+  display: grid;
+  gap: 5px;
+  max-width: calc(100% - 64px);
+  padding: 8px 10px 7px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 11px;
+  background: rgba(18,20,22,.84);
+  color: rgba(255,255,255,.72);
+  font-size: 9px;
+  font-weight: 650;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(6px);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.db-map-policy-legend.is-visible { opacity: 1; transform: translateY(0); }
+.db-map-policy-legend-items { display: grid; grid-template-columns: repeat(2, auto); gap: 4px 10px; }
+.db-map-policy-legend span { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.db-map-policy-legend i { width: 8px; height: 8px; border-radius: 3px; }
+.db-map-policy-legend small { color: rgba(255,255,255,.4); font-size: 8px; font-weight: 520; }
+.db-map-apartment-overlay.has-policy-tier {
+  border-top: 3px solid var(--policy-tier-color, transparent);
+  box-shadow: 0 8px 20px rgba(0,0,0,.22), inset 0 0 0 1px color-mix(in srgb, var(--policy-tier-color) 26%, transparent);
+}
+.db-map-apartment-overlay.has-commute .db-map-area-overlay-top { color: #7dd3fc; font-weight: 760; }
+.db-map-area-overlay-policy { color: #2dd4bf !important; font-weight: 700; }
+.db-map-sheet-policy {
+  display: grid;
+  gap: 3px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--policy-tier-color);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--policy-tier-color) 10%, var(--surface-3));
+}
+.db-map-sheet-policy b { color: var(--policy-tier-color); font-size: 12px; }
+.db-map-sheet-policy span { color: var(--label2); font-size: 11px; line-height: 1.45; }
+.db-map-sheet-commute { margin-top: 8px; color: var(--label2); font-size: 12px; }
+.db-map-sheet-commute b { color: #7dd3fc; }
+.db-map-sheet-commute small { color: var(--label3); font-size: 10px; }
+.db-map-filter-panel { max-height: calc(100% - 48px); overflow-y: auto; overscroll-behavior: contain; }
+.db-map-filter-group > span small { color: var(--label3); font-size: 9px; font-weight: 520; }
+.db-map-commute-select {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 10px;
+  background: rgba(255,255,255,.04);
+  color: var(--label1);
+  font: inherit;
+  font-size: 12px;
+}
+.db-map-filter-chips.is-disabled { opacity: .4; }
+.db-map-commute-note { margin: 0; color: var(--label3); font-size: 9px; line-height: 1.4; }
+.db-map-commute-trigger { min-width: 64px; }
+/* 출퇴근 버튼이 추가돼 검색 안내문이 두 줄로 꺾이지 않도록 */
+.db-apt-search-controls .db-apt-search-trigger { min-width: 0; }
+.db-apt-search-controls .db-apt-search-trigger-placeholder { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.db-apt-search-controls .db-map-commute-trigger { min-width: 0; padding: 0 12px; }
+/* 단지 시트·필터 패널이 열려 있으면 정책대출 범례를 숨긴다 */
+.db-apartment-map-wrap:has(.db-map-selection-sheet.is-visible) .db-map-policy-legend,
+.db-apartment-map-wrap:has(.db-map-filter-panel.is-visible) .db-map-policy-legend,
+.db-apartment-map-wrap:has(.db-map-selection-sheet.is-visible) .db-map-policy-toggle { opacity: 0; pointer-events: none; }
