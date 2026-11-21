@@ -214,6 +214,7 @@ function buildMapCommuteGraph(payload) {
   const nameToIds = new Map();
   const adjacency = new Map();
   const displayNames = new Map(); // token → 화면 표기용 역 이름(괄호 부기 제거)
+  const linesByToken = new Map();  // token → Set(노선명)
   (payload?.stations || []).forEach(station => {
     stationMap.set(station.id, station);
     // "판교(판교테크노밸리)"의 stationNameNormalized는 "판교판교테크노밸리"라서, 괄호를 뗀 이름도 함께 등록한다
@@ -228,6 +229,8 @@ function buildMapCommuteGraph(payload) {
     const plainName = String(station.stationName || '').replace(/\([^)]*\)/g, '').trim();
     const plainToken = normalizeMapStationToken(plainName);
     if (plainName && !displayNames.has(plainToken)) displayNames.set(plainToken, plainName);
+    if (!linesByToken.has(plainToken)) linesByToken.set(plainToken, new Set());
+    linesByToken.get(plainToken).add(station.lineName);
   });
   const connect = (from, to, minutes) => {
     if (!adjacency.has(from)) adjacency.set(from, []);
@@ -240,7 +243,10 @@ function buildMapCommuteGraph(payload) {
     connect(edge.to, edge.from, minutes);
   });
   const stationNames = [...displayNames.values()].sort((a, b) => a.localeCompare(b, 'ko'));
-  return { stationMap, nameToIds, adjacency, stationNames };
+  const stationList = [...displayNames.entries()].map(([token, name]) => ({
+    token, name, lines: [...(linesByToken.get(token) || [])],
+  })).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  return { stationMap, nameToIds, adjacency, stationNames, stationList };
 }
 
 function loadMapCommuteGraph() {
@@ -435,7 +441,7 @@ function setDashboardMapCommuteMax(minutes) {
 // 검색바 옆 "출퇴근" 버튼 — 필터 패널을 열고 출퇴근 영역으로 스크롤
 function openDashboardMapCommuteFilter() {
   if (typeof openDashboardMapFilterPanel === 'function') openDashboardMapFilterPanel();
-  loadMapCommuteGraph().then(populateMapCommuteStationOptions).catch(() => {});
+  loadMapCommuteGraph().catch(() => {});
   window.setTimeout(() => {
     document.getElementById('dbMapCommuteGroup')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, 60);
@@ -451,13 +457,15 @@ function buildMapInsightsFilterGroupsHtml() {
     </div>
     <div class="db-map-filter-group db-map-commute-group" id="dbMapCommuteGroup">
       <span>직주근접 <small>(지하철 + 도보 추정)</small></span>
-      <select id="dbMapCommuteDest" class="db-map-commute-select" onfocus="loadMapCommuteGraph().then(populateMapCommuteStationOptions).catch(() => {})" onchange="setDashboardMapCommuteDest(this.value)" aria-label="출근지 선택">
-        <option value="">출근지 선택 안 함</option>
-        <optgroup label="주요 업무지구">
-          ${MAP_COMMUTE_PRESETS.map(preset => `<option value="${preset.key}">${preset.label}</option>`).join('')}
-        </optgroup>
-        <optgroup id="dbMapCommuteStationGroup" label="역으로 직접 선택"></optgroup>
-      </select>
+      <div class="db-map-filter-chips" id="dbMapCommutePresetChips">
+        ${MAP_COMMUTE_PRESETS.map(preset => `<button type="button" data-map-commute-dest="${preset.key}" class="db-map-filter-chip" onclick="toggleDashboardMapCommuteDest('${preset.key}')">${preset.label}</button>`).join('')}
+      </div>
+      <div class="db-map-commute-search">
+        <input id="dbMapCommuteSearch" type="search" autocomplete="off" placeholder="다른 역은 이름으로 검색 (예: 홍대입구)" aria-label="출근하는 역 검색"
+          onfocus="loadMapCommuteGraph().catch(() => {})" oninput="renderMapCommuteSuggestions(this.value)">
+        <div id="dbMapCommuteSuggest" class="db-map-commute-suggest" role="listbox"></div>
+      </div>
+      <div id="dbMapCommuteCustom" class="db-map-commute-custom" hidden></div>
       <div class="db-map-filter-chips" id="dbMapCommuteMaxChips">
         ${MAP_COMMUTE_MAX_OPTIONS.map(min => `<button type="button" data-map-commute-max="${min}" class="db-map-filter-chip" onclick="setDashboardMapCommuteMax(${min})">${min}분 이내</button>`).join('')}
       </div>
@@ -465,17 +473,45 @@ function buildMapInsightsFilterGroupsHtml() {
     </div>`;
 }
 
-function populateMapCommuteStationOptions() {
-  const group = document.getElementById('dbMapCommuteStationGroup');
-  if (!group || !mapCommuteGraph || group.dataset.filled === '1') return;
-  group.innerHTML = mapCommuteGraph.stationNames
-    .map(name => `<option value="station:${mapInsightsEscape(name)}">${mapInsightsEscape(name)}역</option>`)
-    .join('');
-  group.dataset.filled = '1';
-  const select = document.getElementById('dbMapCommuteDest');
-  const draft = typeof dashboardApartmentMapState !== 'undefined'
-    ? (dashboardApartmentMapState.filterDraft || dashboardApartmentMapState.filters) : null;
-  if (select && draft?.commuteDest) select.value = draft.commuteDest;
+// 업무지구 칩: 다시 누르면 선택 해제
+function toggleDashboardMapCommuteDest(destKey) {
+  const draft = getMapInsightsDraft();
+  setDashboardMapCommuteDest(draft?.commuteDest === destKey ? null : destKey);
+}
+
+function getMapCommuteStationMatches(query, limit = 6) {
+  if (!mapCommuteGraph) return [];
+  const token = normalizeMapStationToken(query);
+  if (!token) return [];
+  const prefix = [];
+  const partial = [];
+  mapCommuteGraph.stationList.forEach(station => {
+    if (station.token.startsWith(token)) prefix.push(station);
+    else if (station.token.includes(token)) partial.push(station);
+  });
+  return [...prefix, ...partial].slice(0, limit);
+}
+
+function renderMapCommuteSuggestions(query) {
+  const box = document.getElementById('dbMapCommuteSuggest');
+  if (!box) return;
+  if (!String(query || '').trim()) { box.innerHTML = ''; return; }
+  if (!mapCommuteGraph) {
+    box.innerHTML = '<p class="db-map-commute-suggest-empty">역 목록을 불러오는 중이에요</p>';
+    loadMapCommuteGraph().then(() => renderMapCommuteSuggestions(document.getElementById('dbMapCommuteSearch')?.value)).catch(() => {});
+    return;
+  }
+  const matches = getMapCommuteStationMatches(query);
+  box.innerHTML = matches.length
+    ? matches.map(station => `<button type="button" role="option" onclick="pickMapCommuteStation('${mapInsightsEscape(station.name)}')"><strong>${mapInsightsEscape(station.name)}역</strong><span>${mapInsightsEscape(station.lines.join(' · '))}</span></button>`).join('')
+    : '<p class="db-map-commute-suggest-empty">노선 데이터에 없는 역이에요. 가까운 다른 역으로 검색해 주세요.</p>';
+}
+
+function pickMapCommuteStation(name) {
+  const input = document.getElementById('dbMapCommuteSearch');
+  if (input) input.value = '';
+  renderMapCommuteSuggestions('');
+  setDashboardMapCommuteDest(`station:${name}`);
 }
 
 function mapInsightsUpdateFilterUi(filters) {
@@ -486,13 +522,19 @@ function mapInsightsUpdateFilterUi(filters) {
     button.classList.toggle('is-selected', selected);
     button.setAttribute('aria-pressed', selected ? 'true' : 'false');
   });
-  const select = document.getElementById('dbMapCommuteDest');
-  if (select) {
-    const dest = filters?.commuteDest || '';
-    if (dest.startsWith('station:') && ![...select.options].some(option => option.value === dest)) {
-      loadMapCommuteGraph().then(populateMapCommuteStationOptions).catch(() => {});
-    }
-    select.value = dest;
+  const dest = filters?.commuteDest || '';
+  panel.querySelectorAll('[data-map-commute-dest]').forEach(button => {
+    const selected = button.dataset.mapCommuteDest === dest;
+    button.classList.toggle('is-selected', selected);
+    button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
+  const custom = document.getElementById('dbMapCommuteCustom');
+  if (custom) {
+    const isStation = dest.startsWith('station:');
+    custom.hidden = !isStation;
+    custom.innerHTML = isStation
+      ? `<span>출근역</span><strong>${mapInsightsEscape(dest.slice('station:'.length))}역</strong><button type="button" onclick="setDashboardMapCommuteDest(null)" aria-label="출근역 선택 해제">해제</button>`
+      : '';
   }
   const chips = document.getElementById('dbMapCommuteMaxChips');
   chips?.classList.toggle('is-disabled', !filters?.commuteDest);

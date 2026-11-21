@@ -5254,6 +5254,13 @@
       }
     } catch (e) { /* CTA 실패는 결과 표시에 영향 없음 */ }
 
+    // ── 월세 vs 매수 비교 진입 (정책대출 결과가 있을 때) ──
+    if (hasFundResult && typeof buildRentVsBuyEntryHtml === 'function') {
+      const anchors = Array.from(resultContent.querySelectorAll('.map-result-cta'));
+      if (anchors.length) anchors.forEach(anchor => anchor.insertAdjacentHTML('afterend', buildRentVsBuyEntryHtml()));
+      else resultContent.querySelector('.btn-restart')?.insertAdjacentHTML('beforebegin', buildRentVsBuyEntryHtml());
+    }
+
     try { enhanceResultLayout(resultContent); } catch (e) { console.warn('[result] summary layout skipped:', e); }
 
     resetResultScroll();
