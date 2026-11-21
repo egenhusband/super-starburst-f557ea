@@ -388,7 +388,7 @@ function mapInsightsItemPasses(item, filters) {
   const commuteMax = Number(filters?.commuteMax);
   if (filters?.commuteDest && Number.isFinite(commuteMax) && commuteMax > 0) {
     if (!mapCommuteGraph) {
-      // 그래프가 아직 없으면 불러온 뒤 다시 그린다 (그 사이엔 통과)
+      // 노선 데이터를 아직 못 받았으면 받은 뒤 다시 그린다 (그 사이엔 통과)
       loadMapCommuteGraph().then(() => {
         if (typeof applyDashboardMapFilters === 'function') applyDashboardMapFilters();
       }).catch(() => {});
@@ -400,83 +400,95 @@ function mapInsightsItemPasses(item, filters) {
   return true;
 }
 
+// 필터 버튼의 '적용됨' 표시·요약에는 출퇴근을 넣지 않는다 (출퇴근 버튼이 따로 상태를 보여줌)
 function mapInsightsIsFiltered(filters) {
-  return Number(filters?.policyMax) > 0 || (Boolean(filters?.commuteDest) && Number(filters?.commuteMax) > 0);
+  return Number(filters?.policyMax) > 0;
 }
+function mapInsightsSummaryParts() { return []; }
+function mapInsightsUpdateFilterUi() { syncMapCommuteSheetUi(); }
 
-function mapInsightsSummaryParts(filters) {
-  const parts = [];
-  const policy = MAP_POLICY_FILTER_OPTIONS.find(option => option.value && option.value === Number(filters?.policyMax));
-  if (policy) parts.push(policy.label);
-  const dest = getMapCommuteDestination(filters?.commuteDest);
-  if (dest && Number(filters?.commuteMax) > 0) parts.push(`${dest.label} ${filters.commuteMax}분 내`);
-  return parts;
-}
-
-function setDashboardMapPolicyMax(value) {
-  const draft = getMapInsightsDraft();
-  if (!draft) return;
-  draft.policyMax = Number(value) || null;
-  if (typeof updateDashboardMapFilterUi === 'function') updateDashboardMapFilterUi();
-}
-
-function setDashboardMapCommuteDest(destKey) {
-  const draft = getMapInsightsDraft();
-  if (!draft) return;
-  draft.commuteDest = destKey || null;
-  if (draft.commuteDest && !Number(draft.commuteMax)) draft.commuteMax = 45;
-  if (!draft.commuteDest) draft.commuteMax = null;
-  saveMapCommuteDest(draft.commuteDest);
-  if (draft.commuteDest) loadMapCommuteGraph().catch(() => {});
-  if (typeof updateDashboardMapFilterUi === 'function') updateDashboardMapFilterUi();
-}
-
-function setDashboardMapCommuteMax(minutes) {
-  const draft = getMapInsightsDraft();
-  if (!draft) return;
-  draft.commuteMax = Number(minutes) || null;
-  if (typeof updateDashboardMapFilterUi === 'function') updateDashboardMapFilterUi();
-}
-
-// 검색바 옆 "출퇴근" 버튼 — 필터 패널을 열고 출퇴근 영역으로 스크롤
-function openDashboardMapCommuteFilter() {
-  if (typeof openDashboardMapFilterPanel === 'function') openDashboardMapFilterPanel();
-  loadMapCommuteGraph().catch(() => {});
-  window.setTimeout(() => {
-    document.getElementById('dbMapCommuteGroup')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, 60);
-}
-
-function buildMapInsightsFilterGroupsHtml() {
+// ── 출퇴근 시트 (필터와 따로 열림, 누르면 바로 적용) ──
+function buildMapCommuteSheetHtml() {
   return `
-    <div class="db-map-filter-group">
-      <span>정책대출 가격선 <small>(가장 싼 평형 최근 실거래가)</small></span>
-      <div class="db-map-filter-chips">
-        ${MAP_POLICY_FILTER_OPTIONS.map(option => `<button type="button" data-map-policy-max="${option.value}" class="db-map-filter-chip${option.value ? '' : ' is-selected'}" onclick="setDashboardMapPolicyMax(${option.value})">${option.label}</button>`).join('')}
+    <div id="dbMapCommuteSheet" class="db-map-filter-panel db-map-commute-sheet" aria-label="출퇴근 조건">
+      <div class="db-map-filter-header">
+        <div><strong>출퇴근</strong><span id="dbMapCommuteSummary">회사까지 지하철로 몇 분인지 보여줘요</span></div>
+        <button type="button" class="db-map-filter-close" onclick="closeDashboardMapCommuteSheet()" aria-label="출퇴근 닫기">×</button>
       </div>
-    </div>
-    <div class="db-map-filter-group db-map-commute-group" id="dbMapCommuteGroup">
-      <span>직주근접 <small>(지하철 + 도보 추정)</small></span>
-      <div class="db-map-filter-chips" id="dbMapCommutePresetChips">
-        ${MAP_COMMUTE_PRESETS.map(preset => `<button type="button" data-map-commute-dest="${preset.key}" class="db-map-filter-chip" onclick="toggleDashboardMapCommuteDest('${preset.key}')">${preset.label}</button>`).join('')}
+      <div class="db-map-filter-group">
+        <span>어디로 출근하세요?</span>
+        <div class="db-map-filter-chips">
+          ${MAP_COMMUTE_PRESETS.map(preset => `<button type="button" data-map-commute-dest="${preset.key}" class="db-map-filter-chip" onclick="toggleDashboardMapCommuteDest('${preset.key}')">${preset.label}</button>`).join('')}
+        </div>
+        <div class="db-map-commute-search">
+          <input id="dbMapCommuteSearch" type="search" autocomplete="off" placeholder="다른 역 검색 (예: 홍대입구)" aria-label="출근하는 역 검색"
+            onfocus="loadMapCommuteGraph().catch(() => {})" oninput="renderMapCommuteSuggestions(this.value)">
+          <div id="dbMapCommuteSuggest" class="db-map-commute-suggest" role="listbox"></div>
+        </div>
+        <div id="dbMapCommuteCustom" class="db-map-commute-custom" hidden></div>
       </div>
-      <div class="db-map-commute-search">
-        <input id="dbMapCommuteSearch" type="search" autocomplete="off" placeholder="다른 역은 이름으로 검색 (예: 홍대입구)" aria-label="출근하는 역 검색"
-          onfocus="loadMapCommuteGraph().catch(() => {})" oninput="renderMapCommuteSuggestions(this.value)">
-        <div id="dbMapCommuteSuggest" class="db-map-commute-suggest" role="listbox"></div>
+      <div class="db-map-filter-group" id="dbMapCommuteTimeGroup">
+        <span>몇 분 안에?</span>
+        <div class="db-map-filter-chips">
+          <button type="button" data-map-commute-max="0" class="db-map-filter-chip" onclick="setDashboardMapCommuteMax(0)">시간만 표시</button>
+          ${MAP_COMMUTE_MAX_OPTIONS.map(min => `<button type="button" data-map-commute-max="${min}" class="db-map-filter-chip" onclick="setDashboardMapCommuteMax(${min})">${min}분 이내</button>`).join('')}
+        </div>
       </div>
-      <div id="dbMapCommuteCustom" class="db-map-commute-custom" hidden></div>
-      <div class="db-map-filter-chips" id="dbMapCommuteMaxChips">
-        ${MAP_COMMUTE_MAX_OPTIONS.map(min => `<button type="button" data-map-commute-max="${min}" class="db-map-filter-chip" onclick="setDashboardMapCommuteMax(${min})">${min}분 이내</button>`).join('')}
-      </div>
-      <p class="db-map-commute-note">서울 지하철·신분당·수인분당·경강선 기준 추정이에요. 1·3·4·7호선 경기 구간, 서해선, GTX 등 아직 노선 데이터가 없는 역 주변 단지는 시간 필터를 켜면 제외돼요.</p>
+      <p class="db-map-commute-note">지하철 + 걷는 시간 추정이에요. 1·3·4·7호선 경기 구간, 서해선, GTX 근처 단지는 아직 계산이 안 돼서 시간으로 거르면 빠져요.</p>
+      <div class="db-map-filter-actions"><button type="button" class="db-map-filter-apply" onclick="closeDashboardMapCommuteSheet()">지도 보기</button><button type="button" class="db-map-filter-reset" onclick="clearDashboardMapCommute()">해제</button></div>
     </div>`;
 }
 
-// 업무지구 칩: 다시 누르면 선택 해제
+function openDashboardMapCommuteFilter() {
+  const sheet = document.getElementById('dbMapCommuteSheet');
+  if (!sheet) return;
+  if (sheet.classList.contains('is-visible')) { closeDashboardMapCommuteSheet(); return; }
+  if (typeof closeDashboardMapFilterPanel === 'function') closeDashboardMapFilterPanel();
+  if (typeof closeDashboardMapApartment === 'function') closeDashboardMapApartment();
+  loadMapCommuteGraph().catch(() => {});
+  sheet.classList.add('is-visible');
+  syncMapCommuteSheetUi();
+}
+
+function closeDashboardMapCommuteSheet() {
+  document.getElementById('dbMapCommuteSheet')?.classList.remove('is-visible');
+}
+
+function applyMapCommuteChange() {
+  const filters = getMapInsightsActiveFilters();
+  if (!filters) return;
+  saveMapCommuteDest(filters.commuteDest);
+  syncMapCommuteSheetUi();
+  const redraw = () => { if (typeof applyDashboardMapFilters === 'function' && dashboardApartmentMapState?.map) applyDashboardMapFilters(); };
+  if (filters.commuteDest) loadMapCommuteGraph().then(redraw).catch(redraw);
+  else redraw();
+}
+
+function setMapCommuteDest(destKey) {
+  const filters = getMapInsightsActiveFilters();
+  if (!filters) return;
+  filters.commuteDest = destKey || null;
+  if (!filters.commuteDest) filters.commuteMax = null;
+  else if (filters.commuteMax == null) filters.commuteMax = 45;
+  applyMapCommuteChange();
+}
+
+// 업무지구 칩: 다시 누르면 해제
 function toggleDashboardMapCommuteDest(destKey) {
-  const draft = getMapInsightsDraft();
-  setDashboardMapCommuteDest(draft?.commuteDest === destKey ? null : destKey);
+  const filters = getMapInsightsActiveFilters();
+  setMapCommuteDest(filters?.commuteDest === destKey ? null : destKey);
+}
+
+function setDashboardMapCommuteMax(minutes) {
+  const filters = getMapInsightsActiveFilters();
+  if (!filters?.commuteDest) return;
+  filters.commuteMax = Number(minutes) || 0;
+  applyMapCommuteChange();
+}
+
+function clearDashboardMapCommute() {
+  setMapCommuteDest(null);
+  closeDashboardMapCommuteSheet();
 }
 
 function getMapCommuteStationMatches(query, limit = 6) {
@@ -511,19 +523,32 @@ function pickMapCommuteStation(name) {
   const input = document.getElementById('dbMapCommuteSearch');
   if (input) input.value = '';
   renderMapCommuteSuggestions('');
-  setDashboardMapCommuteDest(`station:${name}`);
+  setMapCommuteDest(`station:${name}`);
 }
 
-function mapInsightsUpdateFilterUi(filters) {
-  const panel = document.getElementById('dbMapFilterPanel');
-  if (!panel) return;
-  panel.querySelectorAll('[data-map-policy-max]').forEach(button => {
-    const selected = (Number(filters?.policyMax) || 0) === Number(button.dataset.mapPolicyMax);
-    button.classList.toggle('is-selected', selected);
-    button.setAttribute('aria-pressed', selected ? 'true' : 'false');
-  });
+function getMapCommuteLabel(filters) {
+  const dest = getMapCommuteDestination(filters?.commuteDest);
+  if (!dest) return '';
+  return Number(filters?.commuteMax) > 0 ? `${dest.label} ${filters.commuteMax}분` : dest.label;
+}
+
+function syncMapCommuteSheetUi() {
+  const filters = getMapInsightsActiveFilters();
   const dest = filters?.commuteDest || '';
-  panel.querySelectorAll('[data-map-commute-dest]').forEach(button => {
+  const label = getMapCommuteLabel(filters);
+  const trigger = document.getElementById('dbMapCommuteButton');
+  if (trigger) {
+    trigger.textContent = label || '출퇴근';
+    trigger.classList.toggle('is-filtered', Boolean(dest));
+  }
+  const sheet = document.getElementById('dbMapCommuteSheet');
+  if (!sheet) return;
+  const summary = document.getElementById('dbMapCommuteSummary');
+  if (summary) {
+    summary.textContent = !dest ? '회사까지 지하철로 몇 분인지 보여줘요'
+      : Number(filters.commuteMax) > 0 ? `${label} 이내 단지만 보여주는 중` : `${label}까지 걸리는 시간을 단지에 표시 중`;
+  }
+  sheet.querySelectorAll('[data-map-commute-dest]').forEach(button => {
     const selected = button.dataset.mapCommuteDest === dest;
     button.classList.toggle('is-selected', selected);
     button.setAttribute('aria-pressed', selected ? 'true' : 'false');
@@ -533,15 +558,14 @@ function mapInsightsUpdateFilterUi(filters) {
     const isStation = dest.startsWith('station:');
     custom.hidden = !isStation;
     custom.innerHTML = isStation
-      ? `<span>출근역</span><strong>${mapInsightsEscape(dest.slice('station:'.length))}역</strong><button type="button" onclick="setDashboardMapCommuteDest(null)" aria-label="출근역 선택 해제">해제</button>`
+      ? `<span>출근역</span><strong>${mapInsightsEscape(dest.slice('station:'.length))}역</strong><button type="button" onclick="setMapCommuteDest(null)" aria-label="출근역 선택 해제">해제</button>`
       : '';
   }
-  const chips = document.getElementById('dbMapCommuteMaxChips');
-  chips?.classList.toggle('is-disabled', !filters?.commuteDest);
-  panel.querySelectorAll('[data-map-commute-max]').forEach(button => {
-    const selected = Boolean(filters?.commuteDest) && (Number(filters?.commuteMax) || 0) === Number(button.dataset.mapCommuteMax);
+  document.getElementById('dbMapCommuteTimeGroup')?.classList.toggle('is-disabled', !dest);
+  sheet.querySelectorAll('[data-map-commute-max]').forEach(button => {
+    const selected = Boolean(dest) && (Number(filters?.commuteMax) || 0) === Number(button.dataset.mapCommuteMax);
     button.classList.toggle('is-selected', selected);
-    button.disabled = !filters?.commuteDest;
+    button.disabled = !dest;
     button.setAttribute('aria-pressed', selected ? 'true' : 'false');
   });
 }

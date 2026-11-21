@@ -8193,7 +8193,7 @@ body.result-conclusion-in-view .result-floating-summary {
 .db-apartment-map-wrap:has(.db-map-filter-panel.is-visible) .db-map-policy-legend,
 .db-apartment-map-wrap:has(.db-map-selection-sheet.is-visible) .db-map-policy-toggle { opacity: 0; pointer-events: none; }
 
-/* ── 월세 vs 매수 계산기 (rent-vs-buy.js) ── */
+/* ── 월세 vs 매수 계산기 (rent-vs-buy.js) — 메인 계산기처럼 한 화면에 질문 하나 ── */
 .option-card--rvb {
   width: 100%;
   border: 1px dashed rgba(255,255,255,.16);
@@ -8208,39 +8208,78 @@ body.result-conclusion-in-view .result-floating-summary {
   inset: 0;
   z-index: 420;
   display: flex;
-  align-items: flex-end;
   justify-content: center;
-  background: rgba(0,0,0,.72);
+  background: var(--bg);
   opacity: 0;
-  transition: opacity .25s ease;
+  transition: opacity .22s ease;
 }
 .rvb-overlay.open { opacity: 1; }
 .rvb-sheet {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 430px;
-  max-height: 92vh;
+  height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 22px 20px max(env(safe-area-inset-bottom), 28px);
-  border-radius: 20px 20px 0 0;
-  background: var(--bg2);
-  transform: translateY(40px);
-  transition: transform .3s cubic-bezier(.4,0,.2,1);
+  padding: max(env(safe-area-inset-top), 14px) 24px max(env(safe-area-inset-bottom), 24px);
 }
-.rvb-overlay.open .rvb-sheet { transform: translateY(0); }
-.rvb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-.rvb-head strong { display: block; color: var(--label1); font-size: 20px; font-weight: 700; letter-spacing: -.4px; }
-.rvb-head span { display: block; margin-top: 4px; color: var(--label2); font-size: 13px; line-height: 1.45; }
-.rvb-close { flex-shrink: 0; width: 30px; height: 30px; border: 0; border-radius: 50%; background: var(--bg3); color: var(--label2); font-size: 20px; line-height: 1; cursor: pointer; }
-.rvb-form { display: grid; gap: 14px; }
-.rvb-field { display: grid; gap: 7px; }
-.rvb-field > span { color: var(--label2); font-size: 13px; font-weight: 600; }
-.rvb-field > span small { color: var(--label3); font-size: 11px; font-weight: 500; }
-.rvb-field .number-field { height: 54px; padding: 0 16px; }
+.rvb-top { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+.rvb-icon-btn { width: 40px; height: 40px; margin-left: -10px; border: 0; background: none; color: var(--label1); font-size: 28px; line-height: 1; cursor: pointer; }
+.rvb-text-btn { border: 0; background: none; color: var(--label3); font: inherit; font-size: 13px; cursor: pointer; }
+.rvb-progress { color: var(--label3); font-size: 13px; }
+.rvb-step { display: flex; flex-direction: column; padding-top: 28px; }
+.rvb-question { margin: 0; color: var(--label1); font-size: 26px; font-weight: 700; line-height: 1.3; letter-spacing: -0.5px; }
+.rvb-question em { color: var(--accent); font-style: normal; }
+.rvb-sub { margin: 8px 0 0; color: var(--label2); font-size: 14px; font-weight: 300; line-height: 1.6; }
+.rvb-number { margin-top: 32px; }
+.rvb-number input { width: 100%; min-width: 0; }
+.rvb-number .number-unit { flex-shrink: 0; white-space: nowrap; }
+.rvb-number.is-compact { height: 54px; margin-top: 12px; padding: 0 16px; }
+.rvb-next {
+  width: 100%;
+  height: 52px;
+  margin-top: auto;
+  border: 0;
+  border-radius: 14px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rvb-step .rvb-next { margin-top: 20px; }
+.rvb-next:disabled { opacity: .35; cursor: default; }
+.rvb-sheet > .rvb-next { margin-top: auto; }
+.rvb-step + .rvb-next { margin-top: auto; }
+
+/* 결과: 막대 두 줄 비교 */
+.rvb-bars { display: grid; gap: 18px; margin-top: 28px; }
+.rvb-bar-row { display: grid; gap: 7px; }
+.rvb-bar-label { display: flex; align-items: baseline; justify-content: space-between; }
+.rvb-bar-label span { color: var(--label2); font-size: 14px; }
+.rvb-bar-label strong { color: var(--label1); font-size: 18px; font-weight: 700; }
+.rvb-bar { display: flex; height: 14px; overflow: hidden; border-radius: 7px; background: var(--bg3); }
+.rvb-bar i { display: block; height: 100%; }
+.rvb-bar i.is-gone { background: rgba(255,255,255,.28); }
+.rvb-bar i.is-kept { background: var(--green); }
+.rvb-bar-row small { color: var(--label3); font-size: 12px; line-height: 1.5; }
+.rvb-bar-row small b { color: var(--green); font-weight: 600; }
+.rvb-loan-line { margin: 22px 0 0; color: var(--label1); font-size: 14px; }
+.rvb-loan-line.is-sub { margin-top: 4px; color: var(--label3); font-size: 12px; line-height: 1.5; }
+
+/* 조건 바꿔보기 */
+.rvb-adjust { display: grid; gap: 14px; margin-top: 32px; padding: 18px; border-radius: 16px; background: var(--bg2); }
+.rvb-adjust-head { color: var(--label1); font-size: 15px; font-weight: 700; }
+.rvb-slider > div { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+.rvb-slider span { color: var(--label2); font-size: 13px; }
+.rvb-slider strong { color: var(--accent); font-size: 14px; }
+.rvb-slider input { width: 100%; accent-color: var(--accent); }
 .rvb-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .rvb-chip {
-  min-height: 36px;
-  padding: 0 13px;
+  min-height: 34px;
+  padding: 0 12px;
   border: 1px solid rgba(255,255,255,.1);
   border-radius: 10px;
   background: var(--bg3);
@@ -8251,51 +8290,14 @@ body.result-conclusion-in-view .result-floating-summary {
   cursor: pointer;
 }
 .rvb-chip.is-selected { border-color: var(--accent); background: var(--accent-dim); color: var(--label1); }
-.rvb-error { min-height: 16px; margin: -4px 0 0; color: var(--red); font-size: 12px; }
-.rvb-error:empty { display: none; }
-.rvb-submit {
-  height: 52px;
-  border: 0;
-  border-radius: 14px;
-  background: var(--accent);
-  color: #fff;
-  font: inherit;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.rvb-result { display: grid; gap: 12px; margin-top: 20px; scroll-margin-top: 12px; }
-.rvb-result:empty { display: none; }
-.rvb-section { padding: 18px; border-radius: 16px; background: var(--bg3); }
-.rvb-label { display: block; color: var(--label2); font-size: 13px; }
-.rvb-amount { display: block; margin-top: 4px; color: var(--accent); font-size: 30px; font-weight: 750; letter-spacing: -.8px; }
-.rvb-amount.is-small { font-size: 24px; }
-.rvb-amount.is-muted { color: var(--label1); font-size: 20px; }
-.rvb-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
-.rvb-compare-row { display: grid; gap: 3px; padding: 12px; border-radius: 12px; background: var(--bg2); }
-.rvb-compare-row span { color: var(--label3); font-size: 11px; }
-.rvb-compare-row strong { color: var(--label1); font-size: 17px; font-weight: 700; }
-.rvb-compare-row em { color: var(--label3); font-size: 11px; font-style: normal; line-height: 1.4; }
-.rvb-compare-row.is-buy strong { color: var(--green); }
-.rvb-note { margin: 12px 0 0; color: var(--label2); font-size: 12.5px; line-height: 1.6; }
-.rvb-detail { display: grid; gap: 6px; margin: 12px 0 0; }
-.rvb-detail div { display: grid; grid-template-columns: 72px 1fr; gap: 8px; font-size: 12px; line-height: 1.5; }
-.rvb-detail dt { color: var(--label3); }
-.rvb-detail dd { margin: 0; color: var(--label2); }
-.rvb-map-cta {
-  width: 100%;
-  height: 46px;
-  margin-top: 14px;
-  border: 1px solid var(--accent);
-  border-radius: 12px;
-  background: transparent;
-  color: var(--accent);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.rvb-disclaimer { margin: 0; color: var(--label3); font-size: 11px; line-height: 1.55; }
+.rvb-more summary { color: var(--label2); font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }
+.rvb-more summary::-webkit-details-marker { display: none; }
+.rvb-more summary::after { content: ' +'; color: var(--label3); }
+.rvb-more[open] summary::after { content: ' −'; }
+.rvb-target-line { margin: 14px 0 0; color: var(--label2); font-size: 13px; line-height: 1.6; }
+.rvb-target-line strong { color: var(--label1); }
+.rvb-more .rvb-bars { margin-top: 14px; }
+.rvb-disclaimer { margin: 16px 0 0; color: var(--label3); font-size: 11px; line-height: 1.55; }
 .rvb-entry {
   display: flex;
   align-items: center;
@@ -8310,9 +8312,7 @@ body.result-conclusion-in-view .result-floating-summary {
   text-align: left;
   cursor: pointer;
 }
+.map-result-cta + .rvb-entry { margin-top: 8px; }
 .rvb-entry strong { display: block; font-size: 14px; font-weight: 700; }
 .rvb-entry small { display: block; margin-top: 3px; color: var(--label2); font-size: 12px; }
-.rvb-form, .rvb-field { min-width: 0; }
-.rvb-field .number-field input { width: 100%; min-width: 0; }
-.rvb-field .number-unit { flex-shrink: 0; white-space: nowrap; }
-.map-result-cta + .rvb-entry { margin-top: 8px; }
+.rvb-sub strong { color: var(--label1); font-weight: 600; }

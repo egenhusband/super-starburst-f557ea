@@ -152,6 +152,16 @@ const DASHBOARD_MAP_PRICE_OPTIONS_EOK = [
   ...Array.from({ length: 10 }, (_, index) => 60 + (index * 10)),
 ];
 const DASHBOARD_MAP_PRICE_MAX_EOK = DASHBOARD_MAP_PRICE_OPTIONS_EOK[DASHBOARD_MAP_PRICE_OPTIONS_EOK.length - 1];
+// 정책대출 주택가격 기준을 가격 필터의 바로가기로 쓴다 (디딤돌 5억 · 보금자리 6억 · 신생아 특례 9억)
+const DASHBOARD_MAP_PRICE_PRESETS = [
+  { eok: 0, label: '전체' },
+  { eok: 5, label: '디딤돌 5억↓' },
+  { eok: 6, label: '보금자리 6억↓' },
+  { eok: 9, label: '신생아 9억↓' },
+];
+const DASHBOARD_MAP_GRADE_GROUPS = ['S', 'A', 'B', 'C'].map(key => ({
+  key, label: `${key}등급`, grades: [`${key}+`, key, `${key}-`],
+}));
 let regionSwapSeq = 0;
 let pendingRegionStageEnter = false;
 const topComplexInsightCache = new Map();
@@ -684,9 +694,9 @@ function getDashboardMapFilteredItems(items = []) {
       : selectedGrades.has(item.grade);
     const score = Number(item.displayScore);
     const scoreMatches = !Number.isFinite(minScore) || minScore <= 0 || (Number.isFinite(score) && score >= minScore);
-    const displayedPrice = getDashboardMapRepresentativePrice(item);
+    const cheapestPrice = getDashboardMapCheapestPrice(item);
     const priceMatches = !Number.isFinite(maxAveragePrice) || maxAveragePrice <= 0
-      || (Number.isFinite(displayedPrice) && displayedPrice > 0 && displayedPrice <= maxAveragePrice);
+      || (Number.isFinite(cheapestPrice) && cheapestPrice > 0 && cheapestPrice <= maxAveragePrice);
     const insightsMatch = typeof mapInsightsItemPasses === 'function' ? mapInsightsItemPasses(item, filters) : true;
     return gradeMatches && scoreMatches && priceMatches && insightsMatch;
   });
@@ -713,7 +723,8 @@ function cloneDashboardMapFilters(filters) {
 function getDashboardMapFilterSummary(filters = dashboardApartmentMapState.filters) {
   const { grades, minScore, maxAveragePrice } = filters;
   const allGrades = grades.size === DASHBOARD_MAP_GRADE_ORDER.length;
-  const gradeText = allGrades ? '전체 등급' : `${grades.size}개 등급`;
+  const groupNames = DASHBOARD_MAP_GRADE_GROUPS.filter(group => group.grades.every(grade => grades.has(grade))).map(group => group.key);
+  const gradeText = allGrades ? '전체 등급' : groupNames.length ? `${groupNames.join('·')}등급` : `${grades.size}개 등급`;
   const parts = [gradeText];
   if (Number(minScore) > 0) parts.push(`${minScore}점+`);
   if (Number(maxAveragePrice) > 0) parts.push(`${formatDashboardMapPrice(maxAveragePrice)} 이하`);
@@ -754,6 +765,19 @@ function updateDashboardMapFilterUi() {
     button.classList.toggle('is-selected', grades.has(grade));
     button.setAttribute('aria-pressed', grades.has(grade) ? 'true' : 'false');
   });
+  panel.querySelectorAll('[data-map-grade-group]').forEach(button => {
+    const group = DASHBOARD_MAP_GRADE_GROUPS.find(item => item.key === button.dataset.mapGradeGroup);
+    const selected = Boolean(group) && group.grades.every(grade => grades.has(grade));
+    button.classList.toggle('is-selected', selected);
+    button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
+  panel.querySelectorAll('[data-map-price-preset]').forEach(button => {
+    const presetEok = Number(button.dataset.mapPricePreset);
+    const currentEok = Number(maxAveragePrice) > 0 ? Number(maxAveragePrice) / 10000 : 0;
+    const selected = presetEok === currentEok;
+    button.classList.toggle('is-selected', selected);
+    button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+  });
   panel.querySelectorAll('[data-map-min-score]').forEach(button => {
     const score = Number(button.dataset.mapMinScore) || 0;
     const selected = (Number(minScore) || 0) === score;
@@ -783,6 +807,7 @@ function applyDashboardMapFilters() {
 function openDashboardMapFilterPanel() {
   const panel = document.getElementById('dbMapFilterPanel');
   if (!panel) return;
+  if (typeof closeDashboardMapCommuteSheet === 'function') closeDashboardMapCommuteSheet();
   closeDashboardMapApartment();
   dashboardApartmentMapState.filterDraft = cloneDashboardMapFilters(dashboardApartmentMapState.filters);
   panel.classList.add('is-visible');
@@ -870,6 +895,25 @@ function setDashboardMapMaximumAveragePrice(priceEok) {
   updateDashboardMapFilterUi();
 }
 
+function setDashboardMapMaxPriceEok(eok) {
+  const draft = dashboardApartmentMapState.filterDraft || cloneDashboardMapFilters(dashboardApartmentMapState.filters);
+  draft.maxAveragePrice = Number(eok) > 0 ? Math.round(Number(eok) * 10000) : null;
+  dashboardApartmentMapState.filterDraft = draft;
+  updateDashboardMapFilterUi();
+}
+
+function toggleDashboardMapGradeGroup(key) {
+  const draft = dashboardApartmentMapState.filterDraft || cloneDashboardMapFilters(dashboardApartmentMapState.filters);
+  const group = DASHBOARD_MAP_GRADE_GROUPS.find(item => item.key === key);
+  if (!group) return;
+  const allOn = group.grades.every(grade => draft.grades.has(grade));
+  const othersOn = [...draft.grades].some(grade => !group.grades.includes(grade));
+  if (allOn && othersOn) group.grades.forEach(grade => draft.grades.delete(grade));
+  else group.grades.forEach(grade => draft.grades.add(grade));
+  dashboardApartmentMapState.filterDraft = draft;
+  updateDashboardMapFilterUi();
+}
+
 function applyDashboardMapFilterDraft() {
   if (dashboardApartmentMapState.filterDraft) {
     dashboardApartmentMapState.filters = cloneDashboardMapFilters(dashboardApartmentMapState.filterDraft);
@@ -909,8 +953,25 @@ function formatDashboardMapPrice(price) {
   return `${(value / 10000).toFixed(1).replace('.0', '')}억`;
 }
 
+// 가격 필터: "이 가격 이하로 거래된 평형이 있는 단지" 기준 (단지 내 가장 싼 평형의 최근 실거래가)
+function getDashboardMapCheapestPrice(item) {
+  const areas = Array.isArray(item?.areas) ? item.areas : [];
+  const prices = areas.map(area => Number(area?.latestPrice)).filter(price => Number.isFinite(price) && price > 0);
+  if (prices.length) return Math.min(...prices);
+  const fallback = Number(item?.latestTradePrice);
+  return Number.isFinite(fallback) && fallback > 0 ? fallback : null;
+}
+
 function getDashboardMapRepresentativeArea(item) {
   const areas = Array.isArray(item?.areas) ? item.areas : [];
+  // 가격 필터가 켜져 있으면 그 가격 이하 평형 중 가장 최근 거래를 대표로 보여준다
+  const maxPrice = Number(dashboardApartmentMapState?.filters?.maxAveragePrice);
+  if (Number.isFinite(maxPrice) && maxPrice > 0) {
+    const affordable = areas
+      .filter(area => Number(area?.latestPrice) > 0 && Number(area.latestPrice) <= maxPrice)
+      .sort((a, b) => String(b.latestDate || '').localeCompare(String(a.latestDate || '')))[0];
+    if (affordable) return affordable;
+  }
   return areas
     .slice()
     .sort((a, b) => String(b.latestDate || '').localeCompare(String(a.latestDate || '')))[0] || null;
@@ -1735,6 +1796,7 @@ function initDashboard() {
           <span><b class="is-new-station"></b>신설 예정역</span>
         </div>
         ${typeof buildMapPolicyControlsHtml === 'function' ? buildMapPolicyControlsHtml() : ''}
+        ${typeof buildMapCommuteSheetHtml === 'function' ? buildMapCommuteSheetHtml() : ''}
         <div id="dbApartmentMapLoading" class="db-map-loading" role="status" aria-live="polite" aria-hidden="true">
           <span class="db-map-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
           <span>단지 정보를 불러오는 중</span>
@@ -1744,27 +1806,20 @@ function initDashboard() {
             <div><strong>단지 필터</strong><span id="dbMapFilterSummary">전체 등급</span></div>
             <button type="button" class="db-map-filter-close" onclick="closeDashboardMapFilterPanel()" aria-label="필터 닫기">×</button>
           </div>
-          <div class="db-map-filter-group">
-            <span>등급</span>
-            <div class="db-map-filter-chips">
-              ${DASHBOARD_MAP_GRADE_ORDER.map(grade => `<button type="button" data-map-grade="${grade}" class="db-map-filter-chip is-selected" onclick="toggleDashboardMapGradeFilter('${grade}')">${grade}</button>`).join('')}
-            </div>
-          </div>
-          <div class="db-map-filter-group">
-            <span>최소 점수</span>
-            <div class="db-map-filter-chips">
-              <button type="button" data-map-min-score="0" class="db-map-filter-chip is-selected" onclick="setDashboardMapMinimumScore(0)">전체</button>
-              <button type="button" data-map-min-score="60" class="db-map-filter-chip" onclick="setDashboardMapMinimumScore(60)">60점+</button>
-              <button type="button" data-map-min-score="70" class="db-map-filter-chip" onclick="setDashboardMapMinimumScore(70)">70점+</button>
-              <button type="button" data-map-min-score="80" class="db-map-filter-chip" onclick="setDashboardMapMinimumScore(80)">80점+</button>
-            </div>
-          </div>
-          ${typeof buildMapInsightsFilterGroupsHtml === 'function' ? buildMapInsightsFilterGroupsHtml() : ''}
           <div class="db-map-filter-group db-map-price-filter">
-            <div class="db-map-price-filter-heading"><span>최근 실거래가 최대</span><strong id="dbMapMaxAveragePriceValue">전체</strong></div>
-            <input id="dbMapMaxAveragePrice" class="db-map-price-range" type="range" min="0" max="42" step="1" value="42" oninput="setDashboardMapMaximumAveragePrice(this.value)" aria-label="최근 실거래가 최대 가격">
+            <div class="db-map-price-filter-heading"><span>가격</span><strong id="dbMapMaxAveragePriceValue">전체</strong></div>
+            <div class="db-map-filter-chips">
+              ${DASHBOARD_MAP_PRICE_PRESETS.map(preset => `<button type="button" data-map-price-preset="${preset.eok}" class="db-map-filter-chip" onclick="setDashboardMapMaxPriceEok(${preset.eok})">${preset.label}</button>`).join('')}
+            </div>
+            <input id="dbMapMaxAveragePrice" class="db-map-price-range" type="range" min="0" max="42" step="1" value="42" oninput="setDashboardMapMaximumAveragePrice(this.value)" aria-label="최대 가격 직접 조절">
             <div class="db-map-price-filter-scale"><span style="left:0">1억</span><span style="left:43%">10억</span><span style="left:67%">30억</span><span id="dbMapMaxAveragePriceLimit" style="left:100%">전체</span></div>
-            <p>지도에 표시되는 최근 실거래가를 기준으로 적용해요.</p>
+            <p>이 가격 이하로 거래된 평형이 있는 단지만 보여줘요.</p>
+          </div>
+          <div class="db-map-filter-group">
+            <span>입지 등급</span>
+            <div class="db-map-filter-chips">
+              ${DASHBOARD_MAP_GRADE_GROUPS.map(group => `<button type="button" data-map-grade-group="${group.key}" class="db-map-filter-chip is-selected" onclick="toggleDashboardMapGradeGroup('${group.key}')">${group.label}</button>`).join('')}
+            </div>
           </div>
           <div class="db-map-filter-actions"><button type="button" class="db-map-filter-apply" onclick="applyDashboardMapFilterDraft()">적용하기</button><button type="button" class="db-map-filter-reset" onclick="resetDashboardMapFilters()">초기화</button></div>
         </div>

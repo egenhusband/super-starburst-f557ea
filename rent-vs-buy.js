@@ -164,7 +164,18 @@
   }
 
   // ── 화면 ─────────────────────────────────────────
-  const rvbState = { firstHome: true, newlywed: false, region: 'metro' };
+  // 메인 계산기와 같은 방식: 한 화면에 질문 하나(3개) → 결과. 지역·조건·추가 납입은 결과에서 바로 바꾼다.
+  const RVB_STEPS = [
+    { key: 'rentManwon', title: '지금 월세가\n얼마예요?', sub: '관리비는 빼고 월세만 적어주세요', unit: '만원/월', placeholder: '예: 120' },
+    { key: 'cashManwon', title: '집 사는 데 쓸 수 있는\n돈은 얼마예요?', sub: '돌려받을 보증금까지 합쳐서 적어주세요', unit: '만원', placeholder: '예: 13000' },
+    { key: 'incomeManwon', title: '연소득은\n얼마예요?', sub: '세전 기준, 부부라면 합산 소득이에요', unit: '만원', placeholder: '예: 7000' },
+  ];
+  const rvbState = {
+    step: 0,
+    askSteps: [0, 1, 2],
+    values: { rentManwon: null, cashManwon: null, incomeManwon: null },
+    region: 'metro', firstHome: true, newlywed: false, extraManwon: 0, targetManwon: null,
+  };
 
   function rvbFormatManwon(won) {
     const manwon = Math.round(won / 10000);
@@ -180,166 +191,211 @@
     return String(text ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   }
 
-  function buildRentVsBuyFormHtml(prefill = {}) {
-    const value = key => (prefill[key] ?? '') === '' ? '' : ` value="${rvbEsc(prefill[key])}"`;
-    return `
-      <div class="rvb-head">
-        <div>
-          <strong>월세 vs 매수</strong>
-          <span>지금 내는 월세로 대출을 갚으면 얼마짜리 집을 살 수 있는지 계산해요</span>
-        </div>
-        <button type="button" class="rvb-close" onclick="closeRentVsBuy()" aria-label="닫기">×</button>
-      </div>
-      <div class="rvb-form">
-        <label class="rvb-field"><span>지금 내는 월세</span>
-          <div class="number-field"><input type="number" id="rvbRent" inputmode="numeric" min="0" placeholder="예: 120" data-amount="manwon"${value('rentManwon')}><span class="number-unit">만원/월</span></div>
-        </label>
-        <label class="rvb-field"><span>보증금</span>
-          <div class="number-field"><input type="number" id="rvbDeposit" inputmode="numeric" min="0" placeholder="예: 5000" data-amount="manwon"${value('depositManwon')}><span class="number-unit">만원</span></div>
-        </label>
-        <label class="rvb-field"><span>보증금 말고 모은 돈</span>
-          <div class="number-field"><input type="number" id="rvbSavings" inputmode="numeric" min="0" placeholder="예: 8000" data-amount="manwon"${value('savingsManwon')}><span class="number-unit">만원</span></div>
-        </label>
-        <label class="rvb-field"><span>부부 합산 연소득 <small>(세전)</small></span>
-          <div class="number-field"><input type="number" id="rvbIncome" inputmode="numeric" min="0" placeholder="예: 7000" data-amount="manwon"${value('incomeManwon')}><span class="number-unit">만원</span></div>
-        </label>
-        <div class="rvb-field"><span>사려는 지역</span>
-          <div class="rvb-chips" id="rvbRegionChips">
-            ${RVB_REGIONS.map(r => `<button type="button" data-rvb-region="${r.key}" class="rvb-chip" onclick="setRentVsBuyRegion('${r.key}')"${r.hint ? ` title="${rvbEsc(r.hint)}"` : ''}>${r.label}</button>`).join('')}
-          </div>
-        </div>
-        <div class="rvb-field"><span>해당하면 선택</span>
-          <div class="rvb-chips">
-            <button type="button" id="rvbFirstHome" class="rvb-chip" onclick="toggleRentVsBuyFlag('firstHome')">생애최초 구입</button>
-            <button type="button" id="rvbNewlywed" class="rvb-chip" onclick="toggleRentVsBuyFlag('newlywed')">신혼부부 (7년 이내)</button>
-          </div>
-        </div>
-        <label class="rvb-field"><span>월세보다 더 낼 수 있는 돈 <small>(선택)</small></span>
-          <div class="number-field"><input type="number" id="rvbExtra" inputmode="numeric" min="0" placeholder="0" data-amount="manwon"${value('extraManwon')}><span class="number-unit">만원/월</span></div>
-        </label>
-        <label class="rvb-field"><span>보고 있는 집값 <small>(선택 — 입력하면 그 집 기준 월 납입도 보여줘요)</small></span>
-          <div class="number-field"><input type="number" id="rvbTarget" inputmode="numeric" min="0" placeholder="예: 55000" data-amount="manwon"${value('targetManwon')}><span class="number-unit">만원</span></div>
-        </label>
-        <p class="rvb-error" id="rvbError"></p>
-        <button type="button" class="rvb-submit" onclick="runRentVsBuy()">계산하기</button>
-      </div>
-      <div id="rvbResult" class="rvb-result"></div>`;
-  }
-
-  function syncRentVsBuyChips() {
-    document.querySelectorAll('[data-rvb-region]').forEach(button => {
-      button.classList.toggle('is-selected', button.dataset.rvbRegion === rvbState.region);
-    });
-    document.getElementById('rvbFirstHome')?.classList.toggle('is-selected', rvbState.firstHome);
-    document.getElementById('rvbNewlywed')?.classList.toggle('is-selected', rvbState.newlywed);
-  }
-
-  function setRentVsBuyRegion(key) { rvbState.region = key; syncRentVsBuyChips(); }
-  function toggleRentVsBuyFlag(key) { rvbState[key] = !rvbState[key]; syncRentVsBuyChips(); }
-
-  function readRentVsBuyInput() {
-    const num = id => {
-      const raw = document.getElementById(id)?.value;
-      return raw === '' || raw == null ? null : Number(raw);
-    };
+  function rvbInput() {
     return {
-      rentManwon: num('rvbRent'),
-      depositManwon: num('rvbDeposit') || 0,
-      savingsManwon: num('rvbSavings') || 0,
-      incomeManwon: num('rvbIncome'),
-      extraManwon: num('rvbExtra') || 0,
-      targetPriceEok: (num('rvbTarget') || 0) / 10000,
+      rentManwon: Number(rvbState.values.rentManwon) || 0,
+      depositManwon: 0,
+      savingsManwon: Number(rvbState.values.cashManwon) || 0,
+      incomeManwon: Number(rvbState.values.incomeManwon) || 0,
+      extraManwon: rvbState.extraManwon,
+      targetPriceEok: (Number(rvbState.targetManwon) || 0) / 10000,
       region: rvbState.region,
       firstHome: rvbState.firstHome,
       newlywed: rvbState.newlywed,
     };
   }
 
-  function buildRentVsBuyBreakdownHtml(result, rentWon) {
-    const extraWon = Math.max(0, result.monthlyWon - rentWon);
-    return `
-      <div class="rvb-compare">
-        <div class="rvb-compare-row">
-          <span>지금 월세</span>
-          <strong>${rvbFormatManwon(rentWon)}</strong>
-          <em>전부 나가는 돈</em>
-        </div>
-        <div class="rvb-compare-row is-buy">
-          <span>대출 월 납입 <small>(첫 달)</small></span>
-          <strong>${rvbFormatManwon(result.monthlyWon)}</strong>
-          <em>이자 ${rvbFormatManwon(result.firstInterestWon)} · 원금 ${rvbFormatManwon(result.firstPrincipalWon)}</em>
+  function rvbSheet() { return document.querySelector('#rvbOverlay .rvb-sheet'); }
+
+  function renderRentVsBuyStep() {
+    const sheet = rvbSheet();
+    if (!sheet) return;
+    const step = RVB_STEPS[rvbState.step];
+    const value = rvbState.values[step.key];
+    sheet.innerHTML = `
+      <div class="rvb-top">
+        <button type="button" class="rvb-icon-btn" onclick="${rvbState.askSteps.indexOf(rvbState.step) <= 0 ? 'closeRentVsBuy()' : 'rentVsBuyBack()'}" aria-label="${rvbState.askSteps.indexOf(rvbState.step) <= 0 ? '닫기' : '이전'}">${rvbState.askSteps.indexOf(rvbState.step) <= 0 ? '×' : '‹'}</button>
+        <span class="rvb-progress">${rvbState.askSteps.indexOf(rvbState.step) + 1} / ${rvbState.askSteps.length}</span>
+      </div>
+      <div class="rvb-step">
+        <h2 class="rvb-question">${rvbEsc(step.title).replace('\n', '<br>')}</h2>
+        <p class="rvb-sub">${rvbEsc(step.sub)}</p>
+        <div class="number-field rvb-number">
+          <input type="number" id="rvbStepInput" inputmode="numeric" min="0" placeholder="${step.placeholder}" data-amount="manwon"${value != null ? ` value="${value}"` : ''}
+            oninput="rentVsBuyStepInput(this.value)" onkeydown="if(event.key==='Enter'){rentVsBuyNext()}">
+          <span class="number-unit">${step.unit}</span>
         </div>
       </div>
-      <p class="rvb-note">원금 ${rvbFormatManwon(result.firstPrincipalWon)}은 갚을수록 내 집 지분으로 쌓여요. 그래서 월세와 직접 비교할 돈은 이자 ${rvbFormatManwon(result.firstInterestWon)}이에요${extraWon > 0 ? ` (월세보다 ${rvbFormatManwon(extraWon)} 더 나가요)` : ''}.</p>
-      <dl class="rvb-detail">
-        <div><dt>대출</dt><dd>${rvbEsc(result.product.name)} ${rvbFormatManwon(result.loanWon)} · 연 ${result.product.rate.toFixed(2)}% · 30년 원리금균등</dd></div>
-        <div><dt>필요한 현금</dt><dd>${rvbFormatManwon(result.cashWon)} (취득세·중개보수 등 ${rvbFormatManwon(result.costsWon)} 포함)</dd></div>
-      </dl>`;
+      <button type="button" class="rvb-next" id="rvbNext" onclick="rentVsBuyNext()"${value > 0 ? '' : ' disabled'}>${rvbState.step === rvbState.askSteps[rvbState.askSteps.length - 1] ? '결과 보기' : '다음'}</button>`;
+    setTimeout(() => document.getElementById('rvbStepInput')?.focus(), 250);
   }
 
-  function renderRentVsBuyResult(output) {
-    const box = document.getElementById('rvbResult');
-    if (!box) return;
-    const rentWon = (output.input.rentManwon || 0) * 10000;
-    const budgetWon = rentWon + (output.input.extraManwon || 0) * 10000;
-    const parts = [];
-    const max = output.maxResult;
-    if (max) {
-      parts.push(`
-        <section class="rvb-section">
-          <span class="rvb-label">월 ${rvbFormatManwon(budgetWon)}로 살 수 있는 집</span>
-          <strong class="rvb-amount">최대 약 ${rvbFormatEok(max.priceEok)}</strong>
-          ${buildRentVsBuyBreakdownHtml(max, rentWon)}
-          <button type="button" class="rvb-map-cta" onclick="openRentVsBuyMap(${max.priceEok})">${rvbFormatEok(max.priceEok)} 이하 단지 지도에서 보기</button>
-        </section>`);
-    } else {
-      parts.push(`
-        <section class="rvb-section">
-          <span class="rvb-label">월 ${rvbFormatManwon(budgetWon)}로는</span>
-          <strong class="rvb-amount is-muted">아직 살 수 있는 집이 없어요</strong>
-          <p class="rvb-note">모은 돈이 집값의 30% 안팎과 취득세 등 부대비용을 채워야 대출이 나와요. 월 납입 가능 금액을 늘리거나 모은 돈을 넣어 다시 계산해 보세요.</p>
-        </section>`);
-    }
+  function rentVsBuyStepInput(raw) {
+    const step = RVB_STEPS[rvbState.step];
+    rvbState.values[step.key] = raw === '' ? null : Number(raw);
+    const next = document.getElementById('rvbNext');
+    if (next) next.disabled = !(Number(raw) > 0);
+  }
+
+  function rentVsBuyNext() {
+    const step = RVB_STEPS[rvbState.step];
+    if (!(Number(rvbState.values[step.key]) > 0)) return;
+    const position = rvbState.askSteps.indexOf(rvbState.step);
+    const next = rvbState.askSteps[position + 1];
+    if (next == null) { renderRentVsBuyResult(); return; }
+    rvbState.step = next;
+    renderRentVsBuyStep();
+  }
+
+  function rentVsBuyBack() {
+    const position = rvbState.askSteps.indexOf(rvbState.step);
+    rvbState.step = rvbState.askSteps[Math.max(0, position - 1)];
+    renderRentVsBuyStep();
+  }
+
+  function rvbBarsHtml(result, rentWon) {
+    const maxWon = Math.max(rentWon, result.monthlyWon, 1);
+    const pct = won => `${Math.max(0, Math.min(100, won / maxWon * 100)).toFixed(1)}%`;
+    return `
+      <div class="rvb-bars">
+        <div class="rvb-bar-row">
+          <div class="rvb-bar-label"><span>월세</span><strong>${rvbFormatManwon(rentWon)}</strong></div>
+          <div class="rvb-bar"><i class="is-gone" style="width:${pct(rentWon)}"></i></div>
+          <small>전부 나가는 돈</small>
+        </div>
+        <div class="rvb-bar-row">
+          <div class="rvb-bar-label"><span>대출 갚기</span><strong>${rvbFormatManwon(result.monthlyWon)}</strong></div>
+          <div class="rvb-bar"><i class="is-gone" style="width:${pct(result.firstInterestWon)}"></i><i class="is-kept" style="width:${pct(result.firstPrincipalWon)}"></i></div>
+          <small>이자 ${rvbFormatManwon(result.firstInterestWon)}는 나가고, <b>원금 ${rvbFormatManwon(result.firstPrincipalWon)}은 내 집에 쌓여요</b></small>
+        </div>
+      </div>`;
+  }
+
+  function rvbTargetHtml(output, rentWon) {
     const target = output.target;
-    if (target) {
-      parts.push(target.product ? `
-        <section class="rvb-section">
-          <span class="rvb-label">보고 있는 집 ${rvbFormatEok(target.priceEok)}을 사면</span>
-          <strong class="rvb-amount is-small">월 ${rvbFormatManwon(target.monthlyWon)}</strong>
-          ${buildRentVsBuyBreakdownHtml(target, rentWon)}
-        </section>` : `
-        <section class="rvb-section">
-          <span class="rvb-label">보고 있는 집 ${rvbFormatEok(target.priceEok)}은</span>
-          <strong class="rvb-amount is-muted is-small">대출 한도가 모자라요</strong>
-          <p class="rvb-note">필요한 대출은 ${rvbFormatManwon(target.loanNeededWon)}인데 받을 수 있는 한도를 넘어요. 현금이 약 ${rvbFormatManwon(target.shortfallWon)} 더 있어야 해요.</p>
-        </section>`);
-    }
-    parts.push('<p class="rvb-disclaimer">집값이 오르거나 내리는 건 반영하지 않았어요. 관리비·재산세, 금리 변동, 방공제 면제 여부에 따라 실제와 달라질 수 있어요.</p>');
-    box.innerHTML = parts.join('');
-    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const field = `
+      <div class="number-field rvb-number is-compact">
+        <input type="number" id="rvbTargetInput" inputmode="numeric" min="0" placeholder="보고 있는 집값 (예: 55000)" data-amount="manwon"${rvbState.targetManwon ? ` value="${rvbState.targetManwon}"` : ''} onchange="setRentVsBuyTarget(this.value)" onkeydown="if(event.key==='Enter'){setRentVsBuyTarget(this.value)}">
+        <span class="number-unit">만원</span>
+      </div>`;
+    if (!target) return `<details class="rvb-more"><summary>보고 있는 집이 있어요</summary>${field}</details>`;
+    const body = target.product
+      ? `<p class="rvb-target-line">${rvbFormatEok(target.priceEok)} 집이면 매달 <strong>${rvbFormatManwon(target.monthlyWon)}</strong> 갚아요 (월세보다 ${target.monthlyWon >= rentWon ? `${rvbFormatManwon(target.monthlyWon - rentWon)} 더` : `${rvbFormatManwon(rentWon - target.monthlyWon)} 덜`})</p>${rvbBarsHtml(target, rentWon)}`
+      : `<p class="rvb-target-line">${rvbFormatEok(target.priceEok)} 집은 대출 한도가 모자라요. 현금이 약 <strong>${rvbFormatManwon(target.shortfallWon)}</strong> 더 있어야 해요.</p>`;
+    return `<details class="rvb-more" open><summary>보고 있는 집이 있어요</summary>${field}${body}</details>`;
   }
 
-  function runRentVsBuy() {
-    const input = readRentVsBuyInput();
-    const error = document.getElementById('rvbError');
-    if (!(input.rentManwon > 0)) { if (error) error.textContent = '지금 내는 월세를 입력해 주세요'; return; }
-    if (!(input.incomeManwon > 0)) { if (error) error.textContent = '연소득을 입력해 주세요'; return; }
-    if (error) error.textContent = '';
-    renderRentVsBuyResult(rvbCompute(input));
+  // 못 사는 이유가 현금인지 월 납입인지 구분해서 알려준다
+  function rvbInfeasibleHtml(input) {
+    for (let extra = (input.extraManwon || 0) + 10; extra <= 300; extra += 10) {
+      const found = rvbFindMaxPrice({ ...input, extraManwon: extra });
+      if (found) {
+        const more = extra - (input.extraManwon || 0);
+        return `<p class="rvb-sub">한 달에 <strong>${more}만원</strong>을 더 낼 수 있다면 <strong>${rvbFormatEok(found.priceEok)}</strong> 집부터 가능해요. 아래에서 바꿔볼 수 있어요.</p>`;
+      }
+    }
+    return `<p class="rvb-sub">지금은 월 납입보다 <strong>현금</strong>이 모자라요. 대출은 집값의 70% 안팎까지라, 나머지와 취득세 같은 부대비용은 쓸 수 있는 돈으로 채워야 해요.</p>`;
+  }
+
+  function renderRentVsBuyResult() {
+    const sheet = rvbSheet();
+    if (!sheet) return;
+    const input = rvbInput();
+    const output = rvbCompute(input);
+    const rentWon = input.rentManwon * 10000;
+    const max = output.maxResult;
+    const budgetText = rvbState.extraManwon > 0 ? `월 ${rvbFormatManwon((input.rentManwon + rvbState.extraManwon) * 10000)}` : `월세 ${rvbFormatManwon(rentWon)}`;
+    const headline = max
+      ? `<h2 class="rvb-question">${budgetText}이면<br><em>${rvbFormatEok(max.priceEok)}</em> 집을 살 수 있어요</h2>`
+      : `<h2 class="rvb-question">${budgetText}로는<br>아직 살 수 있는 집이 없어요</h2>`;
+    const body = max ? `
+        ${rvbBarsHtml(max, rentWon)}
+        <p class="rvb-loan-line">${rvbEsc(max.product.name)} ${rvbFormatManwon(max.loanWon)} · 연 ${max.product.rate.toFixed(2)}% · 30년</p>
+        <p class="rvb-loan-line is-sub">쓸 수 있는 돈 ${rvbFormatManwon(max.cashWon)}에서 취득세·중개보수 등 ${rvbFormatManwon(max.costsWon)}이 먼저 나가요</p>
+        <button type="button" class="rvb-next" onclick="openRentVsBuyMap(${max.priceEok})">${rvbFormatEok(max.priceEok)} 이하 단지 지도에서 보기</button>`
+      : rvbInfeasibleHtml(input);
+    sheet.innerHTML = `
+      <div class="rvb-top">
+        <button type="button" class="rvb-icon-btn" onclick="closeRentVsBuy()" aria-label="닫기">×</button>
+        <button type="button" class="rvb-text-btn" onclick="restartRentVsBuy()">처음부터</button>
+      </div>
+      <div class="rvb-step">
+        ${headline}
+        ${body}
+      </div>
+      <div class="rvb-adjust">
+        <div class="rvb-adjust-head">조건 바꿔보기</div>
+        <div class="rvb-slider">
+          <div><span>한 달에 더 낼 수 있다면</span><strong id="rvbExtraValue">${rvbState.extraManwon > 0 ? `+${rvbState.extraManwon}만원` : '지금 월세만큼'}</strong></div>
+          <input type="range" min="0" max="150" step="10" value="${rvbState.extraManwon}" oninput="setRentVsBuyExtra(this.value)" aria-label="한 달에 더 낼 수 있는 돈">
+        </div>
+        <div class="rvb-chips">
+          ${RVB_REGIONS.map(r => `<button type="button" class="rvb-chip${r.key === rvbState.region ? ' is-selected' : ''}" onclick="setRentVsBuyRegion('${r.key}')"${r.hint ? ` title="${rvbEsc(r.hint)}"` : ''}>${r.label}</button>`).join('')}
+        </div>
+        <div class="rvb-chips">
+          <button type="button" class="rvb-chip${rvbState.firstHome ? ' is-selected' : ''}" onclick="toggleRentVsBuyFlag('firstHome')">생애최초 구입</button>
+          <button type="button" class="rvb-chip${rvbState.newlywed ? ' is-selected' : ''}" onclick="toggleRentVsBuyFlag('newlywed')">신혼부부</button>
+        </div>
+        ${rvbTargetHtml(output, rentWon)}
+      </div>
+      <p class="rvb-disclaimer">집값이 오르거나 내리는 건 넣지 않았어요. 관리비·재산세, 금리 변동, 방공제 면제 여부에 따라 실제와 달라질 수 있어요.</p>`;
+  }
+
+  // 슬라이더는 끌 때마다 화면 전체를 다시 그리지 않고, 손을 뗀 뒤 한 번만 다시 계산한다
+  let rvbExtraTimer = null;
+  function setRentVsBuyExtra(value) {
+    rvbState.extraManwon = Number(value) || 0;
+    const label = document.getElementById('rvbExtraValue');
+    if (label) label.textContent = rvbState.extraManwon > 0 ? `+${rvbState.extraManwon}만원` : '지금 월세만큼';
+    clearTimeout(rvbExtraTimer);
+    rvbExtraTimer = setTimeout(() => {
+      const sheet = rvbSheet();
+      const scrollTop = sheet?.scrollTop || 0;
+      renderRentVsBuyResult();
+      if (sheet) sheet.scrollTop = scrollTop;
+    }, 180);
+  }
+
+  function rerenderKeepScroll() {
+    const sheet = rvbSheet();
+    const scrollTop = sheet?.scrollTop || 0;
+    renderRentVsBuyResult();
+    if (sheet) sheet.scrollTop = scrollTop;
+  }
+  function setRentVsBuyRegion(key) { rvbState.region = key; rerenderKeepScroll(); }
+  function toggleRentVsBuyFlag(key) { rvbState[key] = !rvbState[key]; rerenderKeepScroll(); }
+  function setRentVsBuyTarget(value) { rvbState.targetManwon = Number(value) > 0 ? Number(value) : null; rerenderKeepScroll(); }
+
+  function restartRentVsBuy() {
+    rvbState.values = { rentManwon: null, cashManwon: null, incomeManwon: null };
+    rvbState.extraManwon = 0;
+    rvbState.targetManwon = null;
+    rvbState.askSteps = RVB_STEPS.map((_, index) => index);
+    rvbState.step = 0;
+    renderRentVsBuyStep();
   }
 
   function openRentVsBuy(prefill = {}) {
     closeRentVsBuy(true);
+    rvbState.values = {
+      rentManwon: null,
+      cashManwon: prefill.cashManwon || null,
+      incomeManwon: prefill.incomeManwon || null,
+    };
+    rvbState.extraManwon = 0;
+    rvbState.targetManwon = prefill.targetManwon || null;
     if (prefill.region) rvbState.region = prefill.region;
     if (typeof prefill.firstHome === 'boolean') rvbState.firstHome = prefill.firstHome;
     if (typeof prefill.newlywed === 'boolean') rvbState.newlywed = prefill.newlywed;
+    // 이미 아는 값(대출 결과에서 넘어온 소득·자산)은 다시 묻지 않는다
+    rvbState.askSteps = RVB_STEPS.map((_, index) => index).filter(index => index === 0 || !(Number(rvbState.values[RVB_STEPS[index].key]) > 0));
+    rvbState.step = 0;
     const overlay = document.createElement('div');
     overlay.className = 'rvb-overlay';
     overlay.id = 'rvbOverlay';
-    overlay.innerHTML = `<div class="rvb-sheet" role="dialog" aria-modal="true" aria-label="월세 vs 매수 계산기">${buildRentVsBuyFormHtml(prefill)}</div>`;
-    overlay.addEventListener('click', event => { if (event.target === overlay) closeRentVsBuy(); });
+    overlay.innerHTML = '<div class="rvb-sheet" role="dialog" aria-modal="true" aria-label="월세 vs 매수 계산기"></div>';
     (document.querySelector('.app') || document.body).appendChild(overlay);
-    syncRentVsBuyChips();
+    renderRentVsBuyStep();
     requestAnimationFrame(() => overlay.classList.add('open'));
   }
 
@@ -358,14 +414,14 @@
     }
   }
 
-  // 대출 결과 화면에서 열 때: 입력해 둔 소득·자산·지역·가구 조건과 집값을 채운다
+  // 대출 결과 화면에서 열 때: 이미 입력한 소득·자산·지역·가구 조건과 집값을 채우고 월세만 묻는다
   function openRentVsBuyFromResult() {
     const snapshot = typeof getStoredFundInputSnapshot === 'function' ? getStoredFundInputSnapshot() : null;
     const prefill = {};
     if (snapshot) {
-      if (snapshot.income) prefill.incomeManwon = Math.round(Number(snapshot.income));
-      if (snapshot.price) prefill.targetManwon = Math.round(Number(snapshot.price) * 10000);
-      if (snapshot.asset) prefill.savingsManwon = Math.round(Number(snapshot.asset) * 10000);
+      if (Number(snapshot.income) > 0) prefill.incomeManwon = Math.round(Number(snapshot.income));
+      if (Number(snapshot.price) > 0) prefill.targetManwon = Math.round(Number(snapshot.price) * 10000);
+      if (Number(snapshot.asset) > 0) prefill.cashManwon = Math.round(Number(snapshot.asset) * 10000);
       prefill.firstHome = snapshot.house === '생애최초';
       prefill.newlywed = snapshot.household === '신혼';
       const province = snapshot.regionSelection?.province;
@@ -390,7 +446,12 @@
     rvbCompute,
     openRentVsBuy,
     closeRentVsBuy,
-    runRentVsBuy,
+    rentVsBuyStepInput,
+    rentVsBuyNext,
+    rentVsBuyBack,
+    restartRentVsBuy,
+    setRentVsBuyExtra,
+    setRentVsBuyTarget,
     setRentVsBuyRegion,
     toggleRentVsBuyFlag,
     openRentVsBuyMap,
