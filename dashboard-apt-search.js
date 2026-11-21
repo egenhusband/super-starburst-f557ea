@@ -430,7 +430,7 @@ function renderConvenienceChip(emoji, label, item) {
   const distText = item?.distance ? formatConvenienceDistance(item.distance) : null;
   const chipClass = item?.distance ? getConvenienceChipClass(item.distance) : 'is-gray';
   const valueText = distText || (item ? '인근' : '없음');
-  return `<div class="db-apt-convenience-chip ${chipClass}"><span>${emoji ? `${emoji} ` : ''}${escapeHtml(label)}</span><strong>${escapeHtml(valueText)}</strong></div>`;
+  return `<div class="db-apt-convenience-chip ${chipClass}"><span>${emoji} ${escapeHtml(label)}</span><strong>${escapeHtml(valueText)}</strong></div>`;
 }
 
 function renderConvenienceSectionHtml(entry) {
@@ -439,10 +439,10 @@ function renderConvenienceSectionHtml(entry) {
     <div class="db-apt-convenience-section">
       <div class="db-apt-convenience-divider">── 주변 생활편의 ──</div>
       <div class="db-apt-convenience-chips">
-        ${renderConvenienceChip('', '종합병원', entry.convenienceHospital)}
-        ${renderConvenienceChip('', '대형마트', entry.convenienceMart)}
-        ${renderConvenienceChip('', '백화점', entry.convenienceDept)}
-        ${renderConvenienceChip('', '공원', entry.conveniencePark)}
+        ${renderConvenienceChip('🏥', '종합병원', entry.convenienceHospital)}
+        ${renderConvenienceChip('🛒', '대형마트', entry.convenienceMart)}
+        ${renderConvenienceChip('🏬', '백화점', entry.convenienceDept)}
+        ${renderConvenienceChip('🌳', '공원', entry.conveniencePark)}
       </div>
     </div>
   `;

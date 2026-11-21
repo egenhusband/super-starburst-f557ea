@@ -80,7 +80,7 @@
       const isRegulated = region === '규제지역';
       result.hidden = false;
       result.classList.toggle('is-regulated', isRegulated);
-      title.textContent = isRegulated ? '규제지역' : region === '수도권' ? '수도권 (규제지역 외)' : '지방';
+      title.textContent = isRegulated ? '🔴 규제지역' : region === '수도권' ? '수도권 (규제지역 외)' : '지방';
       const isNewLandPermitArea = (
         regionSelection.city === '구리시'
         || (regionSelection.city === '용인시' && regionSelection.detail === 'regulated_giheung')
@@ -872,7 +872,7 @@
           <label class="bank-form-label">지역</label>
           <select class="bank-region-select" id="bankRegionSelect" onchange="selectRegionDetail(this.value)">
             <option value="">지역을 선택해주세요</option>
-            <optgroup label="규제지역 (LTV 40%)">
+            <optgroup label="🔴 규제지역 (LTV 40%)">
               <option value="reg_seoul">서울특별시 (전역)</option>
               <option value="reg_gwacheon">경기 — 과천시</option>
               <option value="reg_gwangmyeong">경기 — 광명시</option>
@@ -908,7 +908,7 @@
           </select>
         </div>
         <div id="bangBadge" style="display:none" class="bang-badge">
-          <span style="display:flex;color:var(--yellow)">${icon('info', 16)}</span>
+          <span style="font-size:16px">🔒</span>
           <div class="bang-badge-text" id="bangBadgeText"></div>
         </div>
 
@@ -975,7 +975,7 @@
       </div>
 
       <button class="btn-next" style="margin-top:16px;width:100%;height:52px;min-height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:14px;font-size:16px;font-weight:600;padding:0" id="bankSearchBtn" onclick="searchBankLoans()" disabled>
-        내 조건으로 비교하기
+        🔍 내 조건으로 비교하기
       </button>
 
       <div id="bankResultArea" style="margin-top:16px"></div>
@@ -1092,22 +1092,22 @@
     overlay.id = 'bankNoticeOverlay';
     overlay.innerHTML = `
       <div class="bank-notice-sheet" id="bankNoticeSheet">
-        <div class="bank-notice-title">시중 주담대 이용 전 확인사항</div>
+        <div class="bank-notice-title">⚠️ 시중 주담대 이용 전 확인사항</div>
         <div class="bank-notice-sub">실제 대출 신청 전 반드시 읽어주세요</div>
         <div class="bank-notice-item">
-          <div class="bank-notice-icon">${icon('chartLine', 18)}</div>
+          <div class="bank-notice-icon">📊</div>
           <div class="bank-notice-text"><strong>전월 취급 평균금리 기준</strong>으로 표시됩니다. 실제 적용 금리는 신용도·소득·담보 심사 후 결정되며 다를 수 있습니다.</div>
         </div>
         <div class="bank-notice-item">
-          <div class="bank-notice-icon">${icon('info', 18)}</div>
+          <div class="bank-notice-icon">🔒</div>
           <div class="bank-notice-text"><strong>방공제(최우선변제 소액보증금)</strong>가 대출금에서 자동 차감 적용됩니다. 지역 선택 시 해당 금액이 반영돼요.</div>
         </div>
         <div class="bank-notice-item">
-          <div class="bank-notice-icon">${icon('building', 18)}</div>
+          <div class="bank-notice-icon">🏙️</div>
           <div class="bank-notice-text"><strong>규제지역(서울 전역·경기 주요 지정 지역)</strong>은 LTV 40%가 적용됩니다. 2026년 7월 1일부터 화성 동탄구·용인 기흥구·구리시도 포함돼요.</div>
         </div>
         <div class="bank-notice-item">
-          <div class="bank-notice-icon">${icon('mapPin', 18)}</div>
+          <div class="bank-notice-icon">🗺️</div>
           <div class="bank-notice-text"><strong>토지거래허가구역</strong>은 대출 규제와 별도예요. 화성 동탄구·용인 기흥구·구리시는 2026년 7월 5일부터 2027년 12월 31일까지 적용됩니다.</div>
         </div>
         <div class="bank-notice-item">
@@ -1115,7 +1115,7 @@
           <div class="bank-notice-text">표시된 상품은 금융감독원 <strong>금융상품 한눈에</strong> 데이터 기준이며, 일부 상품은 누락될 수 있습니다.</div>
         </div>
         <div class="bank-notice-item">
-          <div class="bank-notice-icon">${icon('calculator', 18)}</div>
+          <div class="bank-notice-icon">📋</div>
           <div class="bank-notice-text"><strong>DSR 시뮬레이션</strong>은 무대출 상황 기준 참고용이며, 기존 대출이 있다면 실제 한도는 더 낮을 수 있습니다.</div>
         </div>
         <button class="btn-notice-confirm" onclick="closeBankNotice()">확인했어요</button>
@@ -1295,7 +1295,7 @@
 
       if (actualLoanVal > dsrMax) {
         dsrMsg.style.color = 'var(--red)';
-        dsrMsg.innerHTML = `DSR 초과 — 연소득 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong> 가능${stressLabel}`;
+        dsrMsg.innerHTML = `⚠️ DSR 초과 — 연소득 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong> 가능${stressLabel}`;
       } else {
         dsrMsg.style.color = 'var(--green)';
         dsrMsg.innerHTML = `✓ DSR 통과 — 연소득 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong> 가능${stressLabel}`;
@@ -1417,7 +1417,7 @@
             area.innerHTML = `
               <div class="result-group">
                 <div style="text-align:center;padding:16px 0">
-                  <div style="display:flex;justify-content:center;margin-bottom:10px;color:var(--yellow)">${icon('alertTriangle', 26)}</div>
+                  <div style="font-size:28px;margin-bottom:10px">⚠️</div>
                   <div style="font-size:15px;font-weight:600;color:var(--label1);margin-bottom:6px">오늘 조회 한도를 초과했어요</div>
                   <div style="font-size:13px;color:var(--label3);line-height:1.6">금융감독원 API의 일일 조회 한도(10,000건)에<br>도달했습니다. 내일 다시 시도해주세요.</div>
                 </div>
@@ -1458,7 +1458,7 @@
     // 방공제 배너 — renderBankPage에서도 접근 가능하도록 외부 변수에 저장
     bankBangBanner = (bangMan > 0 && loanInputEok > loanEok) ? `
       <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,214,10,0.07);border:1px solid rgba(255,214,10,0.2);border-radius:10px;margin-bottom:14px">
-        <span style="display:flex;color:var(--yellow)">${icon('info', 16)}</span>
+        <span style="font-size:16px">🔒</span>
         <div style="font-size:12px;color:rgba(255,214,10,0.8);line-height:1.5">
           방공제 <strong style="color:var(--yellow)">${bangMan.toLocaleString()}만원</strong> 차감 적용
           &nbsp;·&nbsp; ${loanInputEok.toFixed(1)}억 → <strong style="color:#fff">${loanEok.toFixed(2)}억</strong> 기준으로 월납입 계산
@@ -1677,7 +1677,7 @@
           <button onclick="setBankSort('monthly')" style="padding:6px 12px;border-radius:20px;border:1.5px solid ${bankSortBy==='monthly'?'var(--accent)':'var(--separator)'};background:${bankSortBy==='monthly'?'var(--accent-dim)':'var(--bg3)'};color:${bankSortBy==='monthly'?'var(--accent)':'var(--label2)'};font-family:inherit;font-size:12px;font-weight:${bankSortBy==='monthly'?'700':'400'};cursor:pointer">월납입 낮은 순</button>
         </div>
         <button onclick="toggleMajorFirst()" style="display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:20px;border:1.5px solid ${bankMajorFirst?'var(--accent)':'var(--separator)'};background:${bankMajorFirst?'var(--accent-dim)':'var(--bg3)'};color:${bankMajorFirst?'var(--accent)':'var(--label3)'};font-family:inherit;font-size:11px;font-weight:${bankMajorFirst?'700':'400'};cursor:pointer;white-space:nowrap">
-          주요은행 먼저
+          🏦 주요은행 먼저
         </button>
       </div>
       <div style="font-size:11px;color:var(--label3);margin-bottom:12px">※ 전월 취급 평균금리 기준 · 실제 금리는 심사 후 결정됩니다</div>`;
@@ -1713,7 +1713,7 @@
       hint = document.createElement('div');
       hint.id = 'compareHint';
       hint.className = 'compare-hint';
-      hint.innerHTML = `<div class="compare-hint-bubble">카드를 <span>체크</span>하면 상품을 비교할 수 있어요</div>`;
+      hint.innerHTML = `<div class="compare-hint-bubble">☑️ 카드를 <span>체크</span>하면 상품을 비교할 수 있어요</div>`;
       document.querySelector('.app').appendChild(hint);
     }
     // compareBar가 이미 표시 중이면 스킵
@@ -3790,7 +3790,7 @@
           ${roomState ? roomDeductionHtml(uid, product, roomState, finalLimit, price, income, house, region, household) : ''}
           ${colorCls === 'green' && house === '생애최초' && region !== '규제지역' && region !== '수도권' ? `
           <div class="ltv80-notice">
-            <div class="ltv80-notice-icon">${icon('info', 18)}</div>
+            <div class="ltv80-notice-icon">⚠️</div>
             <div class="ltv80-notice-text"><strong>LTV 80% 적용 안내</strong><br>특례구입자금 보증 가입 및 아파트인 경우 LTV 80%까지 가능합니다. 정확한 적용 기준은 심사를 통해 결정되며, 이 수치는 참고용 예측치입니다.</div>
           </div>` : ''}
           ${loanRatioBarHtml(uid, displayLimit, price, colorCls === 'green' ? 'var(--green)' : 'var(--accent)')}
@@ -3941,7 +3941,7 @@
 
     return '<div class="result-header-area"><div class="result-badge-wrap">'
       + '<div class="result-icon grey">' + icon('landmark', 28) + '</div>'
-      + '<div><div class="result-option-label grey">다른 방법</div><div class="result-title">시중은행</div></div>'
+      + '<div><div class="result-option-label grey">ALTERNATIVE</div><div class="result-title">시중은행</div></div>'
       + '</div></div>'
       + '<div class="result-tagline grey-border">입력하신 조건은 주택기금 대출 요건을 충족하지 않습니다. 시중은행을 알아봐주세요.</div>'
       + '<div class="result-spacer"></div>'
@@ -4016,7 +4016,7 @@
     var paneNewborn = '';
     if (newbornOk) {
       paneNewborn = '<div class="tab-pane3' + (firstTab === 'newborn' ? ' active' : '') + '" id="pane3-newborn">'
-        + '<div class="newborn-hero"><div class="newborn-hero-badge">신생아 특례 핵심 혜택</div><div class="newborn-hero-text">내 소득구간 특례금리 ' + rateInfo.min + '~' + rateInfo.max + '%</div><div class="newborn-hero-sub">' + rateInfo.label + ' 구간 기준 · 특례금리 기본 5년 적용<br>추가 출산 시 1명당 5년 연장 (최장 15년)</div>'
+        + '<div class="newborn-hero"><div class="newborn-hero-badge">👶 신생아 특례 핵심 혜택</div><div class="newborn-hero-text">내 소득구간 특례금리 ' + rateInfo.min + '~' + rateInfo.max + '%</div><div class="newborn-hero-sub">' + rateInfo.label + ' 구간 기준 · 특례금리 기본 5년 적용<br>추가 출산 시 1명당 5년 연장 (최장 15년)</div>'
         + productHeroMetricsHtml(rateInfo.min + '~' + rateInfo.max + '%', '<span class="room-sync-newborn">' + formatLimit(nbDisplayLimit) + '</span>') + '</div>'
         + '<div class="result-spacer-sm"></div>'
         + newbornLimitCardHtml(nbLtvLimit, nbMaxLimit, nbFinalLimit, price, house, nbRate.max30, income, household, region, nbDtiLimit, otherLoanInterest)
@@ -4044,7 +4044,7 @@
     var paneDidimdol = '';
     if (didimdolOk) {
       paneDidimdol = '<div class="tab-pane3' + (firstTab === 'didimdol' ? ' active' : '') + '" id="pane3-didimdol">'
-        + '<div class="didimdol-hero"><div class="didimdol-hero-badge">디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 주담대보다 낮은 정책 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>'
+        + '<div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 주담대보다 낮은 정책 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>'
         + productHeroMetricsHtml(getDidimdolRateLabel(household, house), '<span class="room-sync-didimdol">' + formatLimit(dDisplayLimit) + '</span>') + '</div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)
@@ -4066,7 +4066,7 @@
     var paneBogeumjari = '';
     if (bogeumjariOk) {
       paneBogeumjari = '<div class="tab-pane3' + (firstTab === 'bogeumjari' ? ' active' : '') + '" id="pane3-bogeumjari">'
-        + '<div class="bogeumjari-hero"><div class="bogeumjari-hero-badge">보금자리론 핵심 혜택</div><div class="bogeumjari-hero-text">DSR 규제는 적용 제외예요</div><div class="bogeumjari-hero-sub">장기 고정금리로 비교적 안정적으로 이용할 수 있습니다.<br>다만 소득·기타부채 기준 DTI는 한도 계산에 반영됩니다.</div>'
+        + '<div class="bogeumjari-hero"><div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div><div class="bogeumjari-hero-text">DSR 규제는 적용 제외예요</div><div class="bogeumjari-hero-sub">장기 고정금리로 비교적 안정적으로 이용할 수 있습니다.<br>다만 소득·기타부채 기준 DTI는 한도 계산에 반영됩니다.</div>'
         + productHeroMetricsHtml(getBogeumRateLabel(), '<span data-bogeum-info-limit>' + formatLimit(bFinalLimit) + '</span>') + '</div>'
         + '<div class="result-spacer-sm"></div>'
         + limitCardHtml('green', bLtvLimit, bMaxLimit, bFinalLimit, price, household, house, children, region, income, bDtiLimit, otherLoanInterest)
@@ -5025,7 +5025,7 @@
 
         <!-- 디딤돌 패널 -->
         <div class="tab-pane active" id="pane-didimdol">
-          <div class="didimdol-hero"><div class="didimdol-hero-badge">디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 주담대보다 낮은 정책 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>${productHeroMetricsHtml(getDidimdolRateLabel(household, house), `<span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span>`)}</div>
+          <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 주담대보다 낮은 정책 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>${productHeroMetricsHtml(getDidimdolRateLabel(household, house), `<span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span>`)}</div>
           <div class="result-spacer-sm"></div>
           ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)}
           <div class="result-spacer"></div>
@@ -5044,7 +5044,7 @@
         <!-- 보금자리론 패널 -->
         <div class="tab-pane" id="pane-bogeumjari">
           <div class="bogeumjari-hero">
-  <div class="bogeumjari-hero-badge">보금자리론 핵심 혜택</div>
+  <div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div>
   <div class="bogeumjari-hero-text">DSR 규제는 적용 제외예요</div>
   <div class="bogeumjari-hero-sub">장기 고정금리로 비교적 안정적으로 이용할 수 있습니다.<br>다만 소득·기타부채 기준 DTI는 한도 계산에 반영됩니다.</div>
   ${productHeroMetricsHtml(getBogeumRateLabel(), `<span data-bogeum-info-limit>${formatLimit(bFinalLimit)}</span>`)}
@@ -5082,12 +5082,12 @@
           <div class="result-badge-wrap">
             <div class="result-icon blue">${icon('home', 28)}</div>
             <div>
-              <div class="result-option-label blue">추천</div>
+              <div class="result-option-label blue">BEST OPTION</div>
               <div class="result-title">디딤돌 대출</div>
             </div>
           </div>
         </div>
-        <div class="didimdol-hero"><div class="didimdol-hero-badge">디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 주담대보다 낮은 정책 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>${productHeroMetricsHtml(getDidimdolRateLabel(household, house), `<span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span>`)}</div>
+        <div class="didimdol-hero"><div class="didimdol-hero-badge">✨ 디딤돌 핵심 혜택</div><div class="didimdol-hero-text">시중 주담대보다 낮은 정책 금리예요</div><div class="didimdol-hero-sub">정부 지원 정책 상품으로 시중 주담대보다 훨씬 낮은 금리를 받을 수 있습니다.</div>${productHeroMetricsHtml(getDidimdolRateLabel(household, house), `<span class="room-sync-didimdol">${formatLimit(dDisplayLimit)}</span>`)}</div>
         <div class="result-spacer-sm"></div>
         ${limitCardHtml('blue', dLtvLimit, dMaxLimit, dFinalLimit, price, household, house, children, region, income, dDtiLimit, otherLoanInterest)}
         <div class="result-spacer"></div>
@@ -5119,13 +5119,13 @@
           <div class="result-badge-wrap">
             <div class="result-icon green">${icon('home', 28)}</div>
             <div>
-              <div class="result-option-label green">추천</div>
+              <div class="result-option-label green">RECOMMENDED</div>
               <div class="result-title">보금자리론</div>
             </div>
           </div>
         </div>
         <div class="bogeumjari-hero">
-  <div class="bogeumjari-hero-badge">보금자리론 핵심 혜택</div>
+  <div class="bogeumjari-hero-badge">✨ 보금자리론 핵심 혜택</div>
   <div class="bogeumjari-hero-text">DSR 규제는 적용 제외예요</div>
   <div class="bogeumjari-hero-sub">장기 고정금리로 비교적 안정적으로 이용할 수 있습니다.<br>다만 소득·기타부채 기준 DTI는 한도 계산에 반영됩니다.</div>
   ${productHeroMetricsHtml(getBogeumRateLabel(), `<span data-bogeum-info-limit>${formatLimit(bFinalLimit)}</span>`)}
@@ -5168,7 +5168,7 @@
           <div class="result-badge-wrap">
             <div class="result-icon grey">${icon('landmark', 28)}</div>
             <div>
-              <div class="result-option-label grey">다른 방법</div>
+              <div class="result-option-label grey">ALTERNATIVE</div>
               <div class="result-title">시중은행</div>
             </div>
           </div>
@@ -5512,7 +5512,7 @@
     return `
       <div class="donate-section">
         <div class="donate-main">서비스가 도움이 되셨나요?</div>
-        <div class="donate-sub">커피 한 잔 후원해 주시면 서비스 운영에 큰 힘이 됩니다.</div>
+        <div class="donate-sub">커피 한 잔 후원해 주시면 서비스 운영에 큰 힘이 됩니다! ☕️</div>
         <a class="btn-donate" href="https://qr.kakaopay.com/Ej7mJd7EE" target="_blank" rel="noopener">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="#191919" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 3C6.477 3 2 6.72 2 11.25c0 2.91 1.7 5.48 4.28 6.99L5.2 21.5l4.93-2.73c.6.1 1.23.16 1.87.16 5.523 0 10-3.72 10-8.25C22 6.72 17.523 3 12 3z"/>
