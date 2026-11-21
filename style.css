@@ -8167,3 +8167,261 @@ body.result-conclusion-in-view .result-floating-summary {
 .db-apartment-map-wrap:has(.db-map-selection-sheet.is-visible) .db-map-policy-legend,
 .db-apartment-map-wrap:has(.db-map-filter-panel.is-visible) .db-map-policy-legend,
 .db-apartment-map-wrap:has(.db-map-selection-sheet.is-visible) .db-map-policy-toggle { opacity: 0; pointer-events: none; }
+
+/* ═══════════════════════════════════════════════════════════════
+   디자인 정리 (2026-11) — "AI 티" 나는 장식 걷어내기
+   원칙
+   1) 상자 대신 여백과 구분선으로 묶는다. 배경 있는 상자는 '누를 수 있는 것'에만.
+   2) 색은 상품을 뜻할 때만 쓴다 (보금자리 초록 · 디딤돌 파랑 · 신생아 분홍 · 시중 회색).
+   3) 결과 화면의 주인공은 한도 숫자 하나. 나머지는 조용하게.
+   4) 자동 재생 효과(섹션마다 떠오르기, 회전 테두리, 발광)는 쓰지 않는다.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --hairline: rgba(255,255,255,0.09);
+  --product-bogeum: #34c77b;
+  --product-didimdol: #4c8dff;
+  --product-newborn: #ff6b9d;
+  --product-bank: #9aa0a6;
+}
+
+/* 1. 섹션마다 떠오르는 등장 효과 제거 */
+.card-animate { opacity: 1; animation: none; }
+#resultContent * { animation-name: none; }
+
+/* 2. 영문 대문자 라벨 → 평범한 소제목 */
+.group-label,
+.tag-section-label,
+.limit-detail-label {
+  text-transform: none;
+  letter-spacing: 0;
+}
+#resultContent .group-label {
+  padding: 0;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--label2);
+}
+
+/* 3. 결과 머리 — 아이콘 타일 없이 상품명만 */
+#resultContent .result-header-area { padding: 6px 0 14px; }
+#resultContent .result-icon { display: none; }
+#resultContent .result-option-label {
+  margin-bottom: 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+#resultContent .result-title { letter-spacing: -0.6px; }
+#resultContent .result-tagline {
+  padding: 0 0 0 12px;
+  background: none;
+  border-radius: 0;
+}
+
+/* 4. 결론(한도) — 상자·상단 색띠 대신 왼쪽 상품색 선 하나, 숫자는 흰색 */
+#resultContent .result-conclusion {
+  margin: 0 0 8px;
+  padding: 4px 0 20px 16px;
+  border: 0;
+  border-left: 3px solid var(--conclusion-accent);
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+#resultContent .result-conclusion::before { display: none; }
+#resultContent .result-conclusion-badge {
+  padding: 0;
+  background: none;
+  font-size: 14px;
+}
+#resultContent .result-conclusion-caption { font-size: 13px; }
+#resultContent .result-conclusion-amount {
+  margin-top: 6px;
+  color: var(--label1);
+  font-size: 38px;
+  font-weight: 760;
+  letter-spacing: -1.4px;
+  font-variant-numeric: tabular-nums;
+}
+#resultContent .result-conclusion-grid {
+  margin-top: 14px;
+  padding-top: 0;
+  border-top: 0;
+  gap: 14px;
+}
+#resultContent .result-conclusion-grid > div + div { padding-left: 0; border-left: 0; }
+#resultContent .result-conclusion-grid strong { font-variant-numeric: tabular-nums; }
+#resultContent .result-conclusion-compare-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--hairline);
+  border-radius: 0;
+  background: none;
+}
+
+/* 5. 상자 → 구분선 목록 (접기·조건·부대비용·FAQ·한도 근거) */
+#resultContent .rate-calc-card,
+#resultContent .limit-detail-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+#resultContent .result-group,
+#resultContent .result-tax-summary,
+#resultContent .rate-calc-card--result.is-split-card > .result-fold,
+#resultContent .result-fold,
+#resultContent .repay-guide-dropdown {
+  padding-left: 0;
+  padding-right: 0;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+#resultContent .result-fold { padding-top: 16px; padding-bottom: 16px; }
+#resultContent .limit-detail-card::after { display: none; }
+#resultContent .limit-breakdown { border: 0; border-radius: 0; gap: 0; }
+#resultContent .limit-breakdown-item {
+  padding: 8px 0;
+  background: none;
+}
+#resultContent .limit-breakdown-item:not(:last-child) { border-right: 0; }
+#resultContent .result-tax-summary { margin-top: 0; padding-top: 16px; padding-bottom: 16px; }
+#resultContent .result-tax-summary [class*="-item"],
+#resultContent .result-tax-summary [class*="-cell"] { background: none; padding-left: 0; padding-right: 0; }
+
+#resultContent .faq-list,
+#resultContent .faq-section > div { gap: 0; }
+#resultContent .faq-item {
+  border-top: 1px solid var(--hairline);
+  border-radius: 0;
+  background: none;
+}
+#resultContent .faq-q { padding: 15px 0; }
+#resultContent .faq-a,
+#resultContent .faq-item.open .faq-a { padding-left: 0; padding-right: 0; }
+#resultContent .faq-a-text { border-top: 0; padding-top: 0; }
+
+/* 6. 충족 조건 칩 → 아이콘 붙은 문장 목록 */
+#resultContent .tags { flex-direction: column; gap: 7px; }
+#resultContent .tag {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  background: none;
+  color: var(--label1);
+  font-size: 13px;
+}
+#resultContent .tag .ui-icon { --ui-icon-size: 13px; stroke-width: 3.2; }
+#resultContent .tag.pass .ui-icon { color: var(--product-bogeum); }
+#resultContent .tag.fail { color: var(--label2); }
+#resultContent .tag.fail .ui-icon { color: var(--red); }
+
+/* 7. 지도 이동 버튼 — 회전 테두리 제거, 평범한 줄 */
+.map-result-cta {
+  padding: 16px 32px 16px 0;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  background: none;
+}
+.map-result-cta::before,
+.map-result-cta::after { display: none; animation: none; }
+.map-result-cta-ico { display: none; }
+
+/* 8. 다시하기 — 테두리 상자 대신 텍스트 버튼 */
+#resultContent .btn-restart {
+  border: 0;
+  background: none;
+  color: var(--label3);
+}
+
+#resultContent .result-conclusion-badge { display: none; }
+#resultContent .limit-detail-card.is-folded-card { padding: 0; }
+#resultContent .repay-guide-dropdown summary { padding-left: 0; padding-right: 0; }
+/* 부대비용: 작은 상자 4개 → 항목 · 금액 두 줄 목록 */
+#resultContent .result-tax-summary-grid { grid-template-columns: 1fr; gap: 0; margin-top: 8px; }
+#resultContent .result-tax-summary-grid div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-radius: 0;
+  background: none;
+}
+#resultContent .result-tax-summary-grid span { font-size: 12.5px; font-weight: 500; color: var(--label2); }
+#resultContent .result-tax-summary-grid strong { margin-top: 0; font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* 9. 그 밖의 장식 — 반짝이 애니메이션, 유리광 띠 */
+.entry-toast-lottie { display: none; }
+.result-floating-summary-glow { display: none; }
+.db-map-sheet-action span { display: flex; }
+
+/* 10. 단지 상세(입지 분석) — 같은 원칙: 상자 격자 → 구분선 목록 */
+#aptSearchScreen .db-apt-grade-card {
+  padding: 4px 0 0;
+  border-radius: 0;
+  background: none;
+}
+#aptSearchScreen .db-apt-grade-badge {
+  width: auto;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  align-items: flex-end;
+}
+#aptSearchScreen .db-apt-grade-grid {
+  gap: 0 18px;
+  margin-top: 16px;
+}
+#aptSearchScreen .db-apt-grade-chip,
+#aptSearchScreen .db-apt-grade-grid--preview .db-apt-grade-chip {
+  min-height: 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--hairline);
+  border-radius: 0;
+  background: none;
+}
+#aptSearchScreen .db-apt-grade-chip strong { margin-top: 4px; }
+#aptSearchScreen .db-apt-grade-reasons,
+#aptSearchScreen .db-apt-grade-disclaimer {
+  padding-left: 0;
+  padding-right: 0;
+  border-radius: 0;
+  background: none;
+}
+#aptSearchScreen .db-apt-grade-reasons { border-top: 1px solid var(--hairline); padding-top: 14px; }
+#aptSearchScreen .db-apt-area-row {
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  border-radius: 0;
+  background: none;
+}
+#aptSearchScreen .db-apt-tax-card {
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  border-radius: 0;
+  background: none;
+}
+#aptSearchScreen .db-apt-tax-item {
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+#aptSearchScreen .db-apt-tax-jongboo {
+  padding: 10px 0 10px 12px;
+  border: 0;
+  border-left: 2px solid var(--accent);
+  border-radius: 0;
+  background: none;
+}
+#aptSearchScreen .db-apt-tax-jongboo.is-check { border-left-color: #ffb020; }

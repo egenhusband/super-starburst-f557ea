@@ -884,9 +884,8 @@ function buildDashboardMapCtaHtml(ctx) {
   const target = Number(ctx?.targetPrice) || 0;
   if (target <= 0) return '';
   return `<button class="map-result-cta" data-map-result-cta="true" data-map-target-price="${target}" type="button" onclick="openDashboardMapFromResultCta(this)">
-      <span class="map-result-cta-ico" aria-hidden="true">🏠</span>
-      <span class="map-result-cta-copy"><strong>이 예산으로 살 수 있는 단지 찾기</strong><small>최근 실거래가 ${target.toFixed(1)}억 이하 단지만 지도에서 보여드려요</small></span>
-      <span class="map-result-cta-go" aria-hidden="true">→</span>
+            <span class="map-result-cta-copy"><strong>이 예산으로 살 수 있는 단지 찾기</strong><small>최근 실거래가 ${target.toFixed(1)}억 이하 단지만 지도에서 보여드려요</small></span>
+      <span class="map-result-cta-go" aria-hidden="true">${typeof icon === 'function' ? icon('chevronRight', 18) : ''}</span>
     </button>`;
 }
 
@@ -1118,7 +1117,7 @@ function openDashboardMapApartment(item) {
       <span>최근 ${price} · ${escapeHtml(latestDate)}</span>
     </div>
     ${typeof buildMapApartmentSheetExtraHtml === 'function' ? buildMapApartmentSheetExtraHtml(item) : ''}
-    <button class="db-map-sheet-action" type="button" onclick="openDashboardMapApartmentDetail('${escapeHtml(item.kaptCode || '')}')">입지 분석 보기 <span>→</span></button>
+    <button class="db-map-sheet-action" type="button" onclick="openDashboardMapApartmentDetail('${escapeHtml(item.kaptCode || '')}')">입지 분석 보기 <span>${typeof icon === 'function' ? icon('chevronRight', 18) : ''}</span></button>
   `;
   sheet.classList.add('is-visible');
 }
@@ -1793,7 +1792,7 @@ function initDashboard() {
       </div>
 
       <div class="db-cta-wrap">
-        <button class="db-cta" onclick="startCalculatorFlow()">내 조건으로 대출 알아보기 →</button>
+        <button class="db-cta" onclick="startCalculatorFlow()">내 조건으로 대출 알아보기</button>
       </div>
     </div>
   `;
@@ -2394,7 +2393,7 @@ function renderAptTradeCards({
               <strong id="dbChartStatValue">${formatPrice(latestPrice)}</strong>
               <em id="dbChartStatChange" class="${signalClass(priceChange)}">${formatSignedPct(priceChange, 2)}</em>
             </div>
-            <div class="db-chart-label-lite" id="dbChartStatLabel">평균 매매 가격 흐름 →</div>
+            <div class="db-chart-label-lite" id="dbChartStatLabel">평균 매매 가격 흐름</div>
           </div>
           <div class="db-chart-top">
             <div class="db-chart-tabs">

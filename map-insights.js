@@ -178,7 +178,7 @@ function buildMapApartmentSheetExtraHtml(item) {
   const commute = getMapCommuteMinutesForItem(item);
   const dest = getMapCommuteDestination(getMapInsightsActiveFilters()?.commuteDest);
   if (dest && Number.isFinite(commute)) {
-    blocks.push(`<div class="db-map-sheet-commute">🚇 ${mapInsightsEscape(dest.label)}까지 지하철 약 <b>${commute}분</b> <small>(도보 포함 추정)</small></div>`);
+    blocks.push(`<div class="db-map-sheet-commute">${mapInsightsEscape(dest.label)}까지 지하철 약 <b>${commute}분</b> <small>(도보 포함 추정)</small></div>`);
   }
   return blocks.join('');
 }
