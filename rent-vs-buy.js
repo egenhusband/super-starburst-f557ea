@@ -2,7 +2,7 @@
  * 월세 vs 매수 계산기
  *
  * 질문: "지금 내는 월세(+ 더 낼 수 있는 돈)로 대출 원리금을 내면, 얼마짜리 집을 살 수 있나?"
- *  - 집값 상승·하락 예측은 넣지 않는다. 월 현금흐름만 비교한다.
+ *  - 40년 만기 원리금균등 기준. 집값 상승·하락 예측은 넣지 않는다. 월 현금흐름만 비교한다.
  *  - 원리금 중 원금은 '내 집에 쌓이는 돈', 이자는 월세처럼 '나가는 돈'으로 나눠 보여준다.
  *
  * 대출 규칙은 calc-loan.js(정책대출)·calculator.js(시중대출)와 같은 기준을 단순화해 쓴다.
@@ -24,9 +24,11 @@
     { key: 'metro', label: '경기·인천 그 외', regulated: false, metro: true, roomManwon: 4800 },
     { key: 'local', label: '지방', regulated: false, metro: false, roomManwon: 2500 },
   ];
-  // 시중 주담대 참고 금리 — 한국은행 예금은행 주담대 신규취급액 가중평균(2026년 9월 4.88%) 반올림
-  const RVB_BANK_RATE = 4.9;
-  const RVB_YEARS = 30;
+  // 시중 주담대 금리 — 5대 은행 혼합형(5년 고정) 2026년 9월 연 4.89~7.29%.
+  // 우대금리를 일부 받은 일반 차주 기준으로 중간보다 조금 낮은 5.6%를 쓴다. 보금자리론(40년 5.35%)보다 높게 나오는 게 현실에 가깝다.
+  const RVB_BANK_RATE = 5.6;
+  // 실제로 많이 고르는 40년 만기 기준 (보금자리 40년은 만 39세 이하·신혼, 디딤돌 40년은 청년·신혼 대상)
+  const RVB_YEARS = 40;
   const RVB_DSR_STRESS = { metro: 3.0, local: 0.75 };
 
   function rvbRegion(key) {
@@ -79,7 +81,7 @@
     if (income <= dIncomeLimit && priceEok <= dPriceLimit && netAssetEok <= 5.11) {
       const ltv = firstHome ? (metroOrReg ? 0.7 : 0.8) : 0.7;
       const cap = newlywed ? 3.2 : firstHome ? 2.4 : 2.0;
-      const rate = rates ? rates.getDidimdolBaseRate(income, newlywed ? '신혼' : '', 30) : 3.8;
+      const rate = rates ? rates.getDidimdolBaseRate(income, newlywed ? '신혼' : '', RVB_YEARS) : 3.8; // 40년은 30년 금리표 적용
       products.push({
         key: 'didimdol', name: '디딤돌 대출', rate,
         maxLoanEok: Math.max(0, Math.min(cap, priceEok * ltv) - region.roomManwon / 10000),
@@ -92,8 +94,8 @@
       const ltv = firstHome ? (metroOrReg ? 0.7 : 0.8) : (region.regulated ? 0.6 : 0.7);
       const cap = firstHome ? 4.2 : 3.6;
       const rate = rates
-        ? rates.getBogeumBaseRate(30) + rates.getBogeumRegulationSurcharge(region.regulated ? '규제지역' : '')
-        : 5.3;
+        ? rates.getBogeumBaseRate(RVB_YEARS) + rates.getBogeumRegulationSurcharge(region.regulated ? '규제지역' : '')
+        : 5.35;
       products.push({ key: 'bogeum', name: '보금자리론', rate, maxLoanEok: Math.min(cap, priceEok * ltv), dtiRatio: 0.6 });
     }
     // 시중은행
@@ -310,7 +312,7 @@
       : `<h2 class="rvb-question">${budgetText}로는<br>아직 살 수 있는 집이 없어요</h2>`;
     const body = max ? `
         ${rvbBarsHtml(max, rentWon)}
-        <p class="rvb-loan-line">${rvbEsc(max.product.name)} ${rvbFormatManwon(max.loanWon)} · 연 ${max.product.rate.toFixed(2)}% · 30년</p>
+        <p class="rvb-loan-line">${rvbEsc(max.product.name)} ${rvbFormatManwon(max.loanWon)} · 연 ${max.product.rate.toFixed(2)}% · ${RVB_YEARS}년</p>
         <p class="rvb-loan-line is-sub">쓸 수 있는 돈 ${rvbFormatManwon(max.cashWon)}에서 취득세·중개보수 등 ${rvbFormatManwon(max.costsWon)}이 먼저 나가요</p>
         <button type="button" class="rvb-next" onclick="openRentVsBuyMap(${max.priceEok})">${rvbFormatEok(max.priceEok)} 이하 단지 지도에서 보기</button>`
       : rvbInfeasibleHtml(input);

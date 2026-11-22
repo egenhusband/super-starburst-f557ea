@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>주택 기금대출 추천</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-  <link rel="stylesheet" href="style.css?v=20261122ux">
+<!-- 토스페이스(이모지) — 토스팀 제공, 출처 표기 필수: https://toss.im/tossface/copyright -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/toss/tossface/dist/tossface.css">
+  <link rel="stylesheet" href="style.css?v=20261122toss">
 </head>
 <body>
 <div class="app">
@@ -140,13 +142,12 @@
           </div>
           <div class="option-check"></div>
         </div>
-        <button type="button" class="option-card option-card--rvb" onclick="openRentVsBuy()">
-          <div>
-            <div class="option-title">월세 vs 매수</div>
-            <div class="option-desc">지금 내는 월세로 대출을 갚으면 얼마짜리 집을 살 수 있는지 계산해요</div>
-          </div>
-          <span class="option-go" data-icon="chevronRight" data-icon-size="18"></span>
+        <button type="button" class="rvb-inline-link" onclick="openRentVsBuy()">
+          <span class="rvb-inline-emoji" aria-hidden="true">🏠</span>
+          <span>월세 살고 있다면? <strong>같은 돈으로 살 수 있는 집 계산하기</strong></span>
+          <span class="rvb-inline-go" data-icon="chevronRight" data-icon-size="14"></span>
         </button>
+        <p class="tossface-credit">이 페이지에는 토스팀에서 제공한 토스페이스가 적용되어 있습니다.</p>
       </div>
     </div>
 
@@ -622,8 +623,8 @@
 <script src="kakao-auth.js?v=20260907paywall-return"></script>
 <script src="amount-input.js?v=20261101"></script>
 <script src="loan-rates.js?v=20261101"></script>
-<script src="calculator.js?v=20261122rvb"></script>
-<script src="rent-vs-buy.js?v=20261122steps"></script>
+<script src="calculator.js?v=20261122rate"></script>
+<script src="rent-vs-buy.js?v=20261122y40"></script>
 <script src="map-insights.js?v=20261122sheet"></script>
 <script src="dashboard.js?v=20261122filter"></script>
 <script src="dashboard-apt-search.js?v=20261122commute"></script>

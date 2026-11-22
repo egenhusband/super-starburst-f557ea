@@ -1141,9 +1141,9 @@
   const DSR_STRESS_RATE_METRO = 3.0;
   const DSR_STRESS_RATE_LOCAL = 0.75;
   const DSR_STRESS_FIXED_RATIO = 0.6;
-  // DSR 시뮬레이션용 참고 금리 — 한국은행 예금은행 주담대 신규취급액 가중평균(2026년 9월 4.88%) 반올림.
-  // 매월 말 한은 '금융기관 가중평균금리' 발표 시 갱신.
-  const BANK_DSR_REFERENCE_RATE = 4.9;
+  // DSR 시뮬레이션용 참고 금리 — 5대 은행 혼합형(5년 고정) 2026년 9월 연 4.89~7.29% 중
+  // 우대금리를 일부 받은 일반 차주 수준(rent-vs-buy.js RVB_BANK_RATE와 같은 값). 시장 금리가 바뀌면 함께 갱신.
+  const BANK_DSR_REFERENCE_RATE = 5.6;
   function getDsrStressRate() {
     const base = bankRegion === 'M' ? DSR_STRESS_RATE_METRO : DSR_STRESS_RATE_LOCAL;
     const onlyFixed = bankFilter.rate.includes('F') && !bankFilter.rate.includes('C');
