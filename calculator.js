@@ -874,33 +874,33 @@
             <option value="">지역을 선택해주세요</option>
             <optgroup label="🔴 규제지역 (LTV 40%)">
               <option value="reg_seoul">서울특별시 (전역)</option>
-              <option value="reg_gwacheon">경기 — 과천시</option>
-              <option value="reg_gwangmyeong">경기 — 광명시</option>
-              <option value="reg_seongnam">경기 — 성남시 (분당·수정·중원구)</option>
-              <option value="reg_suwon">경기 — 수원시 (영통·장안·팔달구)</option>
-              <option value="reg_anyang">경기 — 안양시 (동안구)</option>
-              <option value="reg_yongin">경기 — 용인시 (수지구)</option>
-              <option value="reg_yongin_giheung">경기 — 용인시 (기흥구)</option>
-              <option value="reg_hwaseong_dongtan">경기 — 화성시 (동탄구)</option>
-              <option value="reg_guri">경기 — 구리시</option>
-              <option value="reg_uiwang">경기 — 의왕시</option>
-              <option value="reg_hanam">경기 — 하남시</option>
+              <option value="reg_gwacheon">경기 과천시</option>
+              <option value="reg_gwangmyeong">경기 광명시</option>
+              <option value="reg_seongnam">경기 성남시 (분당·수정·중원구)</option>
+              <option value="reg_suwon">경기 수원시 (영통·장안·팔달구)</option>
+              <option value="reg_anyang">경기 안양시 (동안구)</option>
+              <option value="reg_yongin">경기 용인시 (수지구)</option>
+              <option value="reg_yongin_giheung">경기 용인시 (기흥구)</option>
+              <option value="reg_hwaseong_dongtan">경기 화성시 (동탄구)</option>
+              <option value="reg_guri">경기 구리시</option>
+              <option value="reg_uiwang">경기 의왕시</option>
+              <option value="reg_hanam">경기 하남시</option>
             </optgroup>
             <optgroup label="수도권 (LTV 70%)">
-              <option value="incheon_gangwha">인천 — 강화군·옹진군</option>
-              <option value="incheon_special">인천 — 서구 일부·경제특구</option>
-              <option value="incheon_etc">인천 — 그 외</option>
-              <option value="metro_anyang_manan">경기 — 안양시 (만안구 · 비규제)</option>
-              <option value="metro_city">경기 — 의정부·고양·수원 일부·부천·광명 일부·과천 일부·의왕 일부·군포·용인·화성 일부·세종·김포</option>
-              <option value="siheung_banwol">시흥 — 반월특수지역</option>
-              <option value="siheung_etc">시흥 — 그 외</option>
-              <option value="namyangju_core">남양주 — 호평·별내·금곡·일패·이패·삼패·가운·수석·지금·도농</option>
-              <option value="namyangju_etc">남양주 — 그 외</option>
-              <option value="gyeonggi_city">경기 — 안산시·광주시·파주시·이천시·평택시</option>
+              <option value="incheon_gangwha">인천 강화군·옹진군</option>
+              <option value="incheon_special">인천 서구 일부·경제특구</option>
+              <option value="incheon_etc">인천 그 외</option>
+              <option value="metro_anyang_manan">경기 안양시 (만안구 · 비규제)</option>
+              <option value="metro_city">경기 의정부·고양·수원 일부·부천·광명 일부·과천 일부·의왕 일부·군포·용인·화성 일부·세종·김포</option>
+              <option value="siheung_banwol">시흥 반월특수지역</option>
+              <option value="siheung_etc">시흥 그 외</option>
+              <option value="namyangju_core">남양주 호평·별내·금곡·일패·이패·삼패·가운·수석·지금·도농</option>
+              <option value="namyangju_etc">남양주 그 외</option>
+              <option value="gyeonggi_city">경기 안산시·광주시·파주시·이천시·평택시</option>
             </optgroup>
             <optgroup label="광역시 (LTV 70%)">
-              <option value="metro_gun">광주·대구·대전·부산·울산 — 군지역</option>
-              <option value="metro_etc">광주·대구·대전·부산·울산 — 그 외</option>
+              <option value="metro_gun">광주·대구·대전·부산·울산 군지역</option>
+              <option value="metro_etc">광주·대구·대전·부산·울산 그 외</option>
             </optgroup>
             <optgroup label="그 외 (LTV 70%)">
               <option value="other">그 밖의 지역</option>
@@ -1051,7 +1051,7 @@
     const badgeTxt = document.getElementById('bangBadgeText');
     const bang     = getBangAmount();
     if (val && bang > 0) {
-      badgeTxt.innerHTML = `선택 지역 방공제 <strong>${bang.toLocaleString()}만원</strong> 적용 — 실질 대출금액에서 차감 후 월납입 계산`;
+      badgeTxt.innerHTML = `선택 지역 방공제 <strong>${bang.toLocaleString()}만원</strong> 적용. 이만큼 빼고 월 납입을 계산했어요`;
       badge.style.display = 'flex';
     } else {
       badge.style.display = 'none';
@@ -1295,14 +1295,14 @@
 
       if (actualLoanVal > dsrMax) {
         dsrMsg.style.color = 'var(--red)';
-        dsrMsg.innerHTML = `⚠️ DSR 초과 — 연소득 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong> 가능${stressLabel}`;
+        dsrMsg.innerHTML = `⚠️ DSR 초과: 연소득 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong> 가능${stressLabel}`;
       } else {
         dsrMsg.style.color = 'var(--green)';
-        dsrMsg.innerHTML = `✓ DSR 통과 — 연소득 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong> 가능${stressLabel}`;
+        dsrMsg.innerHTML = `✓ DSR 통과: 연소득 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong> 가능${stressLabel}`;
       }
     } else if (dsrMsg && actualLoanVal <= 1 && income > 0) {
       dsrMsg.style.color = 'var(--label3)';
-      dsrMsg.textContent = '대출 1억 이하 — DSR 미적용';
+      dsrMsg.textContent = '대출 1억 이하라 DSR은 적용되지 않아요';
     } else if (dsrMsg) {
       dsrMsg.style.color = 'var(--label3)';
       dsrMsg.textContent = '추정 DSR 계산에 사용됩니다 (대출 1억 초과 시 적용)';
@@ -2878,7 +2878,7 @@
     const chevronSvg2 = icon('chevronDown', 16);
     const selectHtml = (uid2) => '<div class="rate-select-wrap">'
       + '<select data-pref-select onchange="recalcRate(\'' + uid2 + '\')">'
-      + '<option value="0">청약저축 — 해당 없음</option>'
+      + '<option value="0">청약저축 해당 없음</option>'
       + '<option value="0.3">5년↑ · 60회차↑  -0.3%p</option>'
       + '<option value="0.4">10년↑ · 120회차↑  -0.4%p</option>'
       + '<option value="0.5">15년↑ · 180회차↑  -0.5%p</option>'
@@ -2916,7 +2916,7 @@
         return prefCardHtml(uid, e.pref, e.label, e.pref==='0.0'?'—':'-'+e.pref+'%p', checked, c, true, 'excl-'+uid);
       }).join('');
 
-      return '<div class="rate-pref-group-label">중복불가 — 1개 선택</div>'
+      return '<div class="rate-pref-group-label">이 중 1개만 선택돼요</div>'
         + '<div class="rate-pref-list" id="pref-excl-' + uid + '">' + exclHtml + '</div>'
         + '<div class="rate-pref-group-label">중복가능</div>'
         + '<div class="rate-pref-list" id="pref-' + uid + '">'
@@ -3921,7 +3921,7 @@
                                  dHouseOk, dAssetOk, dIncomeOk, dPriceOk, dIncomeLimit, dPriceLimit,
                                  bHouseOk, bIncomeOk, bPriceOk, bIncomeLimit) {
     var failNb = [];
-    if (!nbHouseOk)  failNb.push('주택상황 (' + house + ') — 무주택·생애최초·1주택(대환 목적)만 해당');
+    if (!nbHouseOk)  failNb.push('주택상황 (' + house + '): 무주택·생애최초·1주택(대환 목적)만 받을 수 있어요');
     if (!nbIncomeOk) failNb.push('소득 ' + income.toLocaleString() + '만 > ' + nbIncomeLimitLabel());
     if (!nbAssetOk)  failNb.push('순자산 ' + asset + '억 > 5.11억');
     if (!nbPriceOk)  failNb.push('주택가격 ' + price + '억 > 9억');
@@ -3934,7 +3934,7 @@
 
     // 보금자리론 미해당 사유
     var failB = [];
-    if (!bHouseOk)  failB.push('주택상황 (' + house + ') — 1주택 이상은 해당 없음');
+    if (!bHouseOk)  failB.push('주택상황 (' + house + '): 1주택 이상은 받을 수 없어요');
     if (!bIncomeOk) failB.push('소득 ' + income.toLocaleString() + '만 > ' + bIncomeLimit.toLocaleString() + '만');
     if (!bPriceOk)  failB.push('주택가격 ' + price + '억 > 6억');
     var failBTags = failB.map(function(r) { return '<span class="tag fail">✗ ' + r + '</span>'; }).join('');
@@ -4087,7 +4087,7 @@
     var nbFailBlock = '';
     if (!newbornOk) {
       var failNbTags = [];
-      if (!nbHouseOk)  failNbTags.push('주택상황 (' + house + ') — 무주택·생애최초·1주택(대환 목적)만 해당');
+      if (!nbHouseOk)  failNbTags.push('주택상황 (' + house + '): 무주택·생애최초·1주택(대환 목적)만 받을 수 있어요');
       if (!nbIncomeOk) failNbTags.push('소득 ' + income.toLocaleString() + '만 > ' + nbIncomeLimitLabel());
       if (!nbAssetOk)  failNbTags.push('순자산 ' + asset + '억 > 5.11억');
       if (!nbPriceOk)  failNbTags.push('주택가격 ' + price + '억 > 9억');
@@ -5160,7 +5160,7 @@
     } else {
       const failD = buildFailD(dHouseOk, dAssetOk, dIncomeOk, dPriceOk, asset, income, dIncomeLimit, price, dPriceLimit, house);
       const failB = [];
-      if (!bHouseOk)  failB.push(`주택상황 (${house}) — 1주택 이상은 해당 없음`);
+      if (!bHouseOk)  failB.push(`주택상황 (${house}): 1주택 이상은 받을 수 없어요`);
       if (!bIncomeOk) failB.push(`소득 ${income.toLocaleString()}만 > ${bIncomeLimit.toLocaleString()}만`);
       if (!bPriceOk)  failB.push(`주택가격 ${price}억 > 6억`);
       html = `
@@ -5356,7 +5356,7 @@
 
     function buildFailD(dHouseOk, dAssetOk, dIncomeOk, dPriceOk, asset, income, dIncomeLimit, price, dPriceLimit, house) {
     const r = [];
-    if (!dHouseOk) r.push(`주택상황 (${house}) — 무주택·생애최초만 해당`);
+    if (!dHouseOk) r.push(`주택상황 (${house}): 무주택·생애최초만 받을 수 있어요`);
     if (!dAssetOk) r.push(`순자산 ${asset}억 > 5.11억`);
     if (!dIncomeOk) r.push(`소득 ${income.toLocaleString()}만 > ${dIncomeLimit.toLocaleString()}만`);
     if (!dPriceOk)  r.push(`주택가격 ${price}억 > ${dPriceLimit}억`);
@@ -5386,7 +5386,7 @@
         <div class="repay-guide-dropdown-content">
           <div class="repay-item">
             <div class="repay-name">원리금균등분할상환</div>
-            <div class="repay-desc">매월 납부액(원금+이자)이 일정 — 가계 계획 세우기 좋아요.</div>
+            <div class="repay-desc">매달 내는 돈(원금+이자)이 같아서 가계 계획 세우기 좋아요.</div>
           </div>
           <div class="repay-item">
             <div class="repay-name">원금균등분할상환 <span style="font-weight:400;font-size:11px;color:var(--label3)">체감식</span></div>

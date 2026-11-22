@@ -18,7 +18,7 @@ const MAP_POLICY_TIERS = [
   { key: 'newborn', maxManwon: 90000, label: '신생아 특례만', short: '9억↓', color: '#f472b6',
     products: '정책대출은 신생아 특례(2년 내 출산 가구, 9억 이하)만 가능' },
   { key: 'bank', maxManwon: Infinity, label: '시중은행만', short: '9억↑', color: '#94a3b8',
-    products: '정책대출 대상 아님 — 시중은행 주담대만 가능' },
+    products: '정책대출은 어렵고 시중은행 주담대만 가능해요' },
 ];
 const MAP_POLICY_FILTER_OPTIONS = [
   { value: 0, label: '전체' },

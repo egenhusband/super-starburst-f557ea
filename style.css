@@ -8326,3 +8326,19 @@ body.result-conclusion-in-view .result-floating-summary {
 .rvb-entry strong { display: block; font-size: 14px; font-weight: 700; }
 .rvb-entry small { display: block; margin-top: 3px; color: var(--label2); font-size: 12px; }
 .rvb-sub strong { color: var(--label1); font-weight: 600; }
+
+/* 선택지 앞 토스페이스 이모지 */
+.option-card .option-emoji {
+  flex-shrink: 0;
+  width: 28px;
+  margin-right: 14px;
+  font-size: 24px;
+  line-height: 1;
+  text-align: center;
+}
+.option-card .option-emoji + div { flex: 1; min-width: 0; }
+/* 2열 소득 카드: 이모지는 제목 위에 */
+.income-type-card { flex-wrap: wrap; position: relative; }
+.income-type-card .option-emoji { width: 100%; margin: 0 0 2px; font-size: 22px; text-align: left; }
+.income-type-card .option-emoji + div { flex: 1; }
+.income-type-card .option-check { position: absolute; top: 14px; right: 14px; }
