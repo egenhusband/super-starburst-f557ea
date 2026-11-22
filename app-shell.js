@@ -239,9 +239,16 @@
     return `${date.getMonth() + 1}.${date.getDate()}`;
   }
 
+  // 카카오 저장은 이용권 구매자 혜택: ① 미구매 ② 구매했지만 이 기기에 카카오 미연결 ③ 연결됨
   function accountCardHtml() {
     const account = store().getAccount();
-    if (!account) {
+    if (account) {
+      return `
+        <div class="saved-account is-linked">
+          <div><strong>${esc(account.nickname)} 님</strong><span>${esc(store().getSyncStatus())}</span></div>
+        </div>`;
+    }
+    if (store().isPaid()) {
       return `
         <div class="saved-account">
           <div><strong>카카오로 연결하면</strong><span>휴대폰을 바꿔도 저장한 단지와 계산이 그대로 남아요</span></div>
@@ -249,9 +256,9 @@
         </div>`;
     }
     return `
-      <div class="saved-account is-linked">
-        <div><strong>${esc(account.nickname)} 님</strong><span>${esc(store().getSyncStatus())}</span></div>
-        <button type="button" class="saved-text-btn" onclick="disconnectSavedKakao()">연결 해제</button>
+      <div class="saved-account">
+        <div><strong>지금은 이 기기에 저장돼요</strong><span>이용권을 구매하고 카카오로 연결하면 다른 기기에서도 볼 수 있어요</span></div>
+        <button type="button" class="saved-text-btn" onclick="openPaySheet && openPaySheet('result')">이용권 보기</button>
       </div>`;
   }
 
@@ -331,21 +338,23 @@
     if (body) body.scrollTop = scroll;
   }
 
+  // 구매자: 다른 기기에서 이미 연결한 카카오면 바로 동기화, 아니면 입장코드 → 카카오 연결 흐름으로
   async function connectSavedKakao(button) {
     if (button) { button.disabled = true; button.textContent = '연결 중'; }
     try {
       await store().connectKakao();
-      toast('카카오 계정에 연결했어요');
+      toast('카카오 계정과 동기화했어요');
     } catch (error) {
-      toast(error?.message || '카카오 연결을 완료하지 못했어요');
+      if (error?.code === 'not_entitled') {
+        toast('입장코드를 한 번 더 넣으면 카카오에 연결돼요');
+        closeSaved();
+        if (typeof openPaySheet === 'function') openPaySheet('result');
+      } else {
+        toast(error?.message || '카카오 연결을 완료하지 못했어요');
+      }
     } finally {
       renderSaved();
     }
-  }
-
-  function disconnectSavedKakao() {
-    store().disconnectKakao();
-    toast('연결을 해제했어요. 이 기기에 저장된 항목은 그대로 있어요');
   }
 
   function removeSavedItem(kind, key) { store().remove(kind, key); }
@@ -388,7 +397,6 @@
     openSavedApartment,
     removeSavedItem,
     connectSavedKakao,
-    disconnectSavedKakao,
   });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

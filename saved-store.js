@@ -2,13 +2,12 @@
  * 내 저장 — 계산 결과 · 관심 단지 · 출근지
  *
  * 1) 항상 이 기기(localStorage)에 먼저 저장한다. 로그인 없이도 바로 동작.
- * 2) 카카오로 연결하면 /api/saved-items 로 동기화해서 다른 기기에서도 보인다.
+ * 2) 이용권 구매 후 카카오를 연결한 계정이면 /api/saved-items 로 동기화해서 다른 기기에서도 보인다.
  *    서버가 아직 준비 안 됐거나(테이블 없음 등) 토큰이 없으면 조용히 이 기기 저장만 유지한다.
  * 3) 삭제는 동기화될 때까지 tombstone으로 남겨 다른 기기에서 되살아나지 않게 한다.
  */
 (function () {
   const STORAGE_ITEMS = 'savedItems_v1';
-  const STORAGE_ACCOUNT = 'savedAccount_v1';
   const KINDS = ['calculation', 'apartment', 'commute'];
   const LIMITS = { calculation: 30, apartment: 200, commute: 1 };
   let syncTimer = null;
@@ -78,27 +77,29 @@
     return true;
   }
 
-  // ── 카카오 계정 ──
+  // ── 카카오 계정: 이용권 구매 후 카카오를 연결한 계정만 (결제 흐름의 연결 정보를 그대로 쓴다) ──
   function getAccount() {
-    const saved = readJson(STORAGE_ACCOUNT, null);
-    if (saved?.id) return saved;
-    const paid = window.KakaoAuthBridge?.getLinkedPaidAccount?.();
-    return paid || null;
+    return window.KakaoAuthBridge?.getLinkedPaidAccount?.() || null;
   }
 
+  function isPaid() {
+    try { return window.PaywallController?.isUnlocked?.() || localStorage.getItem('authVerified') === '1' || localStorage.getItem('paywallUnlocked') === '1'; }
+    catch (_) { return false; }
+  }
+
+  // 다른 기기에서 이미 연결한 구매자: 카카오로 다시 입장하면 연결 정보가 생기고 동기화된다
   async function connectKakao() {
     const bridge = window.KakaoAuthBridge;
-    if (!bridge?.loginForSaving) throw new Error('카카오 로그인을 불러오지 못했어요.');
-    const profile = await bridge.loginForSaving();
-    writeJson(STORAGE_ACCOUNT, { id: profile.id, nickname: profile.nickname, connectedAt: new Date().toISOString() });
+    if (!bridge?.restoreWithKakao) throw new Error('카카오 로그인을 불러오지 못했어요.');
+    const restored = await bridge.restoreWithKakao();
+    if (!restored || !getAccount()) {
+      const error = new Error('이 카카오 계정에는 이용권이 연결돼 있지 않아요.');
+      error.code = 'not_entitled';
+      throw error;
+    }
     window.dispatchEvent(new CustomEvent('saved-items-changed'));
     await syncNow();
-    return profile;
-  }
-
-  function disconnectKakao() {
-    try { localStorage.removeItem(STORAGE_ACCOUNT); } catch (_) {}
-    window.dispatchEvent(new CustomEvent('saved-items-changed'));
+    return getAccount();
   }
 
   function scheduleSync() {
@@ -156,9 +157,11 @@
         return true;
       })
       .catch(error => {
-        lastSyncError = error?.code === 'table_missing' || error?.statusCode === 501 || error?.statusCode === 404
-          ? '지금은 이 기기에만 저장돼요'
-          : '카카오 동기화를 못 했어요. 다시 시도해 주세요';
+        lastSyncError = error?.code === 'not_entitled' || error?.statusCode === 403
+          ? '이용권이 확인되지 않아 이 기기에만 저장돼요'
+          : error?.code === 'table_missing' || error?.statusCode === 501 || error?.statusCode === 404
+            ? '지금은 이 기기에만 저장돼요'
+            : '카카오 동기화를 못 했어요. 다시 시도해 주세요';
         window.dispatchEvent(new CustomEvent('saved-items-changed'));
         return false;
       })
@@ -172,6 +175,6 @@
     return lastSyncError || '카카오 계정에 저장 중';
   }
 
-  window.SavedStore = { list, get, has, upsert, remove, toggle, getAccount, connectKakao, disconnectKakao, syncNow, getSyncStatus };
+  window.SavedStore = { list, get, has, upsert, remove, toggle, getAccount, isPaid, connectKakao, syncNow, getSyncStatus };
   window.addEventListener('load', () => { setTimeout(() => { syncNow().catch(() => {}); }, 1200); }, { once: true });
 })();

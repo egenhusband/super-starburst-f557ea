@@ -175,6 +175,9 @@
       localStorage.setItem(STORAGE_LAST_NICKNAME, profile.nickname);
       setKakaoLinkMessage('저장됐어요. 다음부터 카카오로 자동 입장할 수 있어요.');
       closeKakaoLinkSheet();
+      // 이 기기에 저장해 둔 관심 단지·계산을 카카오 계정으로 올린다
+      window.SavedStore?.syncNow?.().catch?.(() => {});
+      window.dispatchEvent(new CustomEvent('saved-items-changed'));
     } catch (error) {
       setKakaoLinkMessage(error?.message || '카카오 로그인을 완료하지 못했어요.', true);
     } finally {
@@ -266,13 +269,6 @@
     }
   }
 
-  // 내 저장: 결제와 무관하게 카카오로 로그인해서 저장 항목을 동기화한다
-  async function loginForSaving() {
-    const profile = buildProfile(await requestKakaoLogin());
-    if (!profile.id) throw new Error('카카오 계정 정보를 확인하지 못했어요.');
-    return profile;
-  }
-
   function getAccessTokenSafe() {
     try { return getAccessToken(); } catch (_) { return ''; }
   }
@@ -283,7 +279,6 @@
   }
 
   window.KakaoAuthBridge = {
-    loginForSaving,
     getAccessTokenSafe,
     getLinkedPaidAccount,
     postAuthFunction,

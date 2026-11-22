@@ -1,5 +1,5 @@
 -- 내 저장: 카카오 계정별 저장 항목 (계산 결과 · 관심 단지 · 출근지)
--- 결제 여부와 무관하게 카카오로 로그인한 사용자는 저장할 수 있다.
+-- 이용권 구매 + 카카오 연결 계정만 저장 (API에서 kakao_entitlements.unlocked 확인).
 create table if not exists public.user_saved_items (
   kakao_user_id text not null,
   kind text not null

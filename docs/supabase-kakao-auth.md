@@ -47,6 +47,7 @@ SQL Editor에서 아래 파일을 실행한다. (`public.set_updated_at()` 함�
 
 - 테이블: `public.user_saved_items` (kakao_user_id, kind, item_key 복합 키)
 - kind: `calculation`(최대 30개) · `apartment`(최대 200개) · `commute`(1개)
-- 결제 여부와 무관하게 카카오로 연결한 사용자는 저장할 수 있다 (`kakao_entitlements`와 FK 없음).
+- 이용권을 구매하고 카카오를 연결한 계정만 서버에 저장된다. API가 `kakao_entitlements.unlocked`를 확인하고, 아니면 403 `not_entitled`.
+- 미구매 사용자는 이 기기(localStorage)에만 저장된다.
 - API: `POST /api/saved-items` `{ action: 'sync', accessToken, upserts, deletes }` → 전체 목록 반환
 - 테이블이 아직 없으면 API가 `501 table_missing`을 돌려주고, 프론트는 이 기기(localStorage)에만 저장한 채로 동작한다.

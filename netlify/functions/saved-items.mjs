@@ -1,4 +1,4 @@
-// 내 저장: 카카오 계정별 계산 결과 · 관심 단지 · 출근지 동기화
+// 내 저장: 카카오 계정별 계산 결과 · 관심 단지 · 출근지 동기화 (이용권 구매 + 카카오 연결한 계정만)
 // POST /api/saved-items { action: 'sync', accessToken, upserts: [...], deletes: [{kind,key}] }
 //   → 받은 변경을 반영한 뒤 서버의 전체 목록을 돌려준다.
 import kakaoSupabase from './lib/kakao-supabase.js';
@@ -6,6 +6,7 @@ import kakaoSupabase from './lib/kakao-supabase.js';
 const {
   SAVED_LIMITS,
   deleteSavedItems,
+  findEntitlement,
   isMissingTableError,
   isSupabaseConfigured,
   listSavedItems,
@@ -28,6 +29,11 @@ export default async (request) => {
     if (body.action !== 'sync') return jsonResponse({ ok: false, error: '지원하지 않는 요청이에요.' }, 400);
 
     const profile = await verifyKakaoAccessToken(body.accessToken);
+    // 카카오 저장은 이용권 구매자(카카오 연결 완료) 혜택
+    const entitlement = await findEntitlement(profile.kakaoUserId);
+    if (!entitlement?.unlocked) {
+      return jsonResponse({ ok: false, code: 'not_entitled', error: '카카오 저장은 이용권을 구매한 계정에서 쓸 수 있어요.' }, 403);
+    }
     const upserts = (Array.isArray(body.upserts) ? body.upserts : []).map(validateSavedItem).filter(Boolean).slice(0, 300);
     const deletes = (Array.isArray(body.deletes) ? body.deletes : []).map(validateSavedItem).filter(Boolean).slice(0, 300);
 
