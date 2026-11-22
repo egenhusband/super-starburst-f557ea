@@ -266,7 +266,27 @@
     }
   }
 
+  // 내 저장: 결제와 무관하게 카카오로 로그인해서 저장 항목을 동기화한다
+  async function loginForSaving() {
+    const profile = buildProfile(await requestKakaoLogin());
+    if (!profile.id) throw new Error('카카오 계정 정보를 확인하지 못했어요.');
+    return profile;
+  }
+
+  function getAccessTokenSafe() {
+    try { return getAccessToken(); } catch (_) { return ''; }
+  }
+
+  function getLinkedPaidAccount() {
+    const id = localStorage.getItem(STORAGE_LINKED_USER);
+    return id ? { id, nickname: localStorage.getItem(STORAGE_LAST_NICKNAME) || '카카오 계정' } : null;
+  }
+
   window.KakaoAuthBridge = {
+    loginForSaving,
+    getAccessTokenSafe,
+    getLinkedPaidAccount,
+    postAuthFunction,
     hasLinkedKakaoAccount,
     rememberPasswordForLink,
     openKakaoLinkSheet,

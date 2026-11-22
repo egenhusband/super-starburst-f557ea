@@ -321,7 +321,10 @@
     sheet.innerHTML = `
       <div class="rvb-top">
         <button type="button" class="rvb-icon-btn" onclick="closeRentVsBuy()" aria-label="닫기">×</button>
-        <button type="button" class="rvb-text-btn" onclick="restartRentVsBuy()">처음부터</button>
+        <span class="rvb-top-actions">
+          ${typeof saveCalculation === 'function' ? '<button type="button" class="rvb-text-btn" onclick="saveRentVsBuyResult()">💾 저장</button>' : ''}
+          <button type="button" class="rvb-text-btn" onclick="restartRentVsBuy()">처음부터</button>
+        </span>
       </div>
       <div class="rvb-step">
         ${headline}
@@ -369,6 +372,41 @@
   function setRentVsBuyRegion(key) { rvbState.region = key; rerenderKeepScroll(); }
   function toggleRentVsBuyFlag(key) { rvbState[key] = !rvbState[key]; rerenderKeepScroll(); }
   function setRentVsBuyTarget(value) { rvbState.targetManwon = Number(value) > 0 ? Number(value) : null; rerenderKeepScroll(); }
+
+  function getRentVsBuySnapshot() {
+    return {
+      values: { ...rvbState.values },
+      region: rvbState.region,
+      firstHome: rvbState.firstHome,
+      newlywed: rvbState.newlywed,
+      extraManwon: rvbState.extraManwon,
+      targetManwon: rvbState.targetManwon,
+    };
+  }
+
+  function saveRentVsBuyResult() {
+    if (typeof saveCalculation !== 'function') return;
+    const snapshot = getRentVsBuySnapshot();
+    const max = rvbCompute(rvbInput()).maxResult;
+    const rent = Number(snapshot.values.rentManwon) || 0;
+    saveCalculation('rvb', snapshot, {
+      title: `월세 ${rent.toLocaleString('ko-KR')}만원${snapshot.extraManwon ? ` +${snapshot.extraManwon}만원` : ''}`,
+      line: max ? `최대 약 ${rvbFormatEok(max.priceEok)} 집 · ${max.product.name}` : '아직 살 수 있는 집이 없어요',
+    });
+  }
+
+  // 내 저장에서 다시 열기: 질문 없이 바로 결과
+  function openRentVsBuySaved(snapshot) {
+    if (!snapshot?.values) return;
+    openRentVsBuy({});
+    rvbState.values = { ...snapshot.values };
+    rvbState.region = snapshot.region || rvbState.region;
+    rvbState.firstHome = Boolean(snapshot.firstHome);
+    rvbState.newlywed = Boolean(snapshot.newlywed);
+    rvbState.extraManwon = Number(snapshot.extraManwon) || 0;
+    rvbState.targetManwon = snapshot.targetManwon || null;
+    renderRentVsBuyResult();
+  }
 
   function restartRentVsBuy() {
     rvbState.values = { rentManwon: null, cashManwon: null, incomeManwon: null };
@@ -454,6 +492,8 @@
     rentVsBuyNext,
     rentVsBuyBack,
     restartRentVsBuy,
+    saveRentVsBuyResult,
+    openRentVsBuySaved,
     setRentVsBuyExtra,
     setRentVsBuyTarget,
     setRentVsBuyRegion,

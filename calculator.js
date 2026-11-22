@@ -1705,6 +1705,7 @@
     area.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div class="group-label" style="margin-bottom:0">총 ${prods.length}개 상품</div>
+        ${typeof buildSaveResultButtonHtml === 'function' ? buildSaveResultButtonHtml('saveCurrentBankResult').replace('save-result-btn', 'save-result-btn is-compact').replace('이 결과 저장하기', '저장') : ''}
       </div>
       ${bankBangBanner}
       ${bankBarHtml}
@@ -5273,6 +5274,9 @@
 
     // ── 월세 vs 매수 비교 진입 (정책대출 결과가 있을 때) ──
     if (hasFundResult && typeof buildRentVsBuyEntryHtml === 'function') {
+      if (typeof buildSaveResultButtonHtml === 'function') {
+        resultContent.querySelector('.btn-restart')?.insertAdjacentHTML('beforebegin', buildSaveResultButtonHtml('saveCurrentFundResult'));
+      }
       const anchors = Array.from(resultContent.querySelectorAll('.map-result-cta'));
       if (anchors.length) anchors.forEach(anchor => anchor.insertAdjacentHTML('afterend', buildRentVsBuyEntryHtml()));
       else resultContent.querySelector('.btn-restart')?.insertAdjacentHTML('beforebegin', buildRentVsBuyEntryHtml());

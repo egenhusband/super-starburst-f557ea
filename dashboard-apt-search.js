@@ -1117,6 +1117,7 @@ function renderDashboardSelectedApartment() {
             <div class="db-fact-label">단지 간단 등급</div>
             <strong>${escapeHtml(entry.aptName)}</strong>
             <span>${escapeHtml(entry.regionLabel)} · ${escapeHtml(entry.displayLocation)}</span>
+            ${typeof buildFavoriteButtonHtml === 'function' ? buildFavoriteButtonHtml({ ...entry, grade: isGradeReady ? gradeData.grade : '' }, 'is-detail') : ''}
           </div>
           <div class="db-apt-grade-badge ${gradeClass}">
             <span>등급</span>

@@ -180,6 +180,71 @@ async function upsertLatestCalculation(kakaoUserId, calculation) {
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
+// ── 내 저장 (user_saved_items) ──
+const SAVED_KINDS = new Set(['calculation', 'apartment', 'commute']);
+const SAVED_LIMITS = { calculation: 30, apartment: 200, commute: 1 };
+
+function isMissingTableError(error) {
+  return error?.code === '42P01' || error?.code === 'PGRST205' || /relation .* does not exist|could not find the table/i.test(error?.message || '');
+}
+
+function validateSavedItem(item) {
+  if (!item || typeof item !== 'object') return null;
+  const kind = String(item.kind || '');
+  const key = String(item.key || '').slice(0, 120);
+  if (!SAVED_KINDS.has(kind) || !key) return null;
+  const payload = item.payload && typeof item.payload === 'object' && !Array.isArray(item.payload) ? item.payload : {};
+  if (JSON.stringify(payload).length > 20000) return null;
+  const updatedAt = Number.isFinite(Date.parse(item.updatedAt)) ? new Date(item.updatedAt).toISOString() : new Date().toISOString();
+  return { kind, key, payload, updatedAt };
+}
+
+async function listSavedItems(kakaoUserId) {
+  const query = new URLSearchParams({
+    kakao_user_id: `eq.${kakaoUserId}`,
+    select: 'kind,item_key,payload,updated_at',
+    order: 'updated_at.desc',
+    limit: '500',
+  });
+  const rows = await supabaseFetch(`user_saved_items?${query.toString()}`, { method: 'GET' });
+  return (Array.isArray(rows) ? rows : []).map(row => ({
+    kind: row.kind,
+    key: row.item_key,
+    payload: row.payload || {},
+    updatedAt: row.updated_at,
+  }));
+}
+
+async function upsertSavedItems(kakaoUserId, items) {
+  if (!items.length) return [];
+  const rows = await supabaseFetch('user_saved_items?on_conflict=kakao_user_id,kind,item_key', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(items.map(item => ({
+      kakao_user_id: kakaoUserId,
+      kind: item.kind,
+      item_key: item.key,
+      payload: item.payload,
+      updated_at: item.updatedAt,
+    }))),
+  });
+  return rows || [];
+}
+
+async function deleteSavedItems(kakaoUserId, items) {
+  for (const item of items) {
+    const query = new URLSearchParams({
+      kakao_user_id: `eq.${kakaoUserId}`,
+      kind: `eq.${item.kind}`,
+      item_key: `eq.${item.key}`,
+    });
+    await supabaseFetch(`user_saved_items?${query.toString()}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' },
+    });
+  }
+}
+
 module.exports = {
   findLatestCalculation,
   findEntitlement,
@@ -191,4 +256,10 @@ module.exports = {
   upsertEntitlement,
   upsertLatestCalculation,
   verifyKakaoAccessToken,
+  SAVED_LIMITS,
+  isMissingTableError,
+  validateSavedItem,
+  listSavedItems,
+  upsertSavedItems,
+  deleteSavedItems,
 };

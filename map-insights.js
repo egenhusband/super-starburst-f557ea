@@ -357,7 +357,12 @@ function getMapCommuteMinutesForItem(item, destKey = getMapInsightsActiveFilters
 }
 
 function getSavedMapCommuteDest() {
-  try { return localStorage.getItem(MAP_COMMUTE_STORAGE_KEY) || null; } catch { return null; }
+  try {
+    const local = localStorage.getItem(MAP_COMMUTE_STORAGE_KEY);
+    if (local) return local;
+  } catch {}
+  // 다른 기기에서 카카오로 저장한 출근지
+  return window.SavedStore?.get('commute', 'dest')?.payload?.destKey || null;
 }
 
 function saveMapCommuteDest(destKey) {
@@ -365,6 +370,15 @@ function saveMapCommuteDest(destKey) {
     if (destKey) localStorage.setItem(MAP_COMMUTE_STORAGE_KEY, destKey);
     else localStorage.removeItem(MAP_COMMUTE_STORAGE_KEY);
   } catch {}
+  const store = window.SavedStore;
+  if (!store) return;
+  if (!destKey) { store.remove('commute', 'dest'); return; }
+  const filters = getMapInsightsActiveFilters();
+  const previous = store.get('commute', 'dest')?.payload;
+  const label = getMapCommuteDestination(destKey)?.label || '';
+  const max = Number(filters?.commuteMax) || 0;
+  if (previous?.destKey === destKey && Number(previous?.max || 0) === max) return;
+  store.upsert('commute', 'dest', { destKey, label, max });
 }
 
 function getMapInsightsActiveFilters() {

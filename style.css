@@ -8390,3 +8390,156 @@ body.result-conclusion-in-view .result-floating-summary {
 .bank-limit-verdict.is-over { color: var(--red); }
 .bank-field-hint { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .bank-field-hint.is-error { overflow: visible; }
+
+/* ══ 하단 탭 · 내 저장 (app-shell.js) ══ */
+.app { --tabbar-h: calc(58px + env(safe-area-inset-bottom, 0px)); }
+.app-tabbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 300;
+  display: none;
+  grid-template-columns: repeat(3, 1fr);
+  height: var(--tabbar-h);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid rgba(255,255,255,.07);
+  background: rgba(18,18,20,.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.app.has-tabbar .app-tabbar { display: grid; }
+.app-tabbar button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  background: none;
+  color: var(--label3);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.app-tab-emoji { font-size: 21px; line-height: 1; filter: grayscale(1); opacity: .55; transition: filter .15s, opacity .15s; }
+.app-tabbar button.is-active { color: var(--label1); }
+.app-tabbar button.is-active .app-tab-emoji { filter: none; opacity: 1; }
+.app-tab-count {
+  position: absolute;
+  top: 6px;
+  left: calc(50% + 8px);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+}
+/* 탭이 보일 때 각 화면이 탭 높이만큼 위로 */
+.app.has-tabbar { padding-bottom: var(--tabbar-h); }
+.app.has-tabbar #dashboardScreen { bottom: var(--tabbar-h); }
+.app.has-tabbar .db-apartment-map-wrap { height: auto; }
+.app.has-tabbar .result-floating-summary { bottom: calc(var(--tabbar-h) + 12px); }
+
+/* 내 저장 화면 */
+.saved-screen {
+  position: absolute;
+  inset: 0 0 var(--tabbar-h) 0;
+  z-index: 250;
+  display: none;
+  background: var(--bg);
+}
+.saved-screen.is-open { display: block; }
+.saved-body { height: 100%; overflow-y: auto; padding: max(env(safe-area-inset-top), 20px) 20px 32px; }
+.saved-title { margin: 8px 0 18px; color: var(--label1); font-size: 26px; font-weight: 700; letter-spacing: -.5px; }
+.saved-account { display: flex; align-items: center; gap: 12px; padding: 16px; border-radius: 16px; background: var(--bg3); }
+.saved-account > div { flex: 1; min-width: 0; }
+.saved-account strong { display: block; color: var(--label1); font-size: 15px; }
+.saved-account span { display: block; margin-top: 3px; color: var(--label2); font-size: 12px; line-height: 1.45; }
+.saved-account.is-linked span { color: var(--green); }
+.saved-kakao-btn { flex-shrink: 0; height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: #FEE500; color: #191919; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.saved-kakao-btn:disabled { opacity: .6; }
+.saved-text-btn { border: 0; background: none; color: var(--label3); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.saved-section { margin-top: 28px; }
+.saved-section h2 { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; color: var(--label1); font-size: 16px; font-weight: 700; }
+.saved-section h2 b { color: var(--accent); font-size: 14px; }
+.saved-row { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.saved-row-main { flex: 1; min-width: 0; padding: 13px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.saved-row-main strong { display: flex; align-items: center; gap: 7px; color: var(--label1); font-size: 15px; font-weight: 600; }
+.saved-row-main span { display: block; margin-top: 3px; overflow: hidden; color: var(--label3); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.saved-row-emoji { font-size: 17px; }
+.saved-row-remove { flex-shrink: 0; width: 36px; height: 36px; border: 0; background: none; color: var(--label3); font-size: 18px; cursor: pointer; }
+.saved-row-remove.is-x { font-size: 22px; }
+.saved-empty { display: grid; justify-items: center; gap: 6px; padding: 22px 12px; border-radius: 14px; background: var(--bg2); text-align: center; }
+.saved-empty span { font-size: 28px; }
+.saved-empty p { margin: 0; color: var(--label2); font-size: 13px; line-height: 1.5; }
+.saved-empty.is-inline { display: flex; justify-items: start; padding: 14px; text-align: left; }
+.saved-empty.is-inline span { font-size: 20px; }
+
+/* 관심 단지 하트 */
+.fav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color: var(--label2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fav-btn span { font-size: 14px; line-height: 1; }
+.fav-btn em { font-style: normal; }
+.fav-btn.is-on { border-color: rgba(255,90,110,.45); background: rgba(255,90,110,.1); color: #ff8a98; }
+.fav-btn.is-inline { margin-top: 8px; }
+.fav-btn.is-detail { margin-top: 10px; }
+
+/* 결과 저장 버튼 */
+.save-result-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 48px;
+  margin: 0 0 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--label1);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.save-result-btn.is-compact { width: auto; height: 30px; margin: 0; padding: 0 10px; border-radius: 9px; font-size: 12px; }
+.rvb-top-actions { display: flex; gap: 14px; }
+
+/* 짧은 안내 */
+.app-shell-toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--tabbar-h) + 18px);
+  z-index: 500;
+  max-width: calc(100% - 40px);
+  padding: 11px 16px;
+  border-radius: 12px;
+  background: rgba(50,50,54,.96);
+  color: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 8px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.app-shell-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }

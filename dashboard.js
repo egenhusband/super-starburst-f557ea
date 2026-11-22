@@ -1170,7 +1170,7 @@ function openDashboardMapApartment(item) {
     <div class="db-map-sheet-grabber" aria-hidden="true"></div>
     <button class="db-map-sheet-close" type="button" onclick="closeDashboardMapApartment()" aria-label="단지 정보 닫기">×</button>
     <div class="db-map-sheet-heading">
-      <div><span class="db-map-sheet-eyebrow">단지 정보</span><strong>${escapeHtml(item.aptName || '단지명 확인 중')}</strong></div>
+      <div><span class="db-map-sheet-eyebrow">단지 정보</span><strong>${escapeHtml(item.aptName || '단지명 확인 중')}</strong>${typeof buildFavoriteButtonHtml === 'function' ? buildFavoriteButtonHtml(item, 'is-inline') : ''}</div>
       <b class="${item.gradeWithheld ? 'is-pending' : ''}">${item.gradeWithheld ? '데이터 취합 중' : `${escapeHtml(item.grade || '등급 미산정')}${Number(item.displayScore) ? ` <em>${Number(item.displayScore)}점</em>` : ''}`}</b>
     </div>
     <div class="db-map-sheet-meta">
