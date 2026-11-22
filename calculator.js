@@ -907,10 +907,7 @@
             </optgroup>
           </select>
         </div>
-        <div id="bangBadge" style="display:none" class="bang-badge">
-          <span style="font-size:16px">🔒</span>
-          <div class="bang-badge-text" id="bangBadgeText"></div>
-        </div>
+        <div id="bankRegionHint" class="bank-field-hint">규제지역인지에 따라 LTV가 달라져요</div>
 
         <div class="bank-form-row">
           <label class="bank-form-label">주택가격</label>
@@ -921,15 +918,6 @@
         </div>
 
         <div class="bank-form-row">
-          <label class="bank-form-label">연소득</label>
-          <div class="bank-input-wrap">
-            <input class="bank-input" id="bankIncome" type="number" min="0" step="100" inputmode="numeric" placeholder="예: 5000" data-amount="manwon" oninput="updateBankCalc()">
-            <span class="bank-unit">만원</span>
-          </div>
-        </div>
-        <div id="bankIncomeMsg" style="font-size:11px;color:var(--label3);padding:0 2px;min-height:14px;margin-top:-4px">DSR 계산에 사용됩니다 (대출 1억 초과 시 적용)</div>
-
-        <div class="bank-form-row">
           <label class="bank-form-label">대출금액</label>
           <div class="bank-input-wrap">
             <input class="bank-input" id="bankLoan" type="number" min="0" step="1" inputmode="numeric" placeholder="예: 30000" data-amount="eok" oninput="updateBankCalc()">
@@ -937,16 +925,25 @@
             <span class="bank-unit">만원</span>
           </div>
         </div>
-        <div id="bankLoanMsg" style="font-size:11px;color:var(--red);padding:0 2px;min-height:14px;margin-top:-4px"></div>
+        <div id="bankLoanMsg" class="bank-field-hint">주택가격을 넣으면 최대 한도를 알려드려요</div>
 
         <div class="bank-form-row">
-          <label class="bank-form-label">대출기간</label>
+          <label class="bank-form-label">연소득</label>
           <div class="bank-input-wrap">
-            <input class="bank-input" id="bankYears" type="number" min="1" max="50" step="1" placeholder="예: 30" oninput="updateBankCalc()">
-            <span class="bank-unit">년</span>
+            <input class="bank-input" id="bankIncome" type="number" min="0" step="100" inputmode="numeric" placeholder="예: 5000" data-amount="manwon" oninput="updateBankCalc()">
+            <span class="bank-unit">만원</span>
           </div>
         </div>
-        <div id="bankYearsMsg" style="font-size:11px;color:var(--label3);padding:0 2px;min-height:14px;margin-top:-4px"></div>
+        <div id="bankIncomeMsg" class="bank-field-hint">세전 기준이에요. DSR 한도를 계산할 때 써요</div>
+
+        <div class="bank-form-row" style="align-items:center">
+          <label class="bank-form-label">대출기간</label>
+          <div class="bank-year-chips" id="bankYearChips">
+            ${[10, 20, 30, 40].map(y => `<button type="button" class="bank-tag-btn${y === 30 ? ' active' : ''}" data-bank-years="${y}" onclick="selectBankYears(${y})">${y}년</button>`).join('')}
+          </div>
+          <input type="hidden" id="bankYears" value="30">
+        </div>
+        <div id="bankYearsMsg" class="bank-field-hint"></div>
 
         <div class="bank-form-row" style="align-items:center">
           <label class="bank-form-label">주택종류</label>
@@ -974,8 +971,10 @@
 
       </div>
 
-      <button class="btn-next" style="margin-top:16px;width:100%;height:52px;min-height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:14px;font-size:16px;font-weight:600;padding:0" id="bankSearchBtn" onclick="searchBankLoans()" disabled>
-        🔍 내 조건으로 비교하기
+      <div id="bankLimitSummary" class="bank-limit-summary"></div>
+
+      <button class="btn-next" style="margin-top:12px;width:100%;height:52px;min-height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:14px;font-size:16px;font-weight:600;padding:0" id="bankSearchBtn" onclick="searchBankLoans()" disabled>
+        지역을 선택해 주세요
       </button>
 
       <div id="bankResultArea" style="margin-top:16px"></div>
@@ -1046,31 +1045,50 @@
     bankRegionKey = val;
     bankRegion    = METRO_REGIONS.has(val) ? 'M' : 'N';
 
-    // 방공제 배지 업데이트
-    const badge    = document.getElementById('bangBadge');
-    const badgeTxt = document.getElementById('bangBadgeText');
-    const bang     = getBangAmount();
-    if (val && bang > 0) {
-      badgeTxt.innerHTML = `선택 지역 방공제 <strong>${bang.toLocaleString()}만원</strong> 적용. 이만큼 빼고 월 납입을 계산했어요`;
-      badge.style.display = 'flex';
-    } else {
-      badge.style.display = 'none';
+    // 지역 아래 한 줄: LTV · 방공제 (상자를 새로 띄우지 않아 폼이 밀리지 않는다)
+    const hint = document.getElementById('bankRegionHint');
+    if (hint) {
+      if (!val) {
+        hint.textContent = '규제지역인지에 따라 LTV가 달라져요';
+      } else {
+        const bang = getBangAmount();
+        const zone = REG_ZONES.has(val) ? '규제지역' : bankRegion === 'M' ? '수도권' : '비수도권';
+        hint.innerHTML = `${zone} · LTV ${getBankLtvLimit()}%${bang > 0 ? ` · 방공제 <strong>${bang.toLocaleString()}만원</strong> 차감` : ''}`;
+      }
     }
 
-    // 수도권 대출기간 30년 제한
-    const yearsEl  = document.getElementById('bankYears');
+    // 수도권·규제지역 주담대 만기 최대 30년 (6·27 대책)
+    const maxYears = bankRegion === 'M' || REG_ZONES.has(val) ? 30 : 50;
+    document.querySelectorAll('[data-bank-years]').forEach(button => {
+      button.disabled = Number(button.dataset.bankYears) > maxYears;
+    });
+    const yearsEl = document.getElementById('bankYears');
+    if (yearsEl && Number(yearsEl.value) > maxYears) yearsEl.value = String(maxYears);
     const yearsMsg = document.getElementById('bankYearsMsg');
-    if (bankRegion === 'M' && yearsEl) {
-      if (parseFloat(yearsEl.value) > 30) yearsEl.value = 30;
-      yearsEl.max = 30;
-      if (yearsMsg) yearsMsg.textContent = '수도권은 최대 30년까지 가능합니다';
-    } else if (yearsEl) {
-      yearsEl.max = 50;
-      if (yearsMsg) yearsMsg.textContent = '';
-    }
+    if (yearsMsg) yearsMsg.textContent = maxYears === 30 ? '수도권·규제지역은 최대 30년까지예요' : '';
 
     updateBankCalc();
-    checkBankSearchBtn();
+  }
+
+  function selectBankYears(years) {
+    const yearsEl = document.getElementById('bankYears');
+    if (yearsEl) yearsEl.value = String(years);
+    updateBankCalc();
+  }
+
+  function syncBankYearChips() {
+    const current = Number(document.getElementById('bankYears')?.value) || 30;
+    document.querySelectorAll('[data-bank-years]').forEach(button => {
+      button.classList.toggle('active', Number(button.dataset.bankYears) === current);
+    });
+  }
+
+  // 한도를 넘었을 때 '최대로 맞추기'
+  function fitBankLoanToLimit(maxEok) {
+    const loanEl = document.getElementById('bankLoan');
+    if (!loanEl) return;
+    loanEl.value = (Math.floor(Number(maxEok) * 100) / 100).toString();
+    loanEl.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   function checkBankSearchBtn() {
@@ -1079,9 +1097,13 @@
     const years    = parseFloat(document.getElementById('bankYears')?.value);
     const searchBtn = document.getElementById('bankSearchBtn');
     if (!searchBtn) return;
-    const allFilled = price > 0 && loan > 0 && years > 0 && bankRegionKey !== '';
-    searchBtn.disabled    = !allFilled;
-    searchBtn.style.opacity = allFilled ? '1' : '';
+    const missing = !bankRegionKey ? '지역을 선택해 주세요'
+      : !(price > 0) ? '주택가격을 입력해 주세요'
+      : !(loan > 0) ? '대출금액을 입력해 주세요'
+      : !(years > 0) ? '대출기간을 선택해 주세요' : '';
+    searchBtn.disabled    = Boolean(missing);
+    searchBtn.style.opacity = missing ? '' : '1';
+    searchBtn.textContent = missing || '내 조건으로 비교하기';
   }
 
   // ── 최초 1회 주의사항 팝업 ──
@@ -1229,16 +1251,26 @@
     else { bankFilter.rpay.push(val); btn.classList.add('active'); }
   }
 
+  // 입력값은 절대 대신 고치지 않는다. 각 칸 아래 안내 줄은 항상 자리를 차지해서 폼이 위아래로 흔들리지 않는다.
   function updateBankCalc() {
     const price     = parseFloat(document.getElementById('bankPrice')?.value);
     const loanInput = document.getElementById('bankLoan');
     const loan      = parseFloat(loanInput?.value);
+    const income    = parseFloat(document.getElementById('bankIncome')?.value);
+    const years     = parseFloat(document.getElementById('bankYears')?.value) || 30;
     const badge     = document.getElementById('bankLtvBadge');
     const loanMsg   = document.getElementById('bankLoanMsg');
+    const summary   = document.getElementById('bankLimitSummary');
+    syncBankYearChips();
 
-    if (!price || price <= 0) {
-      if (badge)   badge.textContent = '';
-      if (loanMsg) loanMsg.textContent = '';
+    if (!(price > 0) || !bankRegionKey) {
+      if (badge) badge.textContent = '';
+      if (loanMsg) {
+        loanMsg.className = 'bank-field-hint';
+        loanMsg.textContent = !bankRegionKey ? '지역과 주택가격을 넣으면 최대 한도를 알려드려요' : '주택가격을 넣으면 최대 한도를 알려드려요';
+      }
+      if (summary) summary.innerHTML = '';
+      checkBankSearchBtn();
       return;
     }
 
@@ -1246,69 +1278,54 @@
     const priceLimit = getBankPriceLimit(price);
     const ltvMaxLoan = Math.floor(price * ltvLimit) / 100;
     const maxLoan    = priceLimit === Infinity ? ltvMaxLoan : Math.min(ltvMaxLoan, priceLimit);
-    const isReg      = REG_ZONES.has(bankRegionKey);
-    const isMetro    = bankRegion === 'M';
+    const isCapped   = priceLimit < ltvMaxLoan;
+    const ltvReason  = isCapped ? `고가주택 한도 ${priceLimit}억` : `LTV ${ltvLimit}%`;
 
-    // 한도 제한 이유 항상 표시
-    const limitReason = isMetro && priceLimit < ltvMaxLoan
-      ? `고가주택 한도 ${priceLimit}억 적용 (LTV ${ltvLimit}% 기준 ${ltvMaxLoan.toFixed(1)}억)`
-      : isReg
-        ? `규제지역 LTV ${ltvLimit}% 기준`
-        : `LTV ${ltvLimit}% 기준`;
-
-    // 대출금액 초과 시 자동 클리핑
-    if (loan > 0 && loan > maxLoan) {
-      if (loanInput) loanInput.value = maxLoan.toFixed(1);
-    }
+    // DSR (대출 1억 초과 + 연소득 입력 시)
+    const stressRate = getDsrStressRate();
+    const dsrMax = income > 0 ? calcDsrMaxLoan(income, BANK_DSR_REFERENCE_RATE, years) : null;
+    const dsrApplies = dsrMax != null && loan > 1;
+    const finalMax = dsrApplies ? Math.min(maxLoan, dsrMax) : maxLoan;
+    const overLimit = loan > 0 && loan > finalMax + 0.001;
 
     if (loanMsg) {
-      loanMsg.style.color = isMetro && priceLimit < ltvMaxLoan ? 'var(--yellow)' : 'var(--label3)';
-      loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억 · ${limitReason}`;
-    }
-
-    // LTV 배지
-    const actualLoan = parseFloat(loanInput?.value);
-    if (badge && actualLoan > 0) {
-      const ltv = Math.round((actualLoan / price) * 100);
-      badge.textContent = 'LTV ' + ltv + '%';
-      badge.style.color = ltv > ltvLimit ? 'var(--red)' : 'var(--green)';
-    } else if (badge) {
-      badge.textContent = '';
-    }
-
-    // DSR 계산 (대출 1억 초과 + 연소득 입력 시)
-    const income     = parseFloat(document.getElementById('bankIncome')?.value);
-    const dsrMsg     = document.getElementById('bankIncomeMsg');
-    const years      = parseFloat(document.getElementById('bankYears')?.value);
-    const actualLoanVal = parseFloat(loanInput?.value) || 0;
-
-    if (dsrMsg && income > 0 && actualLoanVal > 1) {
-      const stressRate = getDsrStressRate();
-      const avgRate    = BANK_DSR_REFERENCE_RATE;
-      const loanYears  = years > 0 ? years : 30;
-      const dsrMax     = calcDsrMaxLoan(income, avgRate, loanYears);
-      const dsrMaxLoan = Math.min(dsrMax, maxLoan); // LTV와 DSR 중 낮은 값
-
-      const stressLabel = stressRate > 0
-        ? ` (스트레스 +${stressRate}% 적용)`
-        : '';
-
-      if (actualLoanVal > dsrMax) {
-        dsrMsg.style.color = 'var(--red)';
-        dsrMsg.innerHTML = `⚠️ DSR 초과: 연소득 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong> 가능${stressLabel}`;
+      if (overLimit) {
+        loanMsg.className = 'bank-field-hint is-error';
+        loanMsg.innerHTML = `최대 ${finalMax.toFixed(2).replace(/\.?0+$/, '')}억까지예요 <button type="button" class="bank-fit-btn" onclick="fitBankLoanToLimit(${finalMax})">최대로 맞추기</button>`;
       } else {
-        dsrMsg.style.color = 'var(--green)';
-        dsrMsg.innerHTML = `✓ DSR 통과: 연소득 기준 최대 <strong>${dsrMax.toFixed(2)}억</strong> 가능${stressLabel}`;
+        loanMsg.className = 'bank-field-hint';
+        loanMsg.textContent = `최대 ${maxLoan.toFixed(1)}억까지 (${ltvReason} 기준)`;
       }
-    } else if (dsrMsg && actualLoanVal <= 1 && income > 0) {
-      dsrMsg.style.color = 'var(--label3)';
-      dsrMsg.textContent = '대출 1억 이하라 DSR은 적용되지 않아요';
-    } else if (dsrMsg) {
-      dsrMsg.style.color = 'var(--label3)';
-      dsrMsg.textContent = '추정 DSR 계산에 사용됩니다 (대출 1억 초과 시 적용)';
     }
 
-    // 검색 버튼 활성화
+    if (badge) {
+      if (loan > 0) {
+        const ltv = Math.round((loan / price) * 100);
+        badge.textContent = 'LTV ' + ltv + '%';
+        badge.style.color = ltv > ltvLimit ? 'var(--red)' : 'var(--green)';
+      } else {
+        badge.textContent = '';
+      }
+    }
+
+    // 한도 요약 — 버튼 바로 위 한 곳에서만 결론을 보여준다
+    if (summary) {
+      const fmt = value => `${value.toFixed(2).replace(/\.?0+$/, '')}억`;
+      const dsrLine = dsrMax == null
+        ? '<span>DSR 한도</span><strong class="is-muted">연소득을 넣으면 계산해요</strong>'
+        : loan > 0 && loan <= 1
+          ? '<span>DSR 한도</span><strong class="is-muted">대출 1억 이하라 적용 안 돼요</strong>'
+          : `<span>DSR 한도</span><strong>${fmt(dsrMax)}</strong><small>연소득 40% · 금리 ${BANK_DSR_REFERENCE_RATE}%${stressRate > 0 ? `+스트레스 ${stressRate}%` : ''}</small>`;
+      const verdict = !(loan > 0) ? ''
+        : overLimit
+          ? `<div class="bank-limit-verdict is-over">입력한 ${fmt(loan)}은 한도 ${fmt(finalMax)}을 넘어요</div>`
+          : `<div class="bank-limit-verdict is-ok">입력한 ${fmt(loan)}은 한도 안이에요</div>`;
+      summary.innerHTML = `
+        <div class="bank-limit-row"><span>LTV 한도</span><strong>${fmt(maxLoan)}</strong><small>${ltvReason}</small></div>
+        <div class="bank-limit-row">${dsrLine}</div>
+        ${verdict}`;
+    }
+
     checkBankSearchBtn();
   }
 
@@ -1366,7 +1383,7 @@
     const income = parseFloat(document.getElementById('bankIncome')?.value);
     if (income > 0 && loanInput > 1) {
       const loanYears = years > 0 ? years : 30;
-      const dsrMax    = calcDsrMaxLoan(income, 5.0, loanYears);
+      const dsrMax    = calcDsrMaxLoan(income, BANK_DSR_REFERENCE_RATE, loanYears);
       if (loanInput > dsrMax + 0.001) {
         showDsrConfirm(dsrMax, loanInput, () => _doSearchBankLoans(price, loanInput, years, area));
         return;

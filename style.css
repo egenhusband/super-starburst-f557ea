@@ -8342,3 +8342,51 @@ body.result-conclusion-in-view .result-floating-summary {
 .income-type-card .option-emoji { width: 100%; margin: 0 0 2px; font-size: 22px; text-align: left; }
 .income-type-card .option-emoji + div { flex: 1; }
 .income-type-card .option-check { position: absolute; top: 14px; right: 14px; }
+
+/* ── 시중 대출 입력 폼: 안내 줄은 항상 자리를 차지 → 입력 중 폼이 흔들리지 않음 ── */
+.bank-field-hint {
+  min-height: 16px;
+  margin: -4px 2px 2px 74px;
+  color: var(--label3);
+  font-size: 11px;
+  line-height: 16px;
+}
+.bank-field-hint:empty { display: none; }
+.bank-field-hint strong { color: var(--yellow); font-weight: 600; }
+.bank-field-hint.is-error { color: var(--red); }
+.bank-fit-btn {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1px solid rgba(255,69,58,.4);
+  border-radius: 6px;
+  background: none;
+  color: var(--red);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+/* 금액 한글 안내(= 8억원)도 자리를 미리 잡아둔다 */
+.bank-form-row > .amount-hint { display: block; min-height: 16px; visibility: hidden; }
+.bank-form-row > .amount-hint.is-visible { visibility: visible; }
+.bank-year-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.bank-year-chips .bank-tag-btn:disabled { opacity: .3; cursor: default; }
+.bank-limit-summary {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--bg3);
+}
+.bank-limit-summary:empty { display: none; }
+.bank-limit-row { display: grid; grid-template-columns: 64px auto 1fr; align-items: baseline; gap: 8px; font-size: 13px; }
+.bank-limit-row span { color: var(--label2); }
+.bank-limit-row strong { color: var(--label1); font-weight: 700; }
+.bank-limit-row strong.is-muted { color: var(--label3); font-weight: 500; font-size: 12px; }
+.bank-limit-row small { color: var(--label3); font-size: 11px; text-align: right; }
+.bank-limit-verdict { padding-top: 8px; border-top: 1px solid rgba(255,255,255,.06); font-size: 13px; font-weight: 600; }
+.bank-limit-verdict.is-ok { color: var(--green); }
+.bank-limit-verdict.is-over { color: var(--red); }
+.bank-field-hint { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bank-field-hint.is-error { overflow: visible; }

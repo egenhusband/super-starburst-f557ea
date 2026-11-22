@@ -103,6 +103,8 @@
     const bankCap = (region.metro || region.regulated) ? (priceEok <= 15 ? 6 : priceEok <= 25 ? 4 : 2) : Infinity;
     products.push({
       key: 'bank', name: '시중은행 주담대', rate: RVB_BANK_RATE,
+      // 수도권·규제지역 시중 주담대는 만기 최대 30년 (6·27 대책)
+      years: (region.metro || region.regulated) ? 30 : RVB_YEARS,
       maxLoanEok: Math.max(0, Math.min(bankCap, priceEok * bankLtv - region.roomManwon / 10000)),
       dsrRatio: 0.4, stress: region.metro || region.regulated ? RVB_DSR_STRESS.metro : RVB_DSR_STRESS.local,
     });
@@ -121,14 +123,14 @@
     rvbProducts(priceEok, input).forEach(product => {
       let maxLoanWon = product.maxLoanEok * 1e8;
       if (product.dtiRatio && incomeWon > 0) {
-        maxLoanWon = Math.min(maxLoanWon, rvbPrincipalFromPayment(incomeWon * product.dtiRatio / 12, product.rate));
+        maxLoanWon = Math.min(maxLoanWon, rvbPrincipalFromPayment(incomeWon * product.dtiRatio / 12, product.rate, product.years || RVB_YEARS));
       }
       if (product.dsrRatio && incomeWon > 0) {
-        maxLoanWon = Math.min(maxLoanWon, rvbPrincipalFromPayment(incomeWon * product.dsrRatio / 12, product.rate + product.stress));
+        maxLoanWon = Math.min(maxLoanWon, rvbPrincipalFromPayment(incomeWon * product.dsrRatio / 12, product.rate + product.stress, product.years || RVB_YEARS));
       }
       largestLoanWon = Math.max(largestLoanWon, maxLoanWon);
       if (loanNeededWon > maxLoanWon) return;
-      const monthlyWon = rvbMonthlyPayment(loanNeededWon, product.rate);
+      const monthlyWon = rvbMonthlyPayment(loanNeededWon, product.rate, product.years || RVB_YEARS);
       const option = { product, loanWon: loanNeededWon, monthlyWon, maxLoanWon };
       if (!best || monthlyWon < best.monthlyWon) best = option;
     });
@@ -312,7 +314,7 @@
       : `<h2 class="rvb-question">${budgetText}로는<br>아직 살 수 있는 집이 없어요</h2>`;
     const body = max ? `
         ${rvbBarsHtml(max, rentWon)}
-        <p class="rvb-loan-line">${rvbEsc(max.product.name)} ${rvbFormatManwon(max.loanWon)} · 연 ${max.product.rate.toFixed(2)}% · ${RVB_YEARS}년</p>
+        <p class="rvb-loan-line">${rvbEsc(max.product.name)} ${rvbFormatManwon(max.loanWon)} · 연 ${max.product.rate.toFixed(2)}% · ${max.product.years || RVB_YEARS}년</p>
         <p class="rvb-loan-line is-sub">쓸 수 있는 돈 ${rvbFormatManwon(max.cashWon)}에서 취득세·중개보수 등 ${rvbFormatManwon(max.costsWon)}이 먼저 나가요</p>
         <button type="button" class="rvb-next" onclick="openRentVsBuyMap(${max.priceEok})">${rvbFormatEok(max.priceEok)} 이하 단지 지도에서 보기</button>`
       : rvbInfeasibleHtml(input);
