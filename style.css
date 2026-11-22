@@ -8543,3 +8543,5 @@ body.result-conclusion-in-view .result-floating-summary {
   transition: opacity .2s ease, transform .2s ease;
 }
 .app-shell-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+/* 탭이 있을 때 지도 화면 안쪽도 탭 위까지만 (안쪽 .db-wrap이 100dvh로 고정돼 아래가 탭에 가려지던 문제) */
+.app.has-tabbar #dashboardScreen .db-wrap { height: 100%; }
