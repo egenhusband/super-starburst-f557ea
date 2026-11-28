@@ -4,8 +4,9 @@
  * dashboard.js의 지도 상태(dashboardApartmentMapState)에 얹혀 동작한다.
  * dashboard.js 쪽에는 typeof 가드가 걸린 훅만 있고, 로직은 전부 이 파일에 있다.
  *
- * 가격 기준: 단지 내 평형별 "최근 실거래가" 중 가장 낮은 값.
- *  → "이 단지에 정책대출로 살 수 있는 평형이 있는가"를 보여주기 위함.
+ * 가격 기준: 평형별 "최근 실거래가"와 전용면적으로 평형마다 판정한다.
+ *  → 지도 핀은 선택한 평형대(전체/59/84/중대형) 중 가장 유리한 평형 색,
+ *    단지 시트에는 평형별 표를 보여준다.
  * 정책 기준(2026-11): 디딤돌 일반 5억 / 보금자리·디딤돌(신혼·2자녀) 6억 / 신생아 특례 9억 /
  *  수도권·규제지역 시중 주담대 한도 15억↓ 6억 · 25억↓ 4억 · 25억↑ 2억 (10·15 대책)
  */
@@ -73,26 +74,111 @@ function copyMapInsightsFilters(target, source) {
 }
 
 // ── ① 정책대출 가격선 ───────────────────────────────
-// 단지 내 평형 중 최근 실거래가가 가장 낮은 평형 (정책대출 기준 가격)
-function getMapPolicyBasis(item) {
+// 평형마다 가격·전용면적 조건이 다르므로 평형 단위로 판정한다.
+//  · 디딤돌·신생아 특례: 전용 85㎡ 이하만 (수도권 기준)
+//  · 보금자리론: 면적 제한 없음
+const MAP_POLICY_AREA_LIMIT_SQM = 85;
+const MAP_POLICY_SIZE_OPTIONS = [
+  { key: 'all', label: '전체' },
+  { key: 's', label: '59㎡대', test: sqm => sqm <= 70 },
+  { key: 'm', label: '84㎡대', test: sqm => sqm > 70 && sqm <= 85 },
+  { key: 'l', label: '중대형', test: sqm => sqm > 85 },
+];
+const MAP_POLICY_SIZE_STORAGE_KEY = 'map_policy_size_v1';
+let mapPolicySizeKey = (() => {
+  try {
+    const saved = localStorage.getItem(MAP_POLICY_SIZE_STORAGE_KEY);
+    return MAP_POLICY_SIZE_OPTIONS.some(option => option.key === saved) ? saved : 'all';
+  } catch (error) { return 'all'; }
+})();
+
+function getMapAreaSqm(area) {
+  const value = parseFloat(String(area ?? '').replace(/[^0-9.]/g, ''));
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function getMapPolicySizeOption(key = mapPolicySizeKey) {
+  return MAP_POLICY_SIZE_OPTIONS.find(option => option.key === key) || MAP_POLICY_SIZE_OPTIONS[0];
+}
+
+// 한 평형(가격·면적)으로 받을 수 있는 가장 유리한 정책대출 단계
+function getMapPolicyTierFor(priceManwon, sqm) {
+  const price = Number(priceManwon);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const small = !Number.isFinite(sqm) || sqm <= MAP_POLICY_AREA_LIMIT_SQM; // 면적 정보 없으면 가격만 본다
+  const byKey = key => MAP_POLICY_TIERS.find(tier => tier.key === key);
+  if (small && price <= 50000) return { tier: byKey('didimdol'), note: '' };
+  if (price <= 60000) {
+    return small
+      ? { tier: byKey('bogeum'), note: '' }
+      : { tier: byKey('bogeum'), note: '85㎡ 초과라 보금자리론만 돼요', products: '보금자리론만 가능해요. 디딤돌·신생아 특례는 전용 85㎡ 이하만 돼요' };
+  }
+  if (price <= 90000) {
+    return small
+      ? { tier: byKey('newborn'), note: '' }
+      : { tier: byKey('bank'), note: '85㎡ 초과라 신생아 특례 불가', products: '6억이 넘고 전용 85㎡도 넘어서 정책대출은 어렵고 시중은행 주담대만 가능해요' };
+  }
+  return { tier: byKey('bank'), note: '' };
+}
+
+function getMapTierRank(tier) {
+  const index = MAP_POLICY_TIERS.findIndex(item => item.key === tier?.key);
+  return index < 0 ? MAP_POLICY_TIERS.length : index;
+}
+
+// 단지의 평형별 판정 목록 (면적 오름차순)
+function getMapPolicyAreaRows(item) {
   const areas = Array.isArray(item?.areas) ? item.areas : [];
-  let best = null;
-  areas.forEach(area => {
-    const price = Number(area?.latestPrice);
-    if (!Number.isFinite(price) || price <= 0) return;
-    if (!best || price < best.price) best = { price, area: area.area || '', date: area.latestDate || '' };
-  });
-  if (best) return best;
-  const fallback = Number(item?.latestTradePrice);
-  return Number.isFinite(fallback) && fallback > 0
-    ? { price: fallback, area: item?.avgTradeArea ? `${Math.round(item.avgTradeArea)}㎡` : '', date: item?.latestDealDate || '' }
-    : null;
+  const rows = areas.map(area => {
+    const price = Number(area?.latestPrice) > 0 ? Number(area.latestPrice) : Number(area?.avgPrice);
+    const sqm = getMapAreaSqm(area?.area);
+    const judged = getMapPolicyTierFor(price, sqm);
+    if (!judged) return null;
+    return { area: area.area || '', sqm, price, date: area.latestDate || '', ...judged };
+  }).filter(Boolean);
+  if (!rows.length) {
+    const fallback = Number(item?.latestTradePrice);
+    const sqm = Number(item?.avgTradeArea) || null;
+    const judged = getMapPolicyTierFor(fallback, sqm);
+    if (judged) rows.push({ area: sqm ? `${Math.round(sqm)}㎡` : '', sqm, price: fallback, date: item?.latestDealDate || '', ...judged });
+  }
+  return rows.sort((a, b) => (a.sqm ?? 0) - (b.sqm ?? 0));
+}
+
+function filterMapRowsBySize(rows, sizeKey = mapPolicySizeKey) {
+  const option = getMapPolicySizeOption(sizeKey);
+  if (!option.test) return rows;
+  return rows.filter(row => Number.isFinite(row.sqm) && option.test(row.sqm));
+}
+
+// 지도 색칠 기준: 선택한 평형대 안에서 가장 유리한 평형 (같으면 더 싼 평형)
+function getMapPolicyBasis(item, sizeKey = mapPolicySizeKey) {
+  const rows = filterMapRowsBySize(getMapPolicyAreaRows(item), sizeKey);
+  if (!rows.length) return null;
+  const best = rows.slice().sort((a, b) => getMapTierRank(a.tier) - getMapTierRank(b.tier) || a.price - b.price)[0];
+  const worst = rows.reduce((acc, row) => (getMapTierRank(row.tier) > getMapTierRank(acc.tier) ? row : acc), rows[0]);
+  return { ...best, mixed: best.tier.key !== worst.tier.key, worstTier: worst.tier };
 }
 
 function getMapPolicyTier(item) {
-  const basis = getMapPolicyBasis(item);
-  if (!basis) return null;
-  return MAP_POLICY_TIERS.find(tier => basis.price <= tier.maxManwon) || null;
+  return getMapPolicyBasis(item)?.tier || null;
+}
+
+// 선택한 평형대의 가장 싼 가격 (가격 필터용). 전체면 null을 돌려 dashboard.js 기본 로직을 쓴다.
+function getMapPolicySizeCheapestPrice(item) {
+  if (!mapPolicyLayerEnabled || mapPolicySizeKey === 'all') return undefined;
+  const rows = filterMapRowsBySize(getMapPolicyAreaRows(item));
+  return rows.length ? Math.min(...rows.map(row => row.price)) : null;
+}
+
+// 지도 핀에 보여줄 평형 (선택한 평형대 안에서만 고른다)
+function filterMapAreasBySize(areas) {
+  if (!mapPolicyLayerEnabled || mapPolicySizeKey === 'all' || !Array.isArray(areas)) return areas;
+  const option = getMapPolicySizeOption();
+  return areas.filter(area => {
+    const sqm = getMapAreaSqm(area?.area);
+    return Number.isFinite(sqm) && option.test(sqm);
+  });
 }
 
 // 수도권(서울·경기) 시중 주담대 최대 한도 — 10·15 대책
@@ -110,6 +196,21 @@ function toggleDashboardPolicyLayer() {
   if (typeof applyDashboardMapFilters === 'function' && dashboardApartmentMapState?.map) applyDashboardMapFilters();
 }
 
+function setDashboardPolicySize(key) {
+  if (!MAP_POLICY_SIZE_OPTIONS.some(option => option.key === key)) return;
+  mapPolicySizeKey = key;
+  try { localStorage.setItem(MAP_POLICY_SIZE_STORAGE_KEY, key); } catch (error) {}
+  syncMapPolicyToggleUi();
+  if (typeof applyDashboardMapFilters === 'function' && dashboardApartmentMapState?.map) applyDashboardMapFilters();
+  const sheetItem = typeof dashboardApartmentMapState !== 'undefined' ? dashboardApartmentMapState.selectedItem : null;
+  if (sheetItem && typeof openDashboardMapApartment === 'function') openDashboardMapApartment(sheetItem);
+}
+
+function getMapPolicyLegendNote() {
+  if (mapPolicySizeKey === 'all') return '평형 중 가장 유리한 대출 기준 · 점선 테두리는 평형마다 달라요';
+  return `${getMapPolicySizeOption().label} 최근 실거래가 기준 · 이 평형이 없는 단지는 흐리게`;
+}
+
 function syncMapPolicyToggleUi() {
   const toggle = document.getElementById('dbMapPolicyToggle');
   toggle?.classList.toggle('is-off', !mapPolicyLayerEnabled);
@@ -119,16 +220,26 @@ function syncMapPolicyToggleUi() {
   const legend = document.getElementById('dbMapPolicyLegend');
   legend?.classList.toggle('is-visible', mapPolicyLayerEnabled);
   legend?.setAttribute('aria-hidden', mapPolicyLayerEnabled ? 'false' : 'true');
+  legend?.querySelectorAll('[data-policy-size]').forEach(button => {
+    const active = button.dataset.policySize === mapPolicySizeKey;
+    button.classList.toggle('is-selected', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  const note = document.getElementById('dbMapPolicyLegendNote');
+  if (note) note.textContent = getMapPolicyLegendNote();
 }
 
 function buildMapPolicyControlsHtml() {
   return `
-    <button id="dbMapPolicyToggle" class="db-map-policy-toggle" type="button" aria-pressed="true" onclick="toggleDashboardPolicyLayer()">정책대출 가격선 <span>ON</span></button>
-    <div id="dbMapPolicyLegend" class="db-map-policy-legend is-visible" aria-hidden="false">
+    <button id="dbMapPolicyToggle" class="db-map-policy-toggle" type="button" aria-pressed="${mapPolicyLayerEnabled}" onclick="toggleDashboardPolicyLayer()">정책대출 가격선 <span>${mapPolicyLayerEnabled ? 'ON' : 'OFF'}</span></button>
+    <div id="dbMapPolicyLegend" class="db-map-policy-legend${mapPolicyLayerEnabled ? ' is-visible' : ''}" aria-hidden="${!mapPolicyLayerEnabled}">
+      <div class="db-map-policy-size" role="group" aria-label="평형 선택">
+        ${MAP_POLICY_SIZE_OPTIONS.map(option => `<button type="button" data-policy-size="${option.key}" class="${option.key === mapPolicySizeKey ? 'is-selected' : ''}" aria-pressed="${option.key === mapPolicySizeKey}" onclick="setDashboardPolicySize('${option.key}')">${option.label}</button>`).join('')}
+      </div>
       <div class="db-map-policy-legend-items">
         ${MAP_POLICY_TIERS.map(tier => `<span><i style="background:${tier.color}"></i>${tier.short} ${tier.label}</span>`).join('')}
       </div>
-      <small>단지 내 가장 싼 평형의 최근 실거래가 기준</small>
+      <small id="dbMapPolicyLegendNote">${getMapPolicyLegendNote()}</small>
     </div>`;
 }
 
@@ -136,11 +247,15 @@ function buildMapPolicyControlsHtml() {
 function decorateMapApartmentOverlay(element, item) {
   if (!element) return;
   if (mapPolicyLayerEnabled) {
-    const tier = getMapPolicyTier(item);
-    if (tier) {
+    const basis = getMapPolicyBasis(item);
+    if (basis) {
       element.classList.add('has-policy-tier');
-      element.style.setProperty('--policy-tier-color', tier.color);
-      element.dataset.policyTier = tier.key;
+      element.classList.toggle('is-policy-mixed', basis.mixed);
+      element.style.setProperty('--policy-tier-color', basis.tier.color);
+      if (basis.mixed) element.style.setProperty('--policy-tier-color-2', basis.worstTier.color);
+      element.dataset.policyTier = basis.tier.key;
+    } else if (mapPolicySizeKey !== 'all') {
+      element.classList.add('is-policy-dim');
     }
   }
   const commute = getMapCommuteMinutesForItem(item);
@@ -151,30 +266,44 @@ function decorateMapApartmentOverlay(element, item) {
   }
 }
 
-// 지역 묶음 오버레이에 붙일 요약 한 줄
+// 지역 묶음 오버레이에 붙일 요약 한 줄 (보금자리 6억 이하로 살 수 있는 평형이 있는 단지 수)
 function buildMapAreaOverlayExtraHtml(group) {
   if (!mapPolicyLayerEnabled || !Array.isArray(group?.members)) return '';
   const affordable = group.members.filter(member => {
     const basis = getMapPolicyBasis(member);
-    return basis && basis.price <= 60000;
+    return basis && getMapTierRank(basis.tier) <= 1;
   }).length;
   if (!affordable) return '';
   return `<span class="db-map-area-overlay-policy">6억↓ ${affordable.toLocaleString()}개</span>`;
 }
 
+// 단지 시트(하단)의 평형별 정책대출 표
+function buildMapPolicySheetHtml(item) {
+  const rows = getMapPolicyAreaRows(item);
+  if (!rows.length) return '';
+  const sizeOption = getMapPolicySizeOption();
+  const body = rows.map(row => {
+    const inSize = !sizeOption.test || (Number.isFinite(row.sqm) && sizeOption.test(row.sqm));
+    const note = row.note || (row.tier.key === 'bank' ? getMapBankLoanCapText(row.price) : '');
+    return `
+      <li class="${inSize ? '' : 'is-muted'}" style="--policy-tier-color:${row.tier.color}">
+        <span class="db-map-sheet-policy-area">${mapInsightsEscape(row.area || '면적 미상')}</span>
+        <span class="db-map-sheet-policy-price">${mapInsightsFormatEok(row.price)}</span>
+        <span class="db-map-sheet-policy-tier"><i></i>${mapInsightsEscape(row.tier.label)}${note ? `<small>${mapInsightsEscape(note)}</small>` : ''}</span>
+      </li>`;
+  }).join('');
+  return `
+    <div class="db-map-sheet-policy">
+      <div class="db-map-sheet-policy-head"><b>평형별 정책대출</b><small>최근 실거래가 기준</small></div>
+      <ul>${body}</ul>
+    </div>`;
+}
+
 // 단지 시트(하단)에 들어갈 정책대출·출퇴근 블록
 function buildMapApartmentSheetExtraHtml(item) {
   const blocks = [];
-  const basis = getMapPolicyBasis(item);
-  const tier = getMapPolicyTier(item);
-  if (basis && tier) {
-    const bankCap = tier.key === 'bank' ? ` · ${getMapBankLoanCapText(basis.price)}` : '';
-    blocks.push(`
-      <div class="db-map-sheet-policy" style="--policy-tier-color:${tier.color}">
-        <b>${tier.short} ${tier.label}</b>
-        <span>${mapInsightsEscape(basis.area || '최저 평형')} 최근 ${mapInsightsFormatEok(basis.price)} 기준 · ${mapInsightsEscape(tier.products)}${bankCap}</span>
-      </div>`);
-  }
+  const policy = buildMapPolicySheetHtml(item);
+  if (policy) blocks.push(policy);
   const commute = getMapCommuteMinutesForItem(item);
   const dest = getMapCommuteDestination(getMapInsightsActiveFilters()?.commuteDest);
   if (dest && Number.isFinite(commute)) {

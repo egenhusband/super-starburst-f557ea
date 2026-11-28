@@ -955,6 +955,9 @@ function formatDashboardMapPrice(price) {
 
 // 가격 필터: "이 가격 이하로 거래된 평형이 있는 단지" 기준 (단지 내 가장 싼 평형의 최근 실거래가)
 function getDashboardMapCheapestPrice(item) {
+  // 정책대출 가격선에서 평형대를 골랐으면 그 평형대 가격으로 본다
+  const sizePrice = typeof getMapPolicySizeCheapestPrice === 'function' ? getMapPolicySizeCheapestPrice(item) : undefined;
+  if (sizePrice !== undefined) return sizePrice;
   const areas = Array.isArray(item?.areas) ? item.areas : [];
   const prices = areas.map(area => Number(area?.latestPrice)).filter(price => Number.isFinite(price) && price > 0);
   if (prices.length) return Math.min(...prices);
@@ -963,7 +966,10 @@ function getDashboardMapCheapestPrice(item) {
 }
 
 function getDashboardMapRepresentativeArea(item) {
-  const areas = Array.isArray(item?.areas) ? item.areas : [];
+  const allAreas = Array.isArray(item?.areas) ? item.areas : [];
+  // 정책대출 가격선 평형대 선택 시 그 평형대 안에서 대표 평형을 고른다 (없으면 전체)
+  const sizedAreas = typeof filterMapAreasBySize === 'function' ? filterMapAreasBySize(allAreas) : allAreas;
+  const areas = sizedAreas.length ? sizedAreas : allAreas;
   // 가격 필터가 켜져 있으면 그 가격 이하 평형 중 가장 최근 거래를 대표로 보여준다
   const maxPrice = Number(dashboardApartmentMapState?.filters?.maxAveragePrice);
   if (Number.isFinite(maxPrice) && maxPrice > 0) {
@@ -1162,6 +1168,7 @@ function renderDashboardApartmentMap(items) {
 function openDashboardMapApartment(item) {
   const sheet = document.getElementById('dbMapSelectionSheet');
   if (!sheet) return;
+  dashboardApartmentMapState.selectedItem = item;
   const area = getDashboardMapRepresentativeArea(item);
   const representativePrice = getDashboardMapRepresentativePrice(item);
   const price = representativePrice ? `${(representativePrice / 10000).toFixed(1)}억` : '최근 실거래 없음';
@@ -1185,6 +1192,7 @@ function openDashboardMapApartment(item) {
 }
 
 function closeDashboardMapApartment() {
+  dashboardApartmentMapState.selectedItem = null;
   document.getElementById('dbMapSelectionSheet')?.classList.remove('is-visible');
 }
 

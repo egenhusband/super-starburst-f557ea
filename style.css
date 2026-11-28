@@ -8104,7 +8104,7 @@ body.result-conclusion-in-view .result-floating-summary {
   bottom: 80px;
   z-index: 4;
   display: grid;
-  gap: 5px;
+  gap: 6px;
   max-width: calc(100% - 64px);
   padding: 8px 10px 7px;
   border: 1px solid rgba(255,255,255,.08);
@@ -8129,17 +8129,60 @@ body.result-conclusion-in-view .result-floating-summary {
 }
 .db-map-apartment-overlay.has-commute .db-map-area-overlay-top { color: #7dd3fc; font-weight: 760; }
 .db-map-area-overlay-policy { color: #2dd4bf !important; font-weight: 700; }
-.db-map-sheet-policy {
-  display: grid;
-  gap: 3px;
-  margin-top: 12px;
-  padding: 10px 12px;
-  border-left: 3px solid var(--policy-tier-color);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--policy-tier-color) 10%, var(--surface-3));
+.db-map-apartment-overlay.is-policy-mixed {
+  border-top-style: dashed;
 }
-.db-map-sheet-policy b { color: var(--policy-tier-color); font-size: 12px; }
-.db-map-sheet-policy span { color: var(--label2); font-size: 11px; line-height: 1.45; }
+.db-map-apartment-overlay.is-policy-dim { opacity: .38; }
+.db-map-policy-size {
+  display: flex;
+  gap: 4px;
+  pointer-events: auto;
+}
+.db-map-policy-size button {
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  color: rgba(255,255,255,.66);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.db-map-policy-size button.is-selected {
+  border-color: rgba(45,212,191,.7);
+  background: rgba(45,212,191,.16);
+  color: #ccfbf1;
+}
+.db-map-policy-size button:focus-visible { outline: 2px solid #2dd4bf; outline-offset: 1px; }
+.db-map-policy-legend:not(.is-visible) .db-map-policy-size { pointer-events: none; }
+.db-map-sheet-policy {
+  margin-top: 12px;
+  padding: 10px 12px 6px;
+  border-radius: 12px;
+  background: var(--surface-3);
+}
+.db-map-sheet-policy-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.db-map-sheet-policy-head b { color: var(--label1); font-size: 12px; }
+.db-map-sheet-policy-head small { color: var(--label3); font-size: 10px; }
+.db-map-sheet-policy ul { display: grid; margin: 0; padding: 0; list-style: none; max-height: 168px; overflow-y: auto; }
+.db-map-sheet-policy li {
+  display: grid;
+  grid-template-columns: 52px 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-top: 1px solid rgba(255,255,255,.06);
+  font-size: 12px;
+}
+.db-map-sheet-policy li:first-child { border-top: 0; }
+.db-map-sheet-policy li.is-muted { opacity: .42; }
+.db-map-sheet-policy-area { color: var(--label2); }
+.db-map-sheet-policy-price { color: var(--label1); font-weight: 700; text-align: right; }
+.db-map-sheet-policy-tier { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; color: var(--policy-tier-color); font-weight: 700; min-width: 0; }
+.db-map-sheet-policy-tier i { width: 7px; height: 7px; border-radius: 2px; background: var(--policy-tier-color); flex: none; }
+.db-map-sheet-policy-tier small { flex-basis: 100%; padding-left: 13px; color: var(--label3); font-size: 10px; font-weight: 520; }
 .db-map-sheet-commute { margin-top: 8px; color: var(--label2); font-size: 12px; }
 .db-map-sheet-commute b { color: #7dd3fc; }
 .db-map-sheet-commute small { color: var(--label3); font-size: 10px; }
@@ -8545,3 +8588,5 @@ body.result-conclusion-in-view .result-floating-summary {
 .app-shell-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
 /* 탭이 있을 때 지도 화면 안쪽도 탭 위까지만 (안쪽 .db-wrap이 100dvh로 고정돼 아래가 탭에 가려지던 문제) */
 .app.has-tabbar #dashboardScreen .db-wrap { height: 100%; }
+/* 단지 시트가 열려 있을 땐 지도 위 버튼(철도·가격흐름·정책선)보다 위에 */
+.db-map-selection-sheet.is-visible { z-index: 6; }
